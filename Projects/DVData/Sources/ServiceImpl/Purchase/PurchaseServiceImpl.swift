@@ -135,7 +135,8 @@ public struct PurchaseServiceImpl: PurchaseService {
             productID: transaction.productID,
             renewsAt: transaction.expirationDate,
             willAutoRenew: renewal.willAutoRenew,
-            renewalProductID: renewal.autoRenewPreference
+            // 자동 갱신이 꺼져 있으면 다음 갱신 자체가 없으므로 예약 상품도 없다(있어도 "변경 예약"이 아니라 만료).
+            renewalProductID: renewal.willAutoRenew ? renewal.autoRenewPreference : nil
         )
     }
 

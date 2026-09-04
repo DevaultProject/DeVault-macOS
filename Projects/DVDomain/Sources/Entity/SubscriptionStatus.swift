@@ -41,7 +41,8 @@ public struct SubscriptionStatus: Equatable, Sendable {
 
     /// 다음 갱신에 다른 플랜으로 바뀌도록 예약돼 있는지.
     public var hasPendingPlanChange: Bool {
-        guard let productID, let renewalProductID else { return false }
+        // 자동 갱신이 꺼져 있으면 갱신 자체가 없다 — autoRenewPreference가 남아 있어도 "변경 예약"이 아니라 만료다.
+        guard willAutoRenew, let productID, let renewalProductID else { return false }
         return renewalProductID != productID
     }
 

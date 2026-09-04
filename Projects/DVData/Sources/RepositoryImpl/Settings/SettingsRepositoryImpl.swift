@@ -146,7 +146,8 @@ public struct SettingsRepositoryImpl: SettingsRepository, @unchecked Sendable {
       entitlement: cachedEntitlement(),
       productID: defaults.string(forKey: .cachedSubscriptionProductID),
       renewsAt: defaults.date(forKey: .cachedSubscriptionRenewsAt),
-      willAutoRenew: defaults.bool(forKey: .cachedSubscriptionWillAutoRenew)
+      willAutoRenew: defaults.bool(forKey: .cachedSubscriptionWillAutoRenew),
+      renewalProductID: defaults.string(forKey: .cachedSubscriptionRenewalProductID)
     )
   }
 
@@ -163,6 +164,11 @@ public struct SettingsRepositoryImpl: SettingsRepository, @unchecked Sendable {
       defaults.removeObject(forKey: .cachedSubscriptionRenewsAt)
     }
     defaults.set(status.willAutoRenew, forKey: .cachedSubscriptionWillAutoRenew)
+    if let renewalProductID = status.renewalProductID {
+      defaults.set(renewalProductID, forKey: .cachedSubscriptionRenewalProductID)
+    } else {
+      defaults.removeObject(forKey: .cachedSubscriptionRenewalProductID)
+    }
   }
 
   // MARK: - Security

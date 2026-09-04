@@ -4319,6 +4319,17 @@
         }
       }
     },
+    "Changes to %@ at your next renewal" : {
+      "comment" : "Subscription screen: a plan change is scheduled for the next renewal but the renewal date is unavailable. The argument is the upcoming plan name.",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 갱신부터 %@ 적용 예정"
+          }
+        }
+      }
+    },
     "Changes to %@ on %@" : {
       "comment" : "Shown on the subscription screen when the plan will switch to a different one at the next renewal. First argument is the upcoming plan name, second is the renewal date.",
       "localizations" : {

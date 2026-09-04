@@ -36,6 +36,7 @@ enum UserDefaultsKey: String {
   case cachedSubscriptionProductID
   case cachedSubscriptionRenewsAt
   case cachedSubscriptionWillAutoRenew
+  case cachedSubscriptionRenewalProductID
 }
 
 extension UserDefaults {

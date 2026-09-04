@@ -40,6 +40,17 @@ struct SubscriptionStatusTests {
         #expect(status.hasPendingPlanChange == false)
     }
 
+    @Test("자동 갱신이 꺼져 있으면 다음 갱신 상품이 달라도 변경 예약이 아니다(만료)")
+    func notPendingWhenAutoRenewOff() {
+        let status = SubscriptionStatus(
+            entitlement: .pro,
+            productID: "pro.monthly",
+            willAutoRenew: false,
+            renewalProductID: "pro.yearly"
+        )
+        #expect(status.hasPendingPlanChange == false)
+    }
+
     @Test("무료(현재 상품 없음)면 변경 예약이 아니다")
     func notPendingWhenFree() {
         #expect(SubscriptionStatus.free.hasPendingPlanChange == false)
