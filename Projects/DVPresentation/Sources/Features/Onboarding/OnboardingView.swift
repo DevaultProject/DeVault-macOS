@@ -25,6 +25,9 @@ public struct OnboardingView: View {
     content
       .dvScreenBackground()
       .alert($store.scope(state: \.alert, action: \.alert))
+      .sheet(item: $store.scope(state: \.paywall, action: \.paywall)) { paywallStore in
+        DevaultProPaywallView(store: paywallStore)
+      }
   }
 }
 

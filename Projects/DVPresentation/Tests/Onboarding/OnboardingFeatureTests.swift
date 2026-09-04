@@ -145,6 +145,77 @@ struct OnboardingFeatureTests {
         #expect(opened.value == true)
     }
 
+    @Test("didTapEnableSync는 free면 재조회 후에도 Pro가 아니라 페이월을 띄운다")
+    func enableSyncPresentsPaywallWhenFree() async {
+        let store = TestStore(initialState: OnboardingFeature.State(step: .icloudSync)) {
+            OnboardingFeature()
+        } withDependencies: {
+            $0.entitlementClient.canEnableICloudSync = { false }
+            $0.purchaseClient.refreshEntitlement = { }
+        }
+
+        await store.send(.didTapEnableSync) {
+            $0.isEnablingSync = true
+        }
+        await store.receive(.entitlementRechecked) {
+            $0.isEnablingSync = false
+            $0.paywall = DevaultProPaywallFeature.State()
+        }
+    }
+
+    // 다른 기기에서 이미 구독한 사용자(같은 Apple 계정) — 실행 시 아직 반영 전이면 재조회로 인식해 페이월 없이 바로 켠다.
+    @Test("didTapEnableSync는 재조회로 Pro가 확인되면 페이월 없이 바로 동기화를 켠다")
+    func enableSyncEnablesDirectlyWhenRecheckFindsPro() async {
+        let clock = TestClock()
+        let isPro = LockIsolated(false)
+        let store = TestStore(initialState: OnboardingFeature.State(step: .icloudSync)) {
+            OnboardingFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.entitlementClient.canEnableICloudSync = { isPro.value }
+            $0.purchaseClient.refreshEntitlement = { isPro.setValue(true) }
+            $0.onboardingClient.enableICloudSync = { .available }
+        }
+
+        await store.send(.didTapEnableSync) {
+            $0.isEnablingSync = true
+        }
+        await store.receive(.entitlementRechecked)
+        await store.receive(.iCloudSyncStatusResponse(.available))
+        await clock.advance(by: .seconds(0.5))
+        await store.receive(.enableSyncCompleted) {
+            $0.step = .syncEnabled
+        }
+        await clock.advance(by: .seconds(2))
+        await store.receive(.delegate(.completed))
+    }
+
+    @Test("페이월에서 구매를 마치면(didFinish) 페이월을 닫고 자동으로 동기화를 켠다")
+    func paywallDidFinishAutoEnablesSync() async {
+        let clock = TestClock()
+        var initial = OnboardingFeature.State(step: .icloudSync)
+        initial.paywall = DevaultProPaywallFeature.State()
+        let store = TestStore(initialState: initial) {
+            OnboardingFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.entitlementClient.canEnableICloudSync = { true }
+            $0.onboardingClient.enableICloudSync = { .available }
+        }
+
+        await store.send(.paywall(.presented(.delegate(.didFinish)))) {
+            $0.paywall = nil
+            $0.isEnablingSync = true
+        }
+        await store.receive(.iCloudSyncStatusResponse(.available))
+        await clock.advance(by: .seconds(0.5))
+        await store.receive(.enableSyncCompleted) {
+            $0.step = .syncEnabled
+        }
+        await clock.advance(by: .seconds(2))
+        await store.receive(.delegate(.completed))
+    }
+
     @Test("didTapNotNow는 온보딩을 완료 처리한다")
     func notNowCompletesOnboarding() async {
         let store = TestStore(initialState: OnboardingFeature.State(step: .icloudSync)) {
