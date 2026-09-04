@@ -272,6 +272,45 @@ struct AppFeatureTests {
         #expect(savedDate.value == date)
     }
 
+    // iCloud 동기화는 Pro 전용이라, 등급이 free로 내려가면 자동으로 꺼야 무료 사용자가 계속 동기화되지 않는다.
+    @Test("등급이 free로 내려가면 iCloud 동기화를 자동으로 끄고 만료 알림을 다시 동기화한다")
+    func entitlementDowngradeToFreeDisablesICloudSync() async {
+        let synced = LockIsolated(false)
+        let disabled = LockIsolated(false)
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.entitlementClient.current = { .free }
+            $0.appLaunchClient.syncExpiryNotifications = { synced.setValue(true) }
+            $0.appLaunchClient.disableICloudSyncForDowngrade = { disabled.setValue(true) }
+        }
+
+        await store.send(.entitlementChanged)
+        await store.finish()
+
+        #expect(synced.value)
+        #expect(disabled.value)
+    }
+
+    // 업그레이드나 Pro→Pro 플랜 변경에서는 동기화를 끄지 않는다.
+    @Test("등급이 pro면 만료 알림만 다시 동기화하고 iCloud 동기화는 끄지 않는다")
+    func entitlementChangeToProDoesNotDisableICloudSync() async {
+        let synced = LockIsolated(false)
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.entitlementClient.current = { .pro }
+            $0.appLaunchClient.syncExpiryNotifications = { synced.setValue(true) }
+            // disableICloudSyncForDowngrade를 오버라이드하지 않는다 — 호출되면
+            // @DependencyClient의 unimplemented 클로저가 테스트를 실패시킨다.
+        }
+
+        await store.send(.entitlementChanged)
+        await store.finish()
+
+        #expect(synced.value)
+    }
+
     @Test("잠금 해제하면 새 앱 비활성 감시를 시작한다")
     func unlockStartsNewInactivityMonitoring() async {
         var initial = AppFeature.State()

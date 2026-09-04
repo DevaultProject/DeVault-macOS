@@ -152,7 +152,13 @@ public struct AppFeature {
 
       case .entitlementChanged:
         // 등급이 바뀌면 만료 알림 시점 한도가 달라진다. 예약은 저장된 선택이 아니라 등급을 함께 보고 계산되므로, 다시 예약해야 강등 뒤에도 무료 한도가 지켜진다.
-        return .run { _ in await appLaunchClient.syncExpiryNotifications() }
+        return .merge(
+          .run { _ in await appLaunchClient.syncExpiryNotifications() },
+          // iCloud 동기화는 Pro 전용이라, free로 내려가면 자동으로 끈다(로컬 데이터는 유지, 미러링만 중단).
+          entitlementClient.current() == .free
+            ? .run { _ in await appLaunchClient.disableICloudSyncForDowngrade() }
+            : .none
+        )
 
       case .iCloudRemoteChangeHandled:
         guard state.main != nil else { return .none }

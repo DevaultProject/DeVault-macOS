@@ -43,12 +43,24 @@ actor LiveStorage {
   }
 }
 
+extension LiveStorage {
+  /// iCloud 동기화는 Pro 전용 — free인데 켜짐 플래그가 남아 있으면 끄고 로컬로 구성한다(데이터는 유지).
+  static func resolveICloudSync(_ repository: any SettingsRepository) -> Bool {
+    guard repository.isICloudSyncEnabled() else { return false }
+    guard repository.cachedEntitlement() == .pro else {
+      repository.setICloudSyncEnabled(false)
+      return false
+    }
+    return true
+  }
+}
+
 private extension LiveStorage {
   private func repositories() throws -> RepositorySet {
     if let current { return current }
 
     let repositorySet = try makeRepositorySet(
-      iCloudSyncEnabled: settingsRepository.isICloudSyncEnabled()
+      iCloudSyncEnabled: Self.resolveICloudSync(settingsRepository)
     )
     current = repositorySet
     return repositorySet

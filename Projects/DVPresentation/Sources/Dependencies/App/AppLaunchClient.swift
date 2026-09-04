@@ -20,6 +20,8 @@ public struct AppLaunchClient: Sendable {
     }
     /// 마지막 CloudKit 원격 변경 감지 시각을 저장한다.
     public var setICloudLastUpdateDetectedAt: @Sendable (Date) -> Void
+    /// 등급이 free로 내려갔을 때 호출한다. iCloud 동기화가 켜져 있으면 끈다(로컬 데이터는 유지, 미러링만 중단).
+    public var disableICloudSyncForDowngrade: @Sendable () async -> Void
 }
 
 extension AppLaunchClient: TestDependencyKey {
@@ -31,7 +33,8 @@ extension AppLaunchClient: TestDependencyKey {
         requestNotificationAuthorization: { true },
         syncExpiryNotifications: {},
         iCloudRemoteChangeStream: { AsyncStream { $0.finish() } },
-        setICloudLastUpdateDetectedAt: { _ in }
+        setICloudLastUpdateDetectedAt: { _ in },
+        disableICloudSyncForDowngrade: {}
     )
 }
 

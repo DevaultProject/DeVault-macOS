@@ -49,6 +49,16 @@ extension AppLaunchClient: @retroactive DependencyKey {
       },
       setICloudLastUpdateDetectedAt: { date in
         iCloudSettingsUseCase.setLastUpdateDetectedAt(date)
+      },
+      disableICloudSyncForDowngrade: {
+        // free로 내려가면 동기화를 끈다. 로컬 데이터는 유지, CloudKit 미러링만 중단.
+        guard iCloudSettingsUseCase.isEnabled() else { return }
+        do {
+          try await iCloudSettingsUseCase.setEnabled(false)
+          Log.info("[iCloud] 등급 하락으로 동기화 자동 중단", category: .data)
+        } catch {
+          Log.warn("등급 하락 시 iCloud 동기화 중단 실패: \(error)", category: .data)
+        }
       }
     )
   }()
