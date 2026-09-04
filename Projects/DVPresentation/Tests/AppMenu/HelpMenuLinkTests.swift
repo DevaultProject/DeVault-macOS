@@ -49,6 +49,19 @@ struct HelpMenuLinkTests {
     #expect(body.contains("App Version:"))
     #expect(body.contains("macOS:"))
     #expect(body.contains("Mac:"))
-    #expect(body.contains("Plan:"))
+    // 라벨만이 아니라 주입한 등급 값까지 검증한다 — current()를 실제로 읽는지 확인.
+    #expect(body.contains("Plan: Free"))
+
+    // 등급이 바뀌면 Plan 값도 달라져야 한다.
+    let proURL = withDependencies {
+      $0.entitlementClient.current = { .pro }
+    } operation: {
+      HelpMenuLink.sendFeedback.url
+    }
+    let proBody = try #require(
+      URLComponents(url: proURL, resolvingAgainstBaseURL: false)?
+        .queryItems?.first { $0.name == "body" }?.value
+    )
+    #expect(proBody.contains("Plan: Pro"))
   }
 }
