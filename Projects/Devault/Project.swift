@@ -16,8 +16,8 @@ let isLocalSigning = Environment.localSigning.getBoolean(default: false)
 let isCISigning = Environment.ciSigning.getBoolean(default: false)
 
 /// 아카이브 빌드 번호(CFBundleVersion). App Store는 업로드마다 고유·증가값을 요구하므로
-/// CI에선 `$CI_BUILD_NUMBER`를 주입하고, 로컬은 기본값 "1"을 쓴다.
-let buildNumber = Environment.buildNumber.getString(default: "1")
+/// CI에선 `$CI_BUILD_NUMBER`를 주입하고, 로컬은 기본값 "40"을 쓴다.
+let buildNumber = Environment.buildNumber.getString(default: "40")
 
 /// 로컬 StoreKit 테스트 스토어를 실행 스킴에 붙인다. `generate-storekit`이 `TUIST_STORE_KIT_TESTING=1`로 설정한다.
 ///
