@@ -44,14 +44,10 @@ actor LiveStorage {
 }
 
 extension LiveStorage {
-  /// iCloud 동기화는 Pro 전용 — free인데 켜짐 플래그가 남아 있으면 끄고 로컬로 구성한다(데이터는 유지).
+  /// CloudKit 미러링 여부를 판정한다. iCloud 동기화는 Pro 전용이라 free면 항상 false.
+  /// 순수 판정만 하고, 플래그 정리는 `setEnabled(false)`가 맡는다.
   static func resolveICloudSync(_ repository: any SettingsRepository) -> Bool {
-    guard repository.isICloudSyncEnabled() else { return false }
-    guard repository.cachedEntitlement() == .pro else {
-      repository.setICloudSyncEnabled(false)
-      return false
-    }
-    return true
+    repository.isICloudSyncEnabled() && repository.cachedEntitlement() == .pro
   }
 }
 

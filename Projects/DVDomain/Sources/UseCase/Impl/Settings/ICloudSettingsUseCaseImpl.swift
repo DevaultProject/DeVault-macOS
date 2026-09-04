@@ -31,8 +31,15 @@ public struct ICloudSettingsUseCaseImpl: ICloudSettingsUseCase {
     if enabled, !entitlementUseCase.canEnableICloudSync() {
       throw EntitlementError.requiresPro
     }
-    try await iCloudService.configureStorage(iCloudSyncEnabled: enabled)
-    repository.setICloudSyncEnabled(enabled)
+    guard enabled else {
+      // 끄기는 fail-safe: 전환이 실패해도 플래그를 먼저 false로 확정한다(실패가 "free인데 동기화"로 남지 않게).
+      repository.setICloudSyncEnabled(false)
+      try await iCloudService.configureStorage(iCloudSyncEnabled: false)
+      return
+    }
+    // 켜기는 fail-secure: 저장소 전환이 성공해야 플래그를 올린다(실패를 켜짐으로 오인 금지).
+    try await iCloudService.configureStorage(iCloudSyncEnabled: true)
+    repository.setICloudSyncEnabled(true)
   }
 
   public func accountStatus() async -> ICloudAccountStatus {

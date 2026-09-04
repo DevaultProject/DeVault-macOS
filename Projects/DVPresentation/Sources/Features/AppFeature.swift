@@ -54,6 +54,7 @@ public struct AppFeature {
     case iCloudRemoteChangeDetected
     case iCloudRemoteChangeHandled
     case entitlementChanged
+    case entitlementSettledAtLaunch(isFree: Bool)
 
     // MARK: - Child
 
@@ -160,6 +161,11 @@ public struct AppFeature {
             : .none
         )
 
+      case let .entitlementSettledAtLaunch(isFree):
+        // 앱 꺼진 사이 만료돼 free로 시작하면 여기서 동기화를 끈다(bootstrap이 stale .pro로 켜뒀어도 정리). Pro면 무시.
+        guard isFree else { return .none }
+        return .run { _ in await appLaunchClient.disableICloudSyncForDowngrade() }
+
       case .iCloudRemoteChangeHandled:
         guard state.main != nil else { return .none }
         return .send(.main(.iCloudRemoteChangeDetected))
@@ -250,12 +256,14 @@ private extension AppFeature {
   func entitlementWatchEffect() -> Effect<Action> {
     .run { send in
       var isFirst = true
-      for await _ in entitlementClient.stream() {
-        guard !isFirst else {
+      for await entitlement in entitlementClient.stream() {
+        if isFirst {
           isFirst = false
-          continue
+          // 첫 방출은 알림 재동기화(.task가 이미 함)는 건너뛰되, 이미 free면 동기화 종료는 처리한다.
+          await send(.entitlementSettledAtLaunch(isFree: entitlement == .free))
+        } else {
+          await send(.entitlementChanged)
         }
-        await send(.entitlementChanged)
       }
     }
     .cancellable(id: CancelID.entitlementWatch, cancelInFlight: true)

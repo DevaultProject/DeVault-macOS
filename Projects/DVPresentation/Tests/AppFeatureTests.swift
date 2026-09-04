@@ -311,6 +311,33 @@ struct AppFeatureTests {
         #expect(synced.value)
     }
 
+    // 앱이 꺼진 사이 만료돼 free로 확정된 채 시작하면, 스트림 첫 방출에서도 동기화를 강제 종료해야 한다.
+    @Test("첫 방출이 free면 iCloud 동기화를 강제 종료한다")
+    func settledAtLaunchFreeDisablesICloudSync() async {
+        let disabled = LockIsolated(false)
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.appLaunchClient.disableICloudSyncForDowngrade = { disabled.setValue(true) }
+        }
+
+        await store.send(.entitlementSettledAtLaunch(isFree: true))
+        await store.finish()
+
+        #expect(disabled.value)
+    }
+
+    @Test("첫 방출이 pro면 iCloud 동기화를 건드리지 않는다")
+    func settledAtLaunchProDoesNotDisableICloudSync() async {
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        }
+        // disableICloudSyncForDowngrade를 오버라이드하지 않는다 — 호출되면 미구현 클로저가 실패시킨다.
+
+        await store.send(.entitlementSettledAtLaunch(isFree: false))
+        await store.finish()
+    }
+
     @Test("잠금 해제하면 새 앱 비활성 감시를 시작한다")
     func unlockStartsNewInactivityMonitoring() async {
         var initial = AppFeature.State()

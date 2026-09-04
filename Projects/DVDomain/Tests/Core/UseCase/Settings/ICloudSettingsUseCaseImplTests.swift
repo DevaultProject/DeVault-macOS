@@ -56,6 +56,26 @@ struct ICloudSettingsUseCaseImplTests {
         #expect(repository.isICloudSyncEnabled() == false)
     }
 
+    // 끄기는 fail-safe여야 한다: 저장소 전환이 실패해도 free가 계속 동기화되면 안 된다.
+    @Test("동기화 끄기: 저장소 전환이 실패해도 플래그는 false로 확정된다")
+    func disableForcesFlagOffEvenWhenStorageSwitchFails() async {
+        let repository = FakeSettingsRepository()
+        repository.setICloudSyncEnabled(true) // 이미 켜진 상태에서 다운그레이드
+        let sut = ICloudSettingsUseCaseImpl(
+            repository: repository,
+            iCloudService: StubICloudService(
+                status: .available,
+                configurationFails: true
+            ),
+            entitlementUseCase: StubEntitlementUseCase()
+        )
+
+        await #expect(throws: StubICloudService.Error.configurationFailed) {
+            try await sut.setEnabled(false)
+        }
+        #expect(repository.isICloudSyncEnabled() == false) // 전환 실패해도 플래그는 꺼짐
+    }
+
     @Test("iCloud 원격 변경 스트림을 Service에 위임한다")
     func remoteChangeStreamUsesService() async {
         let sut = ICloudSettingsUseCaseImpl(

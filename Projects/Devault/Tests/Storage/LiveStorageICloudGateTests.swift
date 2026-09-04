@@ -18,14 +18,15 @@ struct LiveStorageICloudGateTests {
         return SettingsRepositoryImpl(defaults: defaults)
     }
 
-    @Test("free인데 켜짐 플래그가 남아 있으면 동기화를 끄고 플래그를 정리한다")
-    func freeWithStaleFlagIsDisabledAndReconciled() {
+    @Test("free면 켜짐 플래그가 남아 있어도 미러링하지 않는다(순수 판정 — 플래그는 건드리지 않음)")
+    func freeNeverMirrorsRegardlessOfStaleFlag() {
         let settings = makeSettings()
         settings.setICloudSyncEnabled(true)
         settings.setCachedEntitlement(.free)
 
         #expect(LiveStorage.resolveICloudSync(settings) == false)
-        #expect(settings.isICloudSyncEnabled() == false) // 실제 상태(미러링 없음)에 맞춰 정리됨
+        // 순수 판정이라 플래그는 그대로 — 정리는 setEnabled(false)/다운그레이드 경로가 맡는다.
+        #expect(settings.isICloudSyncEnabled() == true)
     }
 
     @Test("Pro면 켜짐 플래그를 그대로 두고 동기화를 유지한다")
