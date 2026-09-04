@@ -3,6 +3,7 @@
 import Testing
 
 @testable import DVPresentation
+import Foundation
 
 @Suite("HelpMenuLink")
 struct HelpMenuLinkTests {
