@@ -39,8 +39,6 @@ extension EntitlementClient: TestDependencyKey {
     /// `async throws` 판정은 그대로 둔다 — 덮어쓰지 않은 테스트에서 실패해 의존이 드러난다.
     public static var testValue: EntitlementClient {
         var client = EntitlementClient()
-        // 등급을 표시용으로만 읽는 곳(예: 피드백 메일의 Plan 줄)이 미구현 호출로 깨지지 않게 기본값을 연다. 등급을 검증하는 테스트가 덮어쓴다.
-        client.current = { .free }
         client.canEnableICloudSync = { true }
         client.canUseMultipleExpiryAlertDays = { true }
         // 화면이 `.task`에서 구독하므로, 비워 두면 게이트와 무관한 테스트가 미구현 호출로 먼저 깨진다. 즉시 끝나는 스트림이라 등급 변경은 오지 않는다.

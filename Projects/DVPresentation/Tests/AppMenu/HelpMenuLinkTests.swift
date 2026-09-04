@@ -1,9 +1,10 @@
 // Copyright © 2026 Devault. All rights reserved
 
+import ComposableArchitecture
+import Foundation
 import Testing
 
 @testable import DVPresentation
-import Foundation
 
 @Suite("HelpMenuLink")
 struct HelpMenuLinkTests {
@@ -30,7 +31,12 @@ struct HelpMenuLinkTests {
 
   @Test("Send Feedback은 팀 이메일 mailto로 연결되고 subject·body 틀을 담는다")
   func sendFeedbackURL() throws {
-    let url = HelpMenuLink.sendFeedback.url
+    // 피드백 본문의 Plan 줄이 entitlementClient.current()를 읽으므로 테스트가 등급을 명시한다.
+    let url = withDependencies {
+      $0.entitlementClient.current = { .free }
+    } operation: {
+      HelpMenuLink.sendFeedback.url
+    }
     let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
 
     #expect(url.scheme == "mailto")
