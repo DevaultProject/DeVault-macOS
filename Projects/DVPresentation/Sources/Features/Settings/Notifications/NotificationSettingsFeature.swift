@@ -49,6 +49,7 @@ public struct NotificationSettingsFeature {
     case permissionResponse(Bool)
     case expiryNotificationsUpdateFailed
     case entitlementChanged(Entitlement)
+    case expiryAlertDaysChanged([ExpiryAlertDay])
 
     // MARK: - Child
 
@@ -84,6 +85,12 @@ public struct NotificationSettingsFeature {
             for await entitlement in entitlementClient.stream() {
               await send(.entitlementChanged(entitlement))
             }
+          },
+          // 등급 전환 리셋 등 화면 밖에서 저장값이 바뀌어도 체크 상태가 즉시 따라오게 한다.
+          .run { send in
+            for await days in notificationSettingsClient.expiryAlertDaysBeforeStream() {
+              await send(.expiryAlertDaysChanged(days))
+            }
           }
         )
 
@@ -92,6 +99,10 @@ public struct NotificationSettingsFeature {
 
       case .entitlementChanged:
         state.isMultipleAlertDaysLocked = !entitlementClient.canUseMultipleExpiryAlertDays()
+        return .none
+
+      case .expiryAlertDaysChanged(let days):
+        state.expiryAlertDaysBefore = Set(days)
         return .none
 
       case .permissionResponse(let granted):

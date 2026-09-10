@@ -20,6 +20,8 @@ public protocol NotificationSettingsUseCase: Sendable {
 
   /// 등급 전환 시 알림 시점을 등급 기본값으로 리셋한다(Pro=전체, Free=가장 이른 하나, 없으면 그대로).
   func resetExpiryAlertDaysForCurrentEntitlement()
+  /// 만료 알림 발송 시점 변경을 구독한다(현재값 즉시 방출 후 바뀔 때마다).
+  func expiryAlertDaysBeforeStream() -> AsyncStream<[ExpiryAlertDay]>
 
   /// 반복 인증 실패 알림 사용 여부를 확인한다.
   /// - Returns: 반복 인증 실패 알림 사용 여부

@@ -60,6 +60,33 @@ struct NotificationSettingsFeatureTests {
     #expect(saved.value == nil)
   }
 
+  // 등급 전환 리셋처럼 화면 밖에서 저장값이 바뀌어도, task 구독이 체크 상태를 즉시 따라오게 한다.
+  @Test("저장값 스트림이 바뀌면 만료 알림 시점 체크가 갱신된다")
+  func expiryAlertDaysStreamUpdatesSelection() async {
+    let store = TestStore(initialState: NotificationSettingsFeature.State()) {
+      NotificationSettingsFeature()
+    } withDependencies: {
+      $0.notificationSettingsClient.expiryAlertDaysBefore = { ExpiryAlertDay.allCases }
+      $0.notificationSettingsClient.isExpiryAlertsEnabled = { true }
+      $0.notificationSettingsClient.isAuthFailureAlertEnabled = { true }
+      $0.notificationSettingsClient.isClipboardAbnormalAccessAlertEnabled = { true }
+      $0.notificationSettingsClient.isPermissionGranted = { true }
+      $0.notificationSettingsClient.expiryAlertDaysBeforeStream = {
+        AsyncStream { continuation in
+          continuation.yield([.sevenDaysBefore])
+          continuation.finish()
+        }
+      }
+      $0.entitlementClient.stream = { .finished }
+    }
+    store.exhaustivity = .off
+
+    await store.send(.task)
+    await store.receive(\.expiryAlertDaysChanged) {
+      $0.expiryAlertDaysBefore = [.sevenDaysBefore]
+    }
+  }
+
   @Test("만료 알림 사용 토글을 저장한다")
   func expiryAlertsTogglePersists() async {
     let saved = LockIsolated<Bool?>(nil)

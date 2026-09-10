@@ -24,6 +24,9 @@ extension NotificationSettingsClient: @retroactive DependencyKey {
       setExpiryAlertDaysBefore: { days in
         try await useCase.setExpiryAlertDaysBefore(days)
       },
+      expiryAlertDaysBeforeStream: {
+        useCase.expiryAlertDaysBeforeStream()
+      },
       isAuthFailureAlertEnabled: {
         useCase.isAuthFailureAlertEnabled()
       },
