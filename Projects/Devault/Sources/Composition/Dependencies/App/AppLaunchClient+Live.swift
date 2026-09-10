@@ -44,6 +44,9 @@ extension AppLaunchClient: @retroactive DependencyKey {
           Log.warn("만료 알림 동기화 실패: \(error)", category: .notification)
         }
       },
+      resetExpiryAlertDaysForEntitlement: {
+        LiveUseCases.notificationSettings.resetExpiryAlertDaysForCurrentEntitlement()
+      },
       iCloudRemoteChangeStream: {
         iCloudSettingsUseCase.remoteChangeStream()
       },

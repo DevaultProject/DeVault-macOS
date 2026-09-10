@@ -12,6 +12,7 @@ import ComposableArchitecture
 /// (온보딩·잠금 화면에서는 비활성).
 public struct AppCommands: Commands {
   private let store: StoreOf<AppFeature>
+  @Environment(\.openWindow) private var openWindow
 
   public init(store: StoreOf<AppFeature>) {
     self.store = store
@@ -49,8 +50,22 @@ public struct AppCommands: Commands {
     CommandGroup(after: .sidebar) {
       filtersMenu
     }
+
+    // Window ▸ Open Main Window — 닫은 창을 여기서(또는 Dock 클릭) 다시 연다.
+    CommandGroup(after: .windowArrangement) {
+      Button(String.module("Open Main Window")) {
+        openWindow(id: DevaultWindowID.main)
+      }
+    }
   }
 
+}
+
+// MARK: - Window ID
+
+/// 메인 창 scene의 식별자. `DevaultApp`의 `Window(id:)`와 위 재오픈 커맨드가 공유한다.
+public enum DevaultWindowID {
+  public static let main = "devault.main"
 }
 
 // MARK: - Menu Items
@@ -65,9 +80,8 @@ extension AppCommands {
     .disabled(isDisabled(command))
   }
 
-  /// main 세션이 없으면(온보딩·잠금) 모두 비활성. 콘텐츠를 바꾸는 커맨드는 **설정 화면에서도**
-  /// 비활성화한다 — 설정엔 사이드바·리스트가 없어, 켜두면 보이지 않는 상태만 바뀌고
-  /// 설정을 닫는 순간 요청하지 않은 화면(생성 폼·필터)으로 튄다.
+  /// main 세션 없으면(온보딩·잠금) 모두 비활성. 콘텐츠 변경 커맨드는 설정 화면에서도 비활성 —
+  /// 안 그러면 설정을 닫는 순간 요청하지 않은 화면(생성 폼·필터)으로 튄다.
   private func isDisabled(_ command: AppMenuCommand) -> Bool {
     switch command {
     case .lockVault, .openSettings:
