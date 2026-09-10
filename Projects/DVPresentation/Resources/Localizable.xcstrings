@@ -3822,6 +3822,17 @@
         }
       }
     },
+    "Open Main Window" : {
+      "comment" : "Window menu item that reopens the main window after it was closed.",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메인 창 열기"
+          }
+        }
+      }
+    },
     "Open Settings" : {
       "comment" : "Title of the settings option in the \"App Shortcuts\" section.",
       "extractionState" : "stale",

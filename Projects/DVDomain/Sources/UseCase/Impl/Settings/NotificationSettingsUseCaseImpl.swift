@@ -11,7 +11,7 @@ public struct NotificationSettingsUseCaseImpl: NotificationSettingsUseCase {
   /// - Parameters:
   ///   - repository: 설정 저장소
   ///   - expiryNotificationScheduler: 설정 변경 후 예약 동기화
-  ///   - entitlementUseCase: 다중 시점 사용 가능 여부 판정. **기본값을 두지 않는다** — 빠뜨리면 가드가 조용히 사라진다
+  ///   - entitlementUseCase: 다중 시점(Pro) 게이트 판정. 기본값 없이 필수 주입 — 빠지면 게이트가 조용히 뚫린다.
   public init(
     repository: any SettingsRepository,
     expiryNotificationScheduler: any ScheduleSecretExpiryNotificationsUseCase,
@@ -36,7 +36,7 @@ public struct NotificationSettingsUseCaseImpl: NotificationSettingsUseCase {
   }
 
   public func setExpiryAlertDaysBefore(_ days: [ExpiryAlertDay]) async throws {
-    // 여기서 막는 것은 **늘리는 것**뿐이다. 줄이는 저장은 통과시켜야 한다 — Pro에서 내려온 사용자가 3개를 보유한 채 하나를 빼려 하면 결과가 2개라 한도를 넘지만, 그건 한도로 다가가는 정상 동작이다. 막으면 저장이 실패해 UI와 저장소가 어긋난 채 빠져나갈 길이 없어진다.
+    // 막는 것은 "늘리기"뿐 — 줄이는 저장은 아직 한도를 넘어도 통과시킨다(강등 후 3→2처럼 한도로 다가가는 정상 동작). 막으면 UI와 저장소가 어긋난다.
     let previous = repository.expiryAlertDaysBefore().count
     if days.count > EntitlementLimits.maxExpiryAlertDays,
        days.count > previous,
@@ -45,6 +45,17 @@ public struct NotificationSettingsUseCaseImpl: NotificationSettingsUseCase {
     }
     repository.setExpiryAlertDaysBefore(days)
     try await expiryNotificationScheduler.syncAll()
+  }
+
+  public func resetExpiryAlertDaysForCurrentEntitlement() {
+    if entitlementUseCase.canUseMultipleExpiryAlertDays() {
+      repository.setExpiryAlertDaysBefore(ExpiryAlertDay.defaultSelection)
+    } else {
+      // 가장 이른 시점 하나만 남긴다(rawValue가 클수록 이른 시점)
+      let current = repository.expiryAlertDaysBefore()
+      guard let earliest = current.max(by: { $0.rawValue < $1.rawValue }) else { return }
+      repository.setExpiryAlertDaysBefore([earliest])
+    }
   }
 
   public func isAuthFailureAlertEnabled() -> Bool {

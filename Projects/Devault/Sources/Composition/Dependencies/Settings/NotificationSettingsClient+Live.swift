@@ -9,11 +9,7 @@ import DVPresentation
 
 extension NotificationSettingsClient: @retroactive DependencyKey {
   public static let liveValue: NotificationSettingsClient = {
-    let useCase: any NotificationSettingsUseCase = NotificationSettingsUseCaseImpl(
-      repository: LiveRepositories.settings,
-      expiryNotificationScheduler: LiveUseCases.expirySchedule,
-      entitlementUseCase: LiveUseCases.entitlement
-    )
+    let useCase = LiveUseCases.notificationSettings
 
     return NotificationSettingsClient(
       isExpiryAlertsEnabled: {

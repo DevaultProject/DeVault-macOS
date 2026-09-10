@@ -155,6 +155,38 @@ struct AppFeatureTests {
         }
     }
 
+    // 창을 닫거나 앱이 백그라운드로 가면 즉시 잠가야 다시 열 때 시크릿이 잠깐 노출되지 않는다.
+    @Test("창이 닫히거나 백그라운드로 가면 main에서 locked로 전환한다")
+    func backgroundLocksApp() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.appSecurityClient.isRequireAuthOnLaunchEnabled = { true }
+        }
+
+        await store.send(.appDidEnterBackground) {
+            $0.main = nil
+            $0.locked = .init()
+        }
+    }
+
+    @Test("인증 요구가 꺼져 있으면 백그라운드 전환에 잠그지 않는다")
+    func backgroundDoesNotLockWhenAuthDisabled() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.appSecurityClient.isRequireAuthOnLaunchEnabled = { false }
+        }
+
+        await store.send(.appDidEnterBackground)
+    }
+
     @Test("main이 아닐 때는 앱 비활성 타임아웃을 무시한다")
     func inactivityTimeoutIgnoredWhenNotInMain() async {
         var initial = AppFeature.State()
@@ -277,10 +309,12 @@ struct AppFeatureTests {
     func entitlementDowngradeToFreeDisablesICloudSync() async {
         let synced = LockIsolated(false)
         let disabled = LockIsolated(false)
+        let reset = LockIsolated(false)
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
         } withDependencies: {
             $0.entitlementClient.current = { .free }
+            $0.appLaunchClient.resetExpiryAlertDaysForEntitlement = { reset.setValue(true) }
             $0.appLaunchClient.syncExpiryNotifications = { synced.setValue(true) }
             $0.appLaunchClient.disableICloudSyncForDowngrade = { disabled.setValue(true) }
         }
@@ -288,6 +322,7 @@ struct AppFeatureTests {
         await store.send(.entitlementChanged)
         await store.finish()
 
+        #expect(reset.value)
         #expect(synced.value)
         #expect(disabled.value)
     }
@@ -296,10 +331,12 @@ struct AppFeatureTests {
     @Test("등급이 pro면 만료 알림만 다시 동기화하고 iCloud 동기화는 끄지 않는다")
     func entitlementChangeToProDoesNotDisableICloudSync() async {
         let synced = LockIsolated(false)
+        let reset = LockIsolated(false)
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
         } withDependencies: {
             $0.entitlementClient.current = { .pro }
+            $0.appLaunchClient.resetExpiryAlertDaysForEntitlement = { reset.setValue(true) }
             $0.appLaunchClient.syncExpiryNotifications = { synced.setValue(true) }
             // disableICloudSyncForDowngrade를 오버라이드하지 않는다 — 호출되면
             // @DependencyClient의 unimplemented 클로저가 테스트를 실패시킨다.
@@ -308,22 +345,30 @@ struct AppFeatureTests {
         await store.send(.entitlementChanged)
         await store.finish()
 
+        #expect(reset.value)
         #expect(synced.value)
     }
 
-    // 앱이 꺼진 사이 만료돼 free로 확정된 채 시작하면, 스트림 첫 방출에서도 동기화를 강제 종료해야 한다.
-    @Test("첫 방출이 free면 iCloud 동기화를 강제 종료한다")
+    // 앱이 꺼진 사이 만료돼 free로 확정된 채 시작하면, 첫 방출에서도 실행 중 강등과 똑같이
+    // iCloud 동기화를 끄고 알림 시점을 free 기준으로 리셋·재동기화해야 한다(표시/발송 일치).
+    @Test("첫 방출이 free면 iCloud 동기화를 끄고 알림 시점을 리셋·재동기화한다")
     func settledAtLaunchFreeDisablesICloudSync() async {
         let disabled = LockIsolated(false)
+        let reset = LockIsolated(false)
+        let synced = LockIsolated(false)
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
         } withDependencies: {
+            $0.appLaunchClient.resetExpiryAlertDaysForEntitlement = { reset.setValue(true) }
+            $0.appLaunchClient.syncExpiryNotifications = { synced.setValue(true) }
             $0.appLaunchClient.disableICloudSyncForDowngrade = { disabled.setValue(true) }
         }
 
         await store.send(.entitlementSettledAtLaunch(isFree: true))
         await store.finish()
 
+        #expect(reset.value)
+        #expect(synced.value)
         #expect(disabled.value)
     }
 

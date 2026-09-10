@@ -18,9 +18,7 @@ enum LiveUseCases {
     )
 
     /// `CopyToClipboardUseCase`는 반복 복사 감지의 `AbnormalAccessMonitor`가 화면마다 따로 생기면 카운터가 갈라진다.
-    ///
-    /// 반복 감지의 윈도·임계값은 여기서 정한다. 자동 정리의 시간·활성 여부는 설정 화면이 소유하므로
-    /// 그쪽은 UseCase가 `SettingsRepository`에서 읽는다.
+    /// 반복 감지의 윈도·임계값은 여기서 정한다. 자동 정리의 시간·활성 여부는 설정 화면이 소유하므로 그쪽은 UseCase가 `SettingsRepository`에서 읽는다.
     static let copyToClipboard: any CopyToClipboardUseCase = CopyToClipboardUseCaseImpl(
         clipboardService: ClipboardServiceImpl(),
         notificationService: LiveServices.securityNotification,
@@ -40,12 +38,18 @@ enum LiveUseCases {
     )
 
     /// 게이트 판정의 단일 지점. 화면마다 만들면 판정이 갈리므로 여기서 한 번만 만든다.
-    ///
     /// 등급은 `SettingsRepository` 캐시에서 읽는다. `PurchaseService`가 StoreKit 확인 결과를 그 캐시에 쓰고, 여기서는 동기로 읽기만 한다 — 판정이 비동기를 기다리지 않아도 되는 이유다.
     static let entitlement: any EntitlementUseCase = EntitlementUseCaseImpl(
         secretRepository: LiveRepositories.secret,
         projectRepository: LiveRepositories.project,
         entitlementProvider: { LiveRepositories.settings.cachedEntitlement() },
         entitlementStream: { LiveRepositories.settings.cachedEntitlementStream() }
+    )
+
+    /// 알림 설정 화면과 등급 전환 시 시점 리셋이 같은 인스턴스를 공유한다(둘 다 무상태 struct지만 조립을 한 곳에 둔다).
+    static let notificationSettings: any NotificationSettingsUseCase = NotificationSettingsUseCaseImpl(
+        repository: LiveRepositories.settings,
+        expiryNotificationScheduler: expirySchedule,
+        entitlementUseCase: entitlement
     )
 }

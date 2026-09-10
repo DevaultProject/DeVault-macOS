@@ -55,6 +55,7 @@ public struct AppFeature {
     case iCloudRemoteChangeHandled
     case entitlementChanged
     case entitlementSettledAtLaunch(isFree: Bool)
+    case appDidEnterBackground
 
     // MARK: - Child
 
@@ -154,7 +155,11 @@ public struct AppFeature {
       case .entitlementChanged:
         // 등급이 바뀌면 만료 알림 시점 한도가 달라진다. 예약은 저장된 선택이 아니라 등급을 함께 보고 계산되므로, 다시 예약해야 강등 뒤에도 무료 한도가 지켜진다.
         return .merge(
-          .run { _ in await appLaunchClient.syncExpiryNotifications() },
+          // 시점 선택을 새 등급 기본값으로 되돌린 뒤(Pro=전체, Free=가장 이른 하나) 다시 예약한다.
+          .run { _ in
+            appLaunchClient.resetExpiryAlertDaysForEntitlement()
+            await appLaunchClient.syncExpiryNotifications()
+          },
           // iCloud 동기화는 Pro 전용이라, free로 내려가면 자동으로 끈다(로컬 데이터는 유지, 미러링만 중단).
           entitlementClient.current() == .free
             ? .run { _ in await appLaunchClient.disableICloudSyncForDowngrade() }
@@ -162,9 +167,16 @@ public struct AppFeature {
         )
 
       case let .entitlementSettledAtLaunch(isFree):
-        // 앱 꺼진 사이 만료돼 free로 시작하면 여기서 동기화를 끈다(bootstrap이 stale .pro로 켜뒀어도 정리). Pro면 무시.
+        // 앱 꺼진 사이 free로 강등된 채 시작하면 실행 중 강등과 똑같이 처리한다.
+        // — iCloud 끄고, 알림 시점을 free 기준(가장 이른 하나)으로 리셋·재동기화. Pro면 무시.
         guard isFree else { return .none }
-        return .run { _ in await appLaunchClient.disableICloudSyncForDowngrade() }
+        return .merge(
+          .run { _ in
+            appLaunchClient.resetExpiryAlertDaysForEntitlement()
+            await appLaunchClient.syncExpiryNotifications()
+          },
+          .run { _ in await appLaunchClient.disableICloudSyncForDowngrade() }
+        )
 
       case .iCloudRemoteChangeHandled:
         guard state.main != nil else { return .none }
@@ -197,6 +209,14 @@ public struct AppFeature {
 
       case .inactivityTimeoutReached:
         guard state.main != nil else { return .none }
+        state.main = nil
+        state.locked = .init()
+        return .cancel(id: CancelID.inactivityWatch)
+
+      case .appDidEnterBackground:
+        // 창 닫힘·백그라운드 전환 시 즉시 잠가 재오픈 때 시크릿 노출을 막는다.
+        // 앱 전환만으로는 잠그지 않는다(창은 열려 있음) — 타임아웃 몫.
+        guard state.main != nil, appSecurityClient.isRequireAuthOnLaunchEnabled() else { return .none }
         state.main = nil
         state.locked = .init()
         return .cancel(id: CancelID.inactivityWatch)

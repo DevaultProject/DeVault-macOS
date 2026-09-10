@@ -14,6 +14,8 @@ public struct AppLaunchClient: Sendable {
     public var requestNotificationAuthorization: @Sendable () async -> Bool = { false }
     /// 만료일이 있는 모든 Secret의 알림을 다시 계산해 예약한다.
     public var syncExpiryNotifications: @Sendable () async -> Void
+    /// 등급이 바뀌면 만료 알림 시점 선택을 새 등급 기본값으로 되돌린다(Pro=전체, Free=가장 이른 하나).
+    public var resetExpiryAlertDaysForEntitlement: @Sendable () -> Void
     /// CloudKit 원격 변경이 감지될 때마다 값을 방출한다.
     public var iCloudRemoteChangeStream: @Sendable () -> AsyncStream<Void> = {
         AsyncStream { $0.finish() }
@@ -32,6 +34,7 @@ extension AppLaunchClient: TestDependencyKey {
         setOnboardingCompleted: {},
         requestNotificationAuthorization: { true },
         syncExpiryNotifications: {},
+        resetExpiryAlertDaysForEntitlement: {},
         iCloudRemoteChangeStream: { AsyncStream { $0.finish() } },
         setICloudLastUpdateDetectedAt: { _ in },
         disableICloudSyncForDowngrade: {}
