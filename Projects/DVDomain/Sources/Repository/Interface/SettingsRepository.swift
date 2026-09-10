@@ -127,6 +127,9 @@ public protocol SettingsRepository: Sendable {
   /// 만료 알림 발송 시점을 저장한다.
   /// - Parameter days: 저장할 만료 알림 발송 시점 목록
   func setExpiryAlertDaysBefore(_ days: [ExpiryAlertDay])
+  /// 구독을 시작하면 현재 시점 목록을 즉시 한 번 방출하고, 이후 저장값이 바뀔 때마다 최신값을 방출한다.
+  /// - Returns: 만료 알림 발송 시점 스트림
+  func expiryAlertDaysBeforeStream() -> AsyncStream<[ExpiryAlertDay]>
 
   /// 반복 인증 실패 알림 사용 여부.
   /// - Returns: 반복 인증 실패 알림 사용 여부

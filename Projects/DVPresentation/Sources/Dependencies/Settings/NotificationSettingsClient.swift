@@ -12,6 +12,10 @@ public struct NotificationSettingsClient: Sendable {
     ExpiryAlertDay.defaultSelection
   }
   public var setExpiryAlertDaysBefore: @Sendable ([ExpiryAlertDay]) async throws -> Void
+  /// 저장된 발송 시점 변경 스트림. 등급 전환 리셋 등 외부 변경도 화면에 그대로 반영된다.
+  public var expiryAlertDaysBeforeStream: @Sendable () -> AsyncStream<[ExpiryAlertDay]> = {
+    AsyncStream { $0.finish() }
+  }
 
   public var isAuthFailureAlertEnabled: @Sendable () -> Bool = { true }
   public var setAuthFailureAlertEnabled: @Sendable (Bool) -> Void
@@ -32,6 +36,7 @@ extension NotificationSettingsClient: TestDependencyKey {
     setExpiryAlertsEnabled: { _ in },
     expiryAlertDaysBefore: { ExpiryAlertDay.defaultSelection },
     setExpiryAlertDaysBefore: { _ in },
+    expiryAlertDaysBeforeStream: { AsyncStream { $0.finish() } },
     isAuthFailureAlertEnabled: { true },
     setAuthFailureAlertEnabled: { _ in },
     isClipboardAbnormalAccessAlertEnabled: { true },

@@ -27,6 +27,7 @@ public final class FakeSettingsRepository: SettingsRepository, @unchecked Sendab
 
     public var isExpiryAlertsEnabledValue = true
     public var expiryAlertDaysBeforeValue = ExpiryAlertDay.defaultSelection
+    public var expiryAlertDaysBeforeStreamValue: AsyncStream<[ExpiryAlertDay]>?
     public var isAuthFailureAlertEnabledValue = true
     public var isClipboardAbnormalAccessAlertEnabledValue = true
 
@@ -106,6 +107,15 @@ public final class FakeSettingsRepository: SettingsRepository, @unchecked Sendab
 
     public func expiryAlertDaysBefore() -> [ExpiryAlertDay] { expiryAlertDaysBeforeValue }
     public func setExpiryAlertDaysBefore(_ days: [ExpiryAlertDay]) { expiryAlertDaysBeforeValue = days }
+    public func expiryAlertDaysBeforeStream() -> AsyncStream<[ExpiryAlertDay]> {
+        if let expiryAlertDaysBeforeStreamValue {
+            return expiryAlertDaysBeforeStreamValue
+        }
+        return AsyncStream { continuation in
+            continuation.yield(expiryAlertDaysBeforeValue)
+            continuation.finish()
+        }
+    }
 
     public func isAuthFailureAlertEnabled() -> Bool { isAuthFailureAlertEnabledValue }
     public func setAuthFailureAlertEnabled(_ enabled: Bool) { isAuthFailureAlertEnabledValue = enabled }

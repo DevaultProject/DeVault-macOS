@@ -58,6 +58,10 @@ public struct NotificationSettingsUseCaseImpl: NotificationSettingsUseCase {
     }
   }
 
+  public func expiryAlertDaysBeforeStream() -> AsyncStream<[ExpiryAlertDay]> {
+    repository.expiryAlertDaysBeforeStream()
+  }
+
   public func isAuthFailureAlertEnabled() -> Bool {
     repository.isAuthFailureAlertEnabled()
   }
