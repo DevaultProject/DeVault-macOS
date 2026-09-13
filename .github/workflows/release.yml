@@ -1,0 +1,20 @@
+# 릴리즈 태그(1.0.0 형태)가 push되면 GitHub Release를 만들고 릴리즈 노트를 자동 생성한다. 배포용 macOS 빌드는 같은 태그로 트리거되는 Xcode Cloud `Deploy` 워크플로우가 담당한다 (docs/GIT_FLOW.md 참고).
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - "[0-9]*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # --generate-notes: 직전 릴리즈 이후 머지된 PR 목록으로 노트를 자동 작성한다
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
