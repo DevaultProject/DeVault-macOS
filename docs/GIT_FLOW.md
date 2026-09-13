@@ -65,3 +65,14 @@ git flow hotfix start 1.1.1 develop   # develop에서 hotfix/1.1.1 분기 (도�
 ## 태그
 
 버전 태그는 prefix 없이 버전 그대로 쓴다 — `v1.0.0`이 아니라 `1.0.0`.
+
+## 태그 push 자동화
+
+태그가 push되면 두 가지가 자동으로 실행된다.
+
+| 자동화 | 하는 일 |
+|---|---|
+| Xcode Cloud `Deploy` 워크플로우 | 배포용 macOS 아카이브를 만들어 App Store Connect에 업로드한다 (심사 제출 시 첨부용) |
+| GitHub Actions `GitHub Release` (`.github/workflows/release.yml`) | GitHub Release를 생성하고 직전 릴리즈 이후 머지된 PR 목록으로 릴리즈 노트를 자동 작성한다 |
+
+> ⚠️ Xcode Cloud의 빌드 번호(`CI_BUILD_NUMBER`)가 `CFBundleVersion`에 주입된다. App Store Connect는 같은 버전에서 이전 업로드보다 높은 빌드 번호를 요구하므로, 수동 업로드로 번호를 선점했다면 Xcode Cloud 설정에서 다음 빌드 번호를 그보다 크게 올려야 한다.
