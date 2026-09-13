@@ -1,6 +1,6 @@
 # Git Flow 브랜치 전략
 
-DeVault-macOS는 [git-flow](https://nvie.com/posts/a-successful-git-branching-model/) 기반으로 브랜치를 운영한다. GitHub 기본 브랜치는 `main`이다.
+DeVault-macOS는 [git-flow](https://nvie.com/posts/a-successful-git-branching-model/) 기반으로 브랜치를 운영한다. GitHub 기본 브랜치는 `main`이며, `main`은 릴리즈 관련 용도로만 쓴다. `feature/`·`release/`·`hotfix/` 브랜치는 모두 `develop`에서 분기한다.
 
 ## 브랜치 구조
 
@@ -10,7 +10,7 @@ DeVault-macOS는 [git-flow](https://nvie.com/posts/a-successful-git-branching-mo
 | `develop` | 개발 기반. 모든 기능 PR의 타겟 | `main` | — |
 | `feature/#이슈번호` | 기능 개발 | `develop` | `develop` |
 | `release/버전` | 릴리즈 준비 (버전 범프, QA 수정) | `develop` | `main` + `develop` 백머지 |
-| `hotfix/버전` | 배포 버전 긴급 수정 | `main` | `main` + `develop` 백머지 |
+| `hotfix/버전` | 배포 버전 긴급 수정 | `develop` | `main` + `develop` 백머지 |
 
 ## 최초 1회 로컬 세팅
 
@@ -57,7 +57,7 @@ git tag 1.1.0 main && git push origin 1.1.0
 ### 핫픽스
 
 ```sh
-git flow hotfix start 1.1.1     # main에서 hotfix/1.1.1 분기
+git flow hotfix start 1.1.1 develop   # develop에서 hotfix/1.1.1 분기 (도구 기본값이 main이라 base를 명시)
 ```
 
 수정 후 **main 타겟으로 PR** → 머지 후 태그를 찍고 develop으로 백머지한다.
