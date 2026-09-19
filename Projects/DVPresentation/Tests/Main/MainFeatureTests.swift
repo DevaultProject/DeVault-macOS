@@ -931,6 +931,54 @@ struct MainFeatureTests {
     }
   }
 
+  // MARK: - Deleted Secret Routing
+
+  /// 상세가 조회·복사·수정의 유일한 진입점이라 여기서 끊으면 셋이 함께 막힌다. 선택 자체는 막지 않는다.
+  @Test("삭제된 시크릿을 선택하면 secretDetail을 만들지 않고 복구 안내 대상으로 잡는다")
+  func selectingDeletedSecretShowsRecoverNotice() async {
+    var deleted = Self.makeSecret(name: "삭제된 토큰")
+    deleted.deletedAt = Date()
+
+    var initial = MainFeature.State()
+    initial.secretList = .init(collection: .deleted)
+    initial.secretList.secretsState = .loaded([deleted])
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    }
+
+    await store.send(.secretList(.didSelectSecret(id: deleted.id))) {
+      $0.secretList.selectedSecretID = deleted.id
+    }
+    await store.receive(.secretList(.delegate(.secretSelected(deleted.id))))
+    #expect(store.state.secretDetail == nil)
+    #expect(store.state.deletedNoticeSecret == deleted)
+  }
+
+  @Test("삭제되지 않은 시크릿을 선택하면 복구 안내가 사라지고 상세가 열린다")
+  func selectingLiveSecretClearsRecoverNotice() async {
+    var deleted = Self.makeSecret(name: "삭제된 토큰")
+    deleted.deletedAt = Date()
+    let live = Self.makeSecret(name: "살아 있는 토큰")
+
+    var initial = MainFeature.State()
+    initial.secretList.secretsState = .loaded([deleted, live])
+    initial.secretList.selectedSecretID = deleted.id
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    }
+    #expect(store.state.deletedNoticeSecret == deleted)
+
+    await store.send(.secretList(.didSelectSecret(id: live.id))) {
+      $0.secretList.selectedSecretID = live.id
+    }
+    await store.receive(.secretList(.delegate(.secretSelected(live.id)))) {
+      $0.secretDetail = SecretDetailFeature.State(secret: live)
+    }
+    #expect(store.state.deletedNoticeSecret == nil)
+  }
+
   /// detail State는 nil을 거치지 않고 다른 시크릿으로 교체된다. `ifLet`이 이 전환을 알아보지 못하면
   /// A의 복호화 응답이 B의 State에 실려, 인증한 적 없는 B에 A의 평문과 인증 창이 열린다.
   @Test("시크릿을 바꾸면 이전 시크릿의 복호화 effect가 취소된다")
