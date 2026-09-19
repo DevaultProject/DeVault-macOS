@@ -32,6 +32,19 @@ public struct MainFeature {
     /// New▸로 요청한 타입을, 작성 중이던 폼을 취소 확인한 뒤 열기 위해 보관한다.
     var pendingCreateType: CreatableSecretType?
 
+    /// 삭제된 시크릿을 고른 상태라면 detail 컬럼에 상세 대신 그릴 복구 안내 대상.
+    ///
+    /// 저장 필드로 두지 않는다 — 상세를 닫는 경로가 여럿이라 한 곳만 빠뜨려도 안내가 남는다.
+    var deletedNoticeSecret: Secret? {
+      guard secretDetail == nil,
+            let id = secretList.selectedSecretID,
+            case .loaded(let secrets) = secretList.secretsState,
+            let secret = secrets[id: id],
+            secret.deletedAt != nil
+      else { return nil }
+      return secret
+    }
+
     /// 지금 무엇을 그릴지. **화면 분기는 이 값 하나만 본다.**
     /// 뷰에서 optional을 직접 조합하면 같은 판정이 렌더 지점마다 흩어진다.
     var screen: Screen {
@@ -199,8 +212,12 @@ public struct MainFeature {
       case .settings:
         return .none
 
+      // 삭제된 시크릿은 상세를 만들지 않는다 — 상세가 조회·복사·수정의 유일한 진입점이다.
+      //
+      // 목록의 선택이 아니라 여기서 막는다. 선택을 막으면 `List` selection이 확정되지 않아 방향키 탐색과 컨텍스트 메뉴의 영구 삭제가 키보드로 도달 불가가 된다.
       case .secretList(.delegate(.secretSelected(let id))):
-        if let id, case .loaded(let secrets) = state.secretList.secretsState, let secret = secrets[id: id] {
+        if let id, case .loaded(let secrets) = state.secretList.secretsState, let secret = secrets[id: id],
+           secret.deletedAt == nil {
           state.secretDetail = SecretDetailFeature.State(secret: secret)
         } else {
           state.secretDetail = nil

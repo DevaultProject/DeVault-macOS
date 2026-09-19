@@ -4,9 +4,6 @@ import SwiftUI
 
 import ComposableArchitecture
 import DVDesign
-#if DEBUG
-import AppKit
-#endif
 
 // MARK: - MainView
 
@@ -132,9 +129,6 @@ extension MainView {
         ideal: WindowLayoutMetrics.sidebarWidth,
         max: WindowLayoutMetrics.sidebarWidth
       )
-      #if DEBUG
-      .columnWidthProbe("sidebar", screen: store.screen)
-      #endif
   }
 
   /// 드래그 하한은 컬럼이 아니라 콘텐츠가 갖는다 — 컬럼 `min`은 분할 뷰의 required 제약으로 격상되어 다른 required와 충돌한 이력이 있어 0으로 둔다.
@@ -154,9 +148,26 @@ extension MainView {
         ideal: WindowLayoutMetrics.listIdealWidth,
         max: WindowLayoutMetrics.listMaxWidth
       )
-      #if DEBUG
-      .columnWidthProbe("content", screen: store.screen)
-      #endif
+  }
+
+  /// detail 컬럼이 상세 대신 그리는 안내. 시크릿 미선택과 삭제된 시크릿 선택이 같은 모양을 쓴다.
+  private func detailPlaceholder(
+    title: LocalizedStringResource,
+    description: LocalizedStringResource? = nil
+  ) -> some View {
+    VStack(spacing: 4) {
+      Text(title)
+        .dvFont(.captionLG)
+        .foregroundStyle(Color.dv(.gray700))
+      if let description {
+        Text(description)
+          .dvFont(.captionLG)
+          .foregroundStyle(Color.dv(.gray500))
+      }
+    }
+    .multilineTextAlignment(.center)
+    .accessibilityElement(children: .combine)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private var detailColumn: some View {
@@ -164,16 +175,20 @@ extension MainView {
       if let detailStore = store.scope(state: \.secretDetail, action: \.secretDetail) {
         SecretDetailView(store: detailStore)
           .transition(.opacity)
+      } else if store.deletedNoticeSecret != nil {
+        detailPlaceholder(
+          title: .module("This secret was deleted."),
+          description: .module("Recover it to view this secret.")
+        )
+        .transition(.opacity)
       } else {
-        Text(.module("No secret selected"))
-          .dvFont(.captionLG)
-          .foregroundStyle(Color.dv(.gray700))
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        detailPlaceholder(title: .module("No secret selected"))
           .transition(.opacity)
       }
     }
     // id로 좁힌다. State 전체로 넓히면 조회 화면 안에서 필드를 열 때마다 상세가 다시 페이드된다.
-    .dvAnimation(MotionMetrics.transition, value: store.secretDetail?.id)
+    // 안내끼리 옮겨 다닐 때는 `secretDetail`이 계속 nil이라 안내 대상 id도 함께 본다.
+    .dvAnimation(MotionMetrics.transition, value: store.secretDetail?.id ?? store.deletedNoticeSecret?.id)
     .navigationTitle("")
     // 오버레이는 밑의 뷰를 접근성 트리에서 빼 주지 않는다. 숨기지 않으면 VoiceOver가 가려진 상세를 계속 탐색한다.
     .accessibilityHidden(store.screen == .creating)
@@ -183,9 +198,6 @@ extension MainView {
       min: WindowLayoutMetrics.detailMinWidth,
       ideal: WindowLayoutMetrics.detailIdealWidth
     )
-    #if DEBUG
-    .columnWidthProbe("detail(browse)", screen: store.screen)
-    #endif
   }
 
   /// 초록 토큰이 둘뿐이라 press는 색만으로 hover와 구분되지 않아 흐림을 함께 준다.
@@ -204,163 +216,6 @@ extension MainView {
     .accessibilityLabel(String.module("Lock App"))
   }
 }
-
-// MARK: - 임시 진단 프로브 (이슈 #131)
-
-#if DEBUG
-
-/// **임시 코드다. #131 원인이 잡히면 통째로 지운다.** 15인치 이상에서 생성 화면의 가운데 컬럼이 폭 0으로
-/// 접히지 않는 현상을 발생 기기에서 실측하기 위한 로그다. 14인치(macOS 26.5.2)에서는 창 폭 1120~1710
-/// 전 구간이 정확히 0으로 접혀 재현되지 않았으므로, 필요한 값은 **그 기기의 OS·화면·컬럼 실측 폭**이다.
-///
-/// Debug로 실행해 생성 화면에 들어간 뒤 콘솔에서 `COLPROBE`로 필터해 붙여 주면 된다.
-extension View {
-
-  func columnWidthProbe(_ label: String, screen: MainFeature.State.Screen) -> some View {
-    background {
-      GeometryReader { proxy in
-        Color.clear
-          .onChange(of: proxy.size.width, initial: true) { _, width in
-            ColumnWidthProbeLog.environmentOnce()
-            ColumnWidthProbeLog.column(label, screen: screen, width: width)
-            ColumnWidthProbeLog.splitViewPanes()
-          }
-      }
-    }
-  }
-}
-
-private enum ColumnWidthProbeLog {
-
-  /// 기기·OS·화면. 재현 조건이 화면 크기인지 OS 버전인지를 이 줄로 가른다.
-  static func environmentOnce() {
-    guard !hasLoggedEnvironment else { return }
-    hasLoggedEnvironment = true
-
-    let screen = NSScreen.main
-    let frame = screen?.frame ?? .zero
-    let visible = screen?.visibleFrame ?? .zero
-    print(
-      // probe 마커는 발생 기기 로그가 어느 빌드에서 나왔는지 가르는 용도다. 프로브가 낀 커밋마다 올린다.
-      "[COLPROBE] env probe=v3-overlay model=\(hardwareModel) os=\(ProcessInfo.processInfo.operatingSystemVersionString)"
-        + " screen=\(Int(frame.width))x\(Int(frame.height))"
-        + " visible=\(Int(visible.width))x\(Int(visible.height))"
-        + " scale=\(screen?.backingScaleFactor ?? 0)"
-    )
-  }
-
-  static func column(_ label: String, screen: MainFeature.State.Screen, width: CGFloat) {
-    let window = NSApplication.shared.windows.first { $0.isVisible && $0.contentView != nil }
-    print(
-      "[COLPROBE] \(label.padding(toLength: 16, withPad: " ", startingAt: 0))"
-        + " screen=\(screen) width=\(String(format: "%7.1f", width))"
-        + " window=\(String(format: "%7.1f", window?.frame.width ?? -1))"
-        + " zoomed=\(window?.isZoomed ?? false)"
-    )
-  }
-
-  /// AppKit이 실제로 각 페인에 무엇을 걸어 두었는지. `fitting`이 0이 아니면 폭을 붙잡는 주체가
-  /// 컬럼 제약이 아니라 **콘텐츠**라는 뜻이다.
-  static func splitViewPanes() {
-    guard !isSplitViewDumpScheduled else { return }
-    isSplitViewDumpScheduled = true
-
-    // 레이아웃이 앉은 뒤에 읽어야 전환 도중 값이 아니다.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-      isSplitViewDumpScheduled = false
-
-      guard
-        let root = NSApplication.shared.windows.first(where: { $0.isVisible && $0.contentView != nil })?.contentView,
-        let splitView = firstSplitView(in: root)
-      else { return }
-
-      if let controller = splitView.delegate as? NSSplitViewController {
-        for (index, item) in controller.splitViewItems.enumerated() {
-          let pane = item.viewController.view
-          print(
-            "[COLPROBE] pane#\(index) width=\(String(format: "%7.1f", pane.frame.width))"
-              + " fitting=\(String(format: "%7.1f", pane.fittingSize.width))"
-              + " min=\(item.minimumThickness) max=\(item.maximumThickness)"
-              + " holding=\(item.holdingPriority.rawValue) collapsed=\(item.isCollapsed)"
-          )
-        }
-      } else {
-        for (index, pane) in splitView.arrangedSubviews.enumerated() {
-          print("[COLPROBE] pane#\(index) width=\(String(format: "%7.1f", pane.frame.width)) fitting=\(String(format: "%7.1f", pane.fittingSize.width)) (no controller)")
-        }
-      }
-
-      dumpMiddlePaneDetail(of: splitView)
-    }
-  }
-
-  /// 가운데 페인의 폭을 붙잡는 주체까지 한 덤프에 담는다. 발생 기기 로그는 한 번 받기가 비싸므로, `fitting>0`이면 폭을 요구하는 서브뷰 사슬이, `fitting=0`인데 폭이 남으면 그 폭을 유지시키는 제약과 기기별 복원 상태가 같은 수집에서 바로 나와야 한다.
-  private static func dumpMiddlePaneDetail(of splitView: NSSplitView) {
-    let panes = splitView.arrangedSubviews
-    guard panes.count == 3 else { return }
-    let pane = panes[1]
-
-    var budget = 40
-    dumpWidthDemanders(in: pane, depth: 0, budget: &budget)
-
-    for constraint in pane.constraintsAffectingLayout(for: .horizontal).prefix(12) {
-      print("[COLPROBE] hconstraint \(constraint)")
-    }
-
-    // 기기별로만 다른 상태는 사실상 이것뿐이다 — 다른 기기에서 같은 창 폭으로 재현되지 않는 이유가 여기 있을 수 있다.
-    print("[COLPROBE] autosaveName=\(splitView.autosaveName ?? "nil")")
-    let defaults = UserDefaults.standard.dictionaryRepresentation()
-    for key in defaults.keys.sorted() where key.localizedCaseInsensitiveContains("splitview") {
-      print("[COLPROBE] defaults \(key)=\(String(describing: defaults[key]).prefix(300))")
-    }
-  }
-
-  /// 폭을 요구하는 서브뷰 사슬을 찍는다. 리스트 행이 많아도 로그가 폭주하지 않게 40줄에서 끊고, 구조 파악을 위해 최상위 두 단계는 폭 요구가 없어도 찍는다.
-  private static func dumpWidthDemanders(in view: NSView, depth: Int, budget: inout Int) {
-    guard budget > 0, depth <= 8 else { return }
-
-    let fitting = view.fittingSize.width
-    let intrinsic = view.intrinsicContentSize.width
-    if depth <= 1 || fitting > 0.5 || intrinsic > 0.5 {
-      budget -= 1
-      let indent = String(repeating: "  ", count: depth)
-      print(
-        "[COLPROBE] \(indent)\(String(describing: type(of: view)).prefix(100))"
-          + " width=\(String(format: "%.1f", view.frame.width))"
-          + " fitting=\(String(format: "%.1f", fitting))"
-          + " intrinsic=\(String(format: "%.1f", intrinsic))"
-      )
-    }
-
-    for subview in view.subviews {
-      dumpWidthDemanders(in: subview, depth: depth + 1, budget: &budget)
-    }
-  }
-
-  private static func firstSplitView(in view: NSView) -> NSSplitView? {
-    if let splitView = view as? NSSplitView { return splitView }
-    for subview in view.subviews {
-      if let found = firstSplitView(in: subview) { return found }
-    }
-    return nil
-  }
-
-  private static var isSplitViewDumpScheduled = false
-
-  private static var hasLoggedEnvironment = false
-
-  /// `Mac15,3`처럼 기종을 식별한다 — 15인치 이상인지, Intel인지 구분하는 근거다.
-  private static var hardwareModel: String {
-    var size = 0
-    sysctlbyname("hw.model", nil, &size, nil, 0)
-    guard size > 0 else { return "unknown" }
-    var value = [CChar](repeating: 0, count: size)
-    sysctlbyname("hw.model", &value, &size, nil, 0)
-    return String(cString: value)
-  }
-}
-
-#endif
 
 // MARK: - Preview
 

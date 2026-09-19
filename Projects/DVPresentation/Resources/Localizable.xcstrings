@@ -4248,6 +4248,22 @@
         }
       }
     },
+    "Recover it to view this secret." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recover it to view this secret."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "복구해야 조회할 수 있습니다."
+          }
+        }
+      }
+    },
     "Redirect URL" : {
       "localizations" : {
         "en" : {
@@ -5338,6 +5354,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이미 사용 중인 프로젝트 이름입니다."
+          }
+        }
+      }
+    },
+    "This secret was deleted." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This secret was deleted."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제된 시크릿입니다."
           }
         }
       }
