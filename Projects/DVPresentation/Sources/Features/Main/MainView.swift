@@ -159,21 +159,45 @@ extension MainView {
       #endif
   }
 
+  /// detail 컬럼이 상세 대신 그리는 안내. 시크릿 미선택과 삭제된 시크릿 선택이 같은 모양을 쓴다.
+  private func detailPlaceholder(
+    title: LocalizedStringResource,
+    description: LocalizedStringResource? = nil
+  ) -> some View {
+    VStack(spacing: 4) {
+      Text(title)
+        .dvFont(.captionLG)
+        .foregroundStyle(Color.dv(.gray700))
+      if let description {
+        Text(description)
+          .dvFont(.captionLG)
+          .foregroundStyle(Color.dv(.gray500))
+      }
+    }
+    .multilineTextAlignment(.center)
+    .accessibilityElement(children: .combine)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
   private var detailColumn: some View {
     Group {
       if let detailStore = store.scope(state: \.secretDetail, action: \.secretDetail) {
         SecretDetailView(store: detailStore)
           .transition(.opacity)
+      } else if store.deletedNoticeSecret != nil {
+        detailPlaceholder(
+          title: .module("This secret was deleted."),
+          description: .module("Recover it to view this secret.")
+        )
+        .transition(.opacity)
       } else {
-        Text(.module("No secret selected"))
-          .dvFont(.captionLG)
-          .foregroundStyle(Color.dv(.gray700))
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        detailPlaceholder(title: .module("No secret selected"))
           .transition(.opacity)
       }
     }
     // id로 좁힌다. State 전체로 넓히면 조회 화면 안에서 필드를 열 때마다 상세가 다시 페이드된다.
-    .dvAnimation(MotionMetrics.transition, value: store.secretDetail?.id)
+    // 안내끼리 옮겨 다닐 때는 `secretDetail`이 계속 nil이라 안내 대상 id도 함께 본다.
+    .dvAnimation(MotionMetrics.transition, value: store.secretDetail?.id ?? store.deletedNoticeSecret?.id)
     .navigationTitle("")
     // 오버레이는 밑의 뷰를 접근성 트리에서 빼 주지 않는다. 숨기지 않으면 VoiceOver가 가려진 상세를 계속 탐색한다.
     .accessibilityHidden(store.screen == .creating)
