@@ -122,9 +122,16 @@ extension SecretListView {
     .listRowSeparator(.hidden)
     // 이름·날짜·만료 배지를 하나의 접근성 요소로 묶어 VoiceOver가 한 번에 읽게 한다.
     .accessibilityElement(children: .combine)
+    .accessibilityHint(rowAccessibilityHint)
     .contextMenu {
       contextMenuItems(for: secret)
     }
+  }
+
+  /// VoiceOver는 행만 읽어 탭 맥락을 얻지 못하므로, Deleted 행은 골라도 상세가 열리지 않는다는 것을 알린다. 빈 `Text`는 힌트 없음으로 취급된다.
+  private var rowAccessibilityHint: Text {
+    guard case .deleted = store.collection else { return Text(verbatim: "") }
+    return Text(.module("Recover it to view this secret."))
   }
 
   /// All/Star/Expired/Deleted 어디서든 만료 상태를 알려준다.
