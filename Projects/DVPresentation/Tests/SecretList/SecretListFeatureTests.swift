@@ -215,6 +215,21 @@ struct SecretListFeatureTests {
         await store.receive(.delegate(.secretSelected(id)))
     }
 
+    /// 선택을 막으면 방향키 탐색과 컨텍스트 메뉴(영구 삭제)가 키보드로 죽는다. 조회 차단은 `MainFeature`가 상세를 만들지 않는 것으로 한다.
+    @Test("Deleted 탭에서도 행 선택은 selectedSecretID를 갱신하고 delegate로 알린다")
+    func selectSecretInDeletedStillSelects() async {
+        let store = TestStore(initialState: SecretListFeature.State(collection: .deleted)) {
+            SecretListFeature()
+        }
+
+        let id = UUID()
+        await store.send(.didSelectSecret(id: id)) {
+            $0.selectedSecretID = id
+        }
+        await store.receive(.delegate(.secretSelected(id)))
+        #expect(store.state.alert == nil)
+    }
+
     @Test("didTapDelete는 softDelete를 호출하고 성공하면 목록을 재조회한다")
     func deleteRefetchesOnSuccess() async {
         let secret = makeSecret(name: "GitHub API Key")
