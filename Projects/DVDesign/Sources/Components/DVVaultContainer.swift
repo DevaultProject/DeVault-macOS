@@ -146,7 +146,9 @@ extension DVVaultContainer {
                 // `.help(_:)`가 List 행 안에서 안 떠서 커스텀 말풍선으로 우회한다.
                 .hoverTooltip(trailingIconTooltip)
                 // 툴팁은 마우스 전용이라 접근성 트리에 없다. 상태 문구를 VoiceOver에도 노출한다.
+                // 문구가 없으면 요소째 숨긴다 — 빈 라벨은 읽을 것 없는 요소에 VoiceOver를 멈춰 세운다.
                 .accessibilityLabel(trailingIconTooltip ?? "")
+                .accessibilityHidden(trailingIconTooltip == nil)
         }
     }
 }
