@@ -90,6 +90,8 @@ public struct SecretListFeature {
     /// `task`/`didTapRetry`와 달리 `secretsState`를 `.loading`으로 바꾸지 않아 목록이 깜빡이지 않는다 —
     /// 내부 mutation(`mutationResponse(.success)`)이 재조회하는 방식과 동일하다.
     case refresh
+    /// 다른 기기(iCloud)의 변경 알림 뒤의 재조회. `refresh`와 달리, 조회 중이던 시크릿이 재조회 결과에 없으면 선택을 풀어 상세를 닫는다 — 알림은 **어떤 id가 바뀌었는지 알려주지 않으므로** 재조회 결과와 대조하는 것 말고는 알아낼 방법이 없다.
+    case refreshRevalidatingSelection
 
     // MARK: - Internal
 
@@ -100,6 +102,8 @@ public struct SecretListFeature {
     /// 지금 조회 중이던 시크릿을 삭제·복구·영구삭제해 목록에서 사라졌을 때만 보낸다.
     /// 재조회가 끝난 뒤 남은 목록의 맨 위 항목으로 조회뷰를 옮기거나(있으면), 없으면 닫는다.
     case reselectAfterMutation
+    /// 재조회 결과에 조회 중이던 시크릿이 없으면 선택을 푼다. 남아 있으면 아무것도 하지 않는다 — 원격 변경은 사용자가 한 조작이 아니라서 ``reselectAfterMutation``처럼 다른 항목으로 옮기면 보고 있던 화면이 제멋대로 바뀐다.
+    case revalidateSelection
 
     // MARK: - Child
 
@@ -156,6 +160,13 @@ public struct SecretListFeature {
 
       case .refresh:
         return fetchSecretsEffect(query: state.query, debounced: false)
+
+      // 대조는 최신 목록을 봐야 하므로 재조회 뒤에 와야 한다(`.send`는 즉시 끝나므로 지연은 없다). 부모가 `.send(.secretList(.refresh))` 뒤에 대조를 이어 붙이는 방식으로는 안 된다 — `.send`는 자식이 돌려준 재조회 effect의 완료를 기다리지 않는다.
+      case .refreshRevalidatingSelection:
+        return .concatenate(
+          fetchSecretsEffect(query: state.query, debounced: false),
+          .send(.revalidateSelection)
+        )
 
       case .didChangeSearchText(let text):
         state.searchText = text
@@ -239,6 +250,15 @@ public struct SecretListFeature {
         let newID = secrets.first?.id
         state.selectedSecretID = newID
         return .send(.delegate(.secretSelected(newID)))
+
+      // `.loaded`가 아니면(재조회 실패) 목록이 비었는지 알 수 없다. 일시적인 오류에 상세가 닫히지 않도록 그냥 둔다.
+      case .revalidateSelection:
+        guard let id = state.selectedSecretID,
+              case .loaded(let secrets) = state.secretsState,
+              secrets[id: id] == nil
+        else { return .none }
+        state.selectedSecretID = nil
+        return .send(.delegate(.secretSelected(nil)))
 
       case .mutationResponse(.failure):
         state.alert = mutationFailureAlert()
