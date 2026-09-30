@@ -175,9 +175,10 @@ public struct MainFeature {
       case .paywall:
         return .none
 
+      // 알림은 어떤 id가 바뀌었는지 알려주지 않으므로 목록만 다시 읽는 `.refresh`로는 부족하다. 다른 기기에서 지금 조회 중인 시크릿이 삭제됐다면 상세가 그대로 떠 있어 복사·수정이 계속 가능하다 — 재조회 결과와 대조해 선택을 정리하는 `.refreshRevalidatingSelection`을 쓴다.
       case .iCloudRemoteChangeDetected:
         return .concatenate(
-          .send(.secretList(.refresh)),
+          .send(.secretList(.refreshRevalidatingSelection)),
           .send(.sidebar(.task))
         )
 

@@ -587,6 +587,108 @@ struct SecretListFeatureTests {
         #expect(store.state.selectedSecretID == viewed.id)
     }
 
+    // MARK: - 원격 변경 재조회
+
+    // 원격(iCloud) 변경 알림은 어떤 id가 바뀌었는지 알려주지 않아, 재조회 결과와 대조하는 것 말고는 사라진 시크릿을 알아낼 방법이 없다.
+    @Test("원격 변경 재조회로 조회 중이던 시크릿이 목록에서 사라지면 선택을 풀어 상세를 닫는다")
+    func remoteRefreshClearsSelectionWhenViewedSecretDisappeared() async {
+        let viewed = makeSecret(name: "다른 기기에서 삭제된 시크릿")
+        let remaining = makeSecret(name: "남은 시크릿")
+
+        var initial = SecretListFeature.State()
+        initial.secretsState = .loaded([viewed, remaining])
+        initial.selectedSecretID = viewed.id
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.secretClient.fetchByQuery = { _ in [remaining] }
+        }
+
+        await store.send(.refreshRevalidatingSelection)
+        await store.receive(.secretsResponse(.success([remaining]))) {
+            $0.secretsState = .loaded([remaining])
+            $0.collectionCount = 1
+        }
+        await store.receive(.revalidateSelection) {
+            $0.selectedSecretID = nil
+        }
+        await store.receive(.delegate(.secretSelected(nil)))
+    }
+
+    // 원격 변경은 사용자가 한 조작이 아니다. 목록에 그대로 있는데 다른 항목으로 옮기면 보고 있던 화면이 제멋대로 바뀐다.
+    @Test("원격 변경 재조회 뒤에도 조회 중이던 시크릿이 남아 있으면 선택을 유지한다")
+    func remoteRefreshKeepsSelectionWhenViewedSecretRemains() async {
+        let viewed = makeSecret(name: "조회 중인 시크릿")
+        let added = makeSecret(name: "다른 기기에서 추가된 시크릿")
+
+        var initial = SecretListFeature.State()
+        initial.secretsState = .loaded([viewed])
+        initial.selectedSecretID = viewed.id
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.secretClient.fetchByQuery = { _ in [viewed, added] }
+        }
+
+        await store.send(.refreshRevalidatingSelection)
+        await store.receive(.secretsResponse(.success([viewed, added]))) {
+            $0.secretsState = .loaded([viewed, added])
+            $0.collectionCount = 2
+        }
+        // 선택이 그대로면 `.delegate(.secretSelected)`도 나가지 않는다.
+        await store.receive(.revalidateSelection)
+        #expect(store.state.selectedSecretID == viewed.id)
+    }
+
+    // 조회가 실패하면 목록이 비었는지 알 수 없다. 여기서 선택을 풀면 일시적인 오류에 상세가 닫힌다.
+    @Test("원격 변경 재조회가 실패하면 선택을 풀지 않는다")
+    func remoteRefreshFailureKeepsSelection() async {
+        let viewed = makeSecret(name: "조회 중인 시크릿")
+
+        var initial = SecretListFeature.State()
+        initial.secretsState = .loaded([viewed])
+        initial.selectedSecretID = viewed.id
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.secretClient.fetchByQuery = { _ in throw SecretUseCaseError.unexpected }
+        }
+
+        await store.send(.refreshRevalidatingSelection)
+        await store.receive(.secretsResponse(.failure(.unexpected))) {
+            $0.secretsState = .failed(.unexpected)
+        }
+        await store.receive(.revalidateSelection)
+        #expect(store.state.selectedSecretID == viewed.id)
+    }
+
+    // `refresh`까지 대조하면 검색어를 좁혀 조회 중이던 시크릿이 결과에서 빠지는 순간 상세가 닫힌다.
+    @Test("일반 refresh는 조회 중이던 시크릿이 결과에서 빠져도 선택을 건드리지 않는다")
+    func plainRefreshKeepsSelectionWhenViewedSecretFilteredOut() async {
+        let viewed = makeSecret(name: "조회 중인 시크릿")
+
+        var initial = SecretListFeature.State()
+        initial.secretsState = .loaded([viewed])
+        initial.selectedSecretID = viewed.id
+        initial.collectionCount = 1
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.secretClient.fetchByQuery = { _ in [] }
+        }
+
+        await store.send(.refresh)
+        await store.receive(.secretsResponse(.success([]))) {
+            $0.secretsState = .loaded([])
+            $0.collectionCount = 0
+        }
+        #expect(store.state.selectedSecretID == viewed.id)
+    }
+
     // MARK: - Helpers
 
     private func makeSecret(id: UUID = UUID(), name: String) -> Secret {

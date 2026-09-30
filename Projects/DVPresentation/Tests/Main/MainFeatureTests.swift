@@ -190,6 +190,68 @@ struct MainFeatureTests {
     #expect(store.state.secretList.selectedSecretID == viewed.id)
   }
 
+  // MARK: - iCloud 원격 변경
+
+  /// 원격 변경 알림은 어떤 id가 바뀌었는지 알려주지 않는다. 재조회 결과와 대조해야만 상세를 닫을 수 있다 — 열어둔 채로 두면 이미 삭제된 시크릿을 계속 복사·수정할 수 있다.
+  @Test("다른 기기에서 조회 중이던 시크릿이 삭제되면 재조회 뒤 조회뷰가 닫힌다")
+  func iCloudRemoteDeleteOfViewedSecretClosesDetail() async {
+    let viewed = Self.makeSecret(name: "다른 기기에서 삭제된 시크릿")
+    let remaining = Self.makeSecret(name: "남은 시크릿")
+
+    var initial = MainFeature.State()
+    initial.secretList.secretsState = .loaded([viewed, remaining])
+    initial.secretList.selectedSecretID = viewed.id
+    initial.secretDetail = SecretDetailFeature.State(secret: viewed)
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    } withDependencies: {
+      $0.secretClient.fetchByQuery = { _ in [remaining] }
+      $0.sidebarClient.fetchProjects = { [] }
+      $0.sidebarClient.fetchCounts = { _, _ in SecretCounts() }
+      $0.date = .constant(Self.referenceDate)
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.iCloudRemoteChangeDetected)
+    // .off 모드에서 finish()는 effect가 보낸 액션을 state에 reduce하지 않는다. 종단 액션을 명시적으로 receive해 그 앞의 재조회·대조 체인을 모두 굴린 뒤 최종 상태만 확인한다.
+    await store.receive(.secretList(.delegate(.secretSelected(nil))))
+    await store.finish()
+
+    #expect(store.state.secretList.selectedSecretID == nil)
+    #expect(store.state.secretDetail == nil)
+    #expect(store.state.deletedNoticeSecret == nil)
+  }
+
+  /// 원격 변경마다 상세를 닫으면 다른 기기에서 무관한 시크릿 하나만 바뀌어도 보던 화면이 사라진다.
+  @Test("다른 기기의 변경이 조회 중인 시크릿과 무관하면 조회뷰는 그대로다")
+  func iCloudRemoteChangeKeepsDetailWhenViewedSecretRemains() async {
+    let viewed = Self.makeSecret(name: "조회 중인 시크릿")
+    let added = Self.makeSecret(name: "다른 기기에서 추가된 시크릿")
+
+    var initial = MainFeature.State()
+    initial.secretList.secretsState = .loaded([viewed])
+    initial.secretList.selectedSecretID = viewed.id
+    initial.secretDetail = SecretDetailFeature.State(secret: viewed)
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    } withDependencies: {
+      $0.secretClient.fetchByQuery = { _ in [viewed, added] }
+      $0.sidebarClient.fetchProjects = { [] }
+      $0.sidebarClient.fetchCounts = { _, _ in SecretCounts() }
+      $0.date = .constant(Self.referenceDate)
+    }
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
+    await store.send(.iCloudRemoteChangeDetected)
+    await store.receive(.secretList(.revalidateSelection))
+    await store.finish()
+
+    #expect(store.state.secretList.selectedSecretID == viewed.id)
+    #expect(store.state.secretDetail?.secret.id == viewed.id)
+  }
+
   // MARK: - Sidebar Delegate
 
   @Test("selectionChanged(.project)는 secretList를 해당 프로젝트로 갱신한다")
