@@ -82,6 +82,8 @@ public struct CreateSecretFeature {
 
         case projectsResponse(Result<[Project], ProjectUseCaseError>)
         case saveResponse(Result<Secret, SecretUseCaseError>)
+        /// 같은 타입에 같은 이름이 이미 있어 저장을 멈췄다.
+        case nameDuplicated
         /// 감지 엔진이 후보 서비스를 넘겨주면 `state.serviceCandidates`에 저장.
         case didDetectServiceCandidates([String])
 
@@ -218,6 +220,11 @@ public struct CreateSecretFeature {
                 state.alert = .projectLoadFailed(ProjectLoadError.map(err))
                 return .none
 
+            case .nameDuplicated:
+                state.isSaving = false
+                state.validationErrors[.name] = .module("A secret with this name already exists.")
+                return .none
+
             case .saveResponse(.success(let secret)):
                 state.isSaving = false
                 return .send(.delegate(.secretCreated(secret.id)))
@@ -290,6 +297,15 @@ public struct CreateSecretFeature {
             #endif
             return .run { [projectIds = state.meta.projectIds] send in
                 do {
+                    // 암호화보다 앞에 둔다 — 거절될 저장에 크립토 작업을 들일 이유가 없다.
+                    guard try await !secretManagementClient.isNameDuplicated(
+                        draft.name,
+                        draft.secretType,
+                        nil
+                    ) else {
+                        await send(.nameDuplicated)
+                        return
+                    }
                     let secret = try await secretManagementClient.createSecret(
                         draft: draft,
                         payload: payload,

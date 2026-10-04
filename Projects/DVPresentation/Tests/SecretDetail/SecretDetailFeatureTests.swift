@@ -1125,6 +1125,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, _, _, _ in updated }
             $0.date = .constant(Self.referenceDate)
         }
@@ -1164,6 +1165,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.authenticate = { _ in }
             $0.secretClient.updateSecret = { _, _, _, _ in updated }
             $0.date = .constant(Self.referenceDate)
@@ -1205,6 +1207,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.authenticate = { _ in
                 throw SecretUseCaseError.authenticationFailure(.cancelled)
             }
@@ -1239,6 +1242,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, _, _, _ in updated }
             $0.date = .constant(Self.referenceDate)
         }
@@ -1269,6 +1273,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, _, _, _ in throw SecretUseCaseError.unexpected }
             $0.date = .constant(Self.referenceDate)
         }
@@ -1292,6 +1297,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, patch, _, _ in
                 recorded.setValue(patch)
                 return Self.makeSecret()
@@ -1325,6 +1331,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, _, _, projectIds in
                 recorded.setValue(projectIds)
                 return Self.makeSecret()
@@ -1351,6 +1358,7 @@ struct SecretDetailFeatureTests {
         let store = TestStore(initialState: initial) {
             SecretDetailFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretClient.updateSecret = { _, _, _, projectIds in
                 recorded.setValue(projectIds)
                 return Self.makeSecret()
@@ -1409,4 +1417,63 @@ extension SecretDetailFeatureTests {
         state.mode = .editing
         return state
     }
+
+    @Test("저장 중복 이름: 수정하지 않고 name에 인라인 경고를 세운다")
+    func didTapSave_duplicateName() async {
+        var initial = Self.editingState()
+        initial.editFields?.name = "다른 토큰"
+
+        // updateSecret은 일부러 비워 둔다 — 불리면 TestStore가 unimplemented로 실패한다.
+        let store = TestStore(initialState: initial) {
+            SecretDetailFeature()
+        } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in true }
+            $0.date = .constant(Self.referenceDate)
+        }
+
+        await store.send(.didTapSave) {
+            $0.isSaving = true
+        }
+        await store.receive(.nameDuplicated) {
+            $0.isSaving = false
+            $0.validationErrors[.name] = .module("A secret with this name already exists.")
+        }
+    }
+
+    @Test("저장 중복 검사: 수정은 자기 자신을 excludingID로 뺀다")
+    func didTapSave_duplicateCheckExcludesSelf() async {
+        let secret = Self.makeSecret(name: "GitHub Token")
+        var initial = Self.editingState(secret: secret)
+        initial.editFields?.memo = "고친 메모"
+        let updated = secret
+        let passed = LockIsolated<(String, SecretType, Secret.ID?)?>(nil)
+
+        let store = TestStore(initialState: initial) {
+            SecretDetailFeature()
+        } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { name, secretType, excludingID in
+                passed.setValue((name, secretType, excludingID))
+                return false
+            }
+            $0.secretClient.updateSecret = { _, _, _, _ in updated }
+            $0.date = .constant(Self.referenceDate)
+        }
+
+        await store.send(.didTapSave) {
+            $0.isSaving = true
+        }
+        await store.receive(.saveResponse(.success(updated), saved: Self.editablePayload)) {
+            $0.isSaving = false
+            $0.mode = .viewing
+            $0.editFields = nil
+            $0.editFieldsBaseline = nil
+            $0.editPayloadBaseline = nil
+        }
+        await store.receive(.delegate(.secretUpdated(updated)))
+
+        #expect(passed.value?.0 == "GitHub Token")
+        #expect(passed.value?.1 == secret.secretType)
+        #expect(passed.value?.2 == secret.id)
+    }
+
 }
