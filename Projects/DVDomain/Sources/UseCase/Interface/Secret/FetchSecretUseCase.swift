@@ -40,10 +40,3 @@ public protocol FetchSecretUseCase: Sendable {
     /// - Returns: 해당 Secret에 연결된 Project 배열
     func fetchProjects(secretID: UUID) async throws -> [Project]
 }
-
-extension FetchSecretUseCase {
-    /// 제외할 Secret이 없는 호출(생성 화면)을 위한 편의 오버로드. 프로토콜 요구사항에는 기본값을 둘 수 없다.
-    public func isNameDuplicated(name: String, secretType: SecretType) async throws -> Bool {
-        try await isNameDuplicated(name: name, secretType: secretType, excludingID: nil)
-    }
-}

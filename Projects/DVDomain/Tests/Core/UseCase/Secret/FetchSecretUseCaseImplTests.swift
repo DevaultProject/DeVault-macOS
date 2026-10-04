@@ -124,7 +124,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken))
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken, excludingID: nil))
     }
 
     @Test("isNameDuplicated는 겹치는 이름이 없으면 false를 반환한다")
@@ -133,7 +133,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "GCP Key", secretType: .apiKeyToken) == false)
+        #expect(try await sut.isNameDuplicated(name: "GCP Key", secretType: .apiKeyToken, excludingID: nil) == false)
     }
 
     @Test("isNameDuplicated는 이름이 같아도 타입이 다르면 false를 반환한다")
@@ -142,7 +142,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .database) == false)
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .database, excludingID: nil) == false)
     }
 
     @Test("isNameDuplicated는 앞뒤 공백을 제거한 이름으로 비교한다")
@@ -151,7 +151,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "  AWS Key\n", secretType: .apiKeyToken))
+        #expect(try await sut.isNameDuplicated(name: "  AWS Key\n", secretType: .apiKeyToken, excludingID: nil))
         #expect(repo.lastContainsSecretName == "AWS Key")
     }
 
@@ -161,7 +161,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "aws key", secretType: .apiKeyToken) == false)
+        #expect(try await sut.isNameDuplicated(name: "aws key", secretType: .apiKeyToken, excludingID: nil) == false)
     }
 
     @Test("isNameDuplicated는 공백뿐인 이름이면 Repository를 부르지 않고 false를 반환한다")
@@ -170,7 +170,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "   ", secretType: .apiKeyToken) == false)
+        #expect(try await sut.isNameDuplicated(name: "   ", secretType: .apiKeyToken, excludingID: nil) == false)
         #expect(repo.containsSecretCount == 0)
     }
 
@@ -194,7 +194,7 @@ struct FetchSecretUseCaseImplTests {
         repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken, deletedAt: .now))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken) == false)
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken, excludingID: nil) == false)
     }
 
     @Test("isNameDuplicated는 만료된 Secret도 중복으로 본다")
@@ -207,7 +207,7 @@ struct FetchSecretUseCaseImplTests {
         ))
         let sut = makeSUT(repository: repo)
 
-        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken))
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken, excludingID: nil))
     }
 
     @Test("isNameDuplicated는 Repository 에러를 SecretUseCaseError로 매핑한다")
@@ -217,7 +217,7 @@ struct FetchSecretUseCaseImplTests {
         let sut = makeSUT(repository: repo)
 
         await #expect(throws: SecretUseCaseError.repositoryFailure(.persistenceFailed)) {
-            _ = try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken)
+            _ = try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken, excludingID: nil)
         }
     }
 
