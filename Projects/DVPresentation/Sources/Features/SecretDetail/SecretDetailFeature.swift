@@ -688,6 +688,10 @@ public struct SecretDetailFeature {
                 now: now
             )
 
+            // 이름을 건드리지 않은 저장은 검사하지 않는다. 같은 이름이 이미 둘 있으면(동기화·기존 데이터)
+            // 이름과 무관한 수정까지 막혀 그 시크릿을 손댈 수 없게 된다.
+            let nameChanged = fields.name != baselineFields.name
+
             return .run { [
                 id = state.secret.id,
                 name = fields.name,
@@ -695,7 +699,8 @@ public struct SecretDetailFeature {
             ] send in
                 do {
                     // 재인증보다 앞에 둔다 — 거절될 저장 때문에 생체인증 시트를 띄울 이유가 없다.
-                    guard try await !secretManagementClient.isNameDuplicated(name, secretType, id) else {
+                    if nameChanged,
+                       try await secretManagementClient.isNameDuplicated(name, secretType, id) {
                         await send(.nameDuplicated)
                         return
                     }
