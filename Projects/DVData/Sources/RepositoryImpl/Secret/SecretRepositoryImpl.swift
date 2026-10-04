@@ -128,6 +128,28 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
+    /// 개수만 세고 엔티티를 Domain으로 매핑하지 않는다.
+    public func containsSecret(
+        name: String,
+        secretType: DVDomain.SecretType,
+        excludingID: UUID?
+    ) async throws -> Bool {
+        do {
+            let descriptor = SecretFetchDescriptorBuilder.makeDuplicateNameDescriptor(
+                name: name,
+                secretType: secretType,
+                excludingID: excludingID
+            )
+            return try modelContext.fetchCount(descriptor) > 0
+        } catch {
+            Log.error(
+                "[SecretRepository] containsSecret 실패 — secretType: \(secretType), error: \(error)",
+                category: .data
+            )
+            throw SecretRepositoryError.persistenceFailed
+        }
+    }
+
     /// SecretPatch 적용하여 update
     public func patch(id: UUID, with patch: SecretPatch) async throws -> DVDomain.Secret {
         do {

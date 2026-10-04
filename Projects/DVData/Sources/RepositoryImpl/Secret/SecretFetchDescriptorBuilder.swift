@@ -45,6 +45,30 @@ enum SecretFetchDescriptorBuilder {
         return descriptor
     }
 
+    /// 휴지통만 빼고 만료 조건은 걸지 않는다 — 만료된 Secret도 이름을 계속 차지한다.
+    ///
+    /// 이름을 `==`로 비교해 **대소문자를 구분한다.** 무시하도록 바꾸려면 `caseInsensitiveCompare`는 `#Predicate` 매크로가 컴파일 단계에서 거부하므로, `localizedStandardContains`로 후보를 좁힌 뒤 메모리에서 정확 비교를 한 번 더 해야 한다.
+    static func makeDuplicateNameDescriptor(
+        name: String,
+        secretType: SecretType,
+        excludingID: UUID?
+    ) -> FetchDescriptor<SwiftDataModel.Secret> {
+        let secretTypeRawValue = secretType.rawValue
+        let hasExcludedID = excludingID != nil
+        let excludedID = excludingID ?? UUID()
+
+        var descriptor = FetchDescriptor<SwiftDataModel.Secret>(
+            predicate: #Predicate<SwiftDataModel.Secret> { secret in
+                secret.deletedAt == nil &&
+                secret.secretType == secretTypeRawValue &&
+                secret.name == name &&
+                (!hasExcludedID || secret.id != excludedID)
+            }
+        )
+        descriptor.includePendingChanges = true
+        return descriptor
+    }
+
     /// `.all`/`.liked`만 만료 조건을 추가하고, 나머지는 목록용 predicate를 그대로 쓴다.
     ///
     /// 만료일이 없는 Secret은 "만료되지 않음"으로 취급해야 하는데, `#Predicate` 안에서는 강제 언래핑을
