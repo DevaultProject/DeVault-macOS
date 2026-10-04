@@ -116,6 +116,111 @@ struct FetchSecretUseCaseImplTests {
         }
     }
 
+    // MARK: - isNameDuplicated
+
+    @Test("isNameDuplicated는 같은 타입에 같은 이름이 있으면 true를 반환한다")
+    func isNameDuplicatedFindsSameNameInSameType() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken))
+    }
+
+    @Test("isNameDuplicated는 겹치는 이름이 없으면 false를 반환한다")
+    func isNameDuplicatedReturnsFalseWhenNoMatch() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "GCP Key", secretType: .apiKeyToken) == false)
+    }
+
+    @Test("isNameDuplicated는 이름이 같아도 타입이 다르면 false를 반환한다")
+    func isNameDuplicatedSeparatesSecretType() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .database) == false)
+    }
+
+    @Test("isNameDuplicated는 앞뒤 공백을 제거한 이름으로 비교한다")
+    func isNameDuplicatedTrimsName() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "  AWS Key\n", secretType: .apiKeyToken))
+        #expect(repo.lastContainsSecretName == "AWS Key")
+    }
+
+    @Test("isNameDuplicated는 대소문자가 다르면 false를 반환한다")
+    func isNameDuplicatedIsCaseSensitive() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "aws key", secretType: .apiKeyToken) == false)
+    }
+
+    @Test("isNameDuplicated는 공백뿐인 이름이면 Repository를 부르지 않고 false를 반환한다")
+    func isNameDuplicatedShortCircuitsBlankName() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "   ", secretType: .apiKeyToken) == false)
+        #expect(repo.containsSecretCount == 0)
+    }
+
+    @Test("isNameDuplicated는 excludingID가 가리키는 Secret을 비교에서 뺀다")
+    func isNameDuplicatedExcludesGivenID() async throws {
+        let repo = InMemorySecretRepository()
+        let editing = SecretFixture.make(id: UUID(), name: "AWS Key", secretType: .apiKeyToken)
+        repo.seed(editing)
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(
+            name: "AWS Key",
+            secretType: .apiKeyToken,
+            excludingID: editing.id
+        ) == false)
+    }
+
+    @Test("isNameDuplicated는 휴지통의 Secret을 중복으로 보지 않는다")
+    func isNameDuplicatedIgnoresTrashedSecret() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(name: "AWS Key", secretType: .apiKeyToken, deletedAt: .now))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken) == false)
+    }
+
+    @Test("isNameDuplicated는 만료된 Secret도 중복으로 본다")
+    func isNameDuplicatedCountsExpiredSecret() async throws {
+        let repo = InMemorySecretRepository()
+        repo.seed(SecretFixture.make(
+            name: "AWS Key",
+            secretType: .apiKeyToken,
+            expiresAt: Date.now.addingTimeInterval(-86_400)
+        ))
+        let sut = makeSUT(repository: repo)
+
+        #expect(try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken))
+    }
+
+    @Test("isNameDuplicated는 Repository 에러를 SecretUseCaseError로 매핑한다")
+    func isNameDuplicatedMapsRepositoryError() async {
+        let repo = InMemorySecretRepository()
+        repo.errorOnContainsSecret = .persistenceFailed
+        let sut = makeSUT(repository: repo)
+
+        await #expect(throws: SecretUseCaseError.repositoryFailure(.persistenceFailed)) {
+            _ = try await sut.isNameDuplicated(name: "AWS Key", secretType: .apiKeyToken)
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeSUT(repository: InMemorySecretRepository) -> FetchSecretUseCaseImpl {

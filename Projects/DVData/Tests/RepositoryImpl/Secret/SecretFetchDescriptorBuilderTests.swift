@@ -24,12 +24,13 @@ struct SecretFetchDescriptorBuilderTests {
     private func insertSecret(
         in context: ModelContext,
         name: String,
+        secretType: String = "apiKeyToken",
         expiresAt: Date?,
         deletedAt: Date? = nil
     ) -> SwiftDataModel.Secret {
         let secret = SwiftDataModel.Secret(
             name: name,
-            secretType: "apiKeyToken",
+            secretType: secretType,
             expiresAt: expiresAt,
             deletedAt: deletedAt
         )
@@ -63,5 +64,65 @@ struct SecretFetchDescriptorBuilderTests {
 
         let names = Set(fetched.map(\.name))
         #expect(names == ["정각 만료", "3일 후", "정각 7일 후"])
+    }
+
+    // MARK: - 중복 이름 검사
+
+    @Test("중복 이름 descriptor는 휴지통·다른 타입·대소문자가 다른 이름을 세지 않는다")
+    func duplicateNameDescriptorNarrowsToSameTypeAndExactName() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        insertSecret(in: context, name: "AWS Key", expiresAt: nil)
+        insertSecret(in: context, name: "AWS Key", secretType: "database", expiresAt: nil)
+        insertSecret(in: context, name: "aws key", expiresAt: nil)
+        insertSecret(in: context, name: "AWS Key", expiresAt: nil, deletedAt: Self.referenceDate)
+        try context.save()
+
+        let descriptor = SecretFetchDescriptorBuilder.makeDuplicateNameDescriptor(
+            name: "AWS Key",
+            secretType: .apiKeyToken,
+            excludingID: nil
+        )
+
+        #expect(try context.fetchCount(descriptor) == 1)
+    }
+
+    @Test("중복 이름 descriptor는 만료된 Secret도 센다")
+    func duplicateNameDescriptorCountsExpiredSecret() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        insertSecret(in: context, name: "AWS Key", expiresAt: Self.referenceDate.addingTimeInterval(-86_400))
+        try context.save()
+
+        let descriptor = SecretFetchDescriptorBuilder.makeDuplicateNameDescriptor(
+            name: "AWS Key",
+            secretType: .apiKeyToken,
+            excludingID: nil
+        )
+
+        #expect(try context.fetchCount(descriptor) == 1)
+    }
+
+    @Test("중복 이름 descriptor는 excludingID가 가리키는 Secret만 뺀다")
+    func duplicateNameDescriptorExcludesOnlyGivenID() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let editing = insertSecret(in: context, name: "AWS Key", expiresAt: nil)
+        insertSecret(in: context, name: "AWS Key", expiresAt: nil)
+        try context.save()
+
+        func count(excludingID: UUID?) throws -> Int {
+            try context.fetchCount(SecretFetchDescriptorBuilder.makeDuplicateNameDescriptor(
+                name: "AWS Key",
+                secretType: .apiKeyToken,
+                excludingID: excludingID
+            ))
+        }
+
+        #expect(try count(excludingID: editing.id) == 1)
+        #expect(try count(excludingID: nil) == 2)
     }
 }
