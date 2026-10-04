@@ -14,6 +14,9 @@ extension SecretManagementClient: @retroactive DependencyKey {
             cryptoService: cryptoService,
             entitlementUseCase: LiveUseCases.entitlement
         )
+        let fetchUseCase: any FetchSecretUseCase = FetchSecretUseCaseImpl(
+            repository: LiveRepositories.secret
+        )
         return SecretManagementClient(
             createSecret: { draft, payload, projectIds in
                 let secret = try await dispatchCreateSecret(
@@ -24,6 +27,13 @@ extension SecretManagementClient: @retroactive DependencyKey {
                 )
                 await LiveUseCases.expirySchedule.schedule(secret: secret)
                 return secret
+            },
+            isNameDuplicated: { name, secretType, excludingID in
+                try await fetchUseCase.isNameDuplicated(
+                    name: name,
+                    secretType: secretType,
+                    excludingID: excludingID
+                )
             }
         )
     }()
