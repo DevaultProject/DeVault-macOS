@@ -17,6 +17,13 @@ public struct SecretManagementClient: Sendable {
         _ payload: CreateSecretPayload,
         _ projectIds: [UUID]
     ) async throws -> Secret
+
+    /// 같은 타입에 같은 이름의 시크릿이 이미 있는지 확인한다. 생성·수정의 저장 직전 가드용이며, `excludingID`는 수정 화면이 자기 자신을 뺄 때만 채운다.
+    public var isNameDuplicated: @Sendable (
+        _ name: String,
+        _ secretType: SecretType,
+        _ excludingID: Secret.ID?
+    ) async throws -> Bool
 }
 
 extension SecretManagementClient: TestDependencyKey {
@@ -58,7 +65,8 @@ extension SecretManagementClient: TestDependencyKey {
                 ),
                 metadata: nil
             )
-        }
+        },
+        isNameDuplicated: { _, _, _ in false }
     )
 }
 
