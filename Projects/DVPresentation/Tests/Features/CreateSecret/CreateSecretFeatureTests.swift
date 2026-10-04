@@ -253,6 +253,7 @@ struct CreateSecretFeatureTests {
         let store = TestStore(initialState: initialState) {
             CreateSecretFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretManagementClient.createSecret = { _, _, _ in createdSecret }
         }
 
@@ -291,6 +292,7 @@ struct CreateSecretFeatureTests {
         let store = TestStore(initialState: initialState) {
             CreateSecretFeature()
         } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in false }
             $0.secretManagementClient.createSecret = { draft, _, _ in
                 capturedDraft.setValue(draft)
                 return createdSecret
@@ -479,6 +481,68 @@ struct CreateSecretFeatureTests {
         state.isSaving = true
         #expect(state.isSaveEnabled == false)
     }
+    @Test("didTapSave 중복 이름: 생성하지 않고 name에 인라인 경고를 세운다")
+    func didTapSave_duplicateName() async {
+        var initialState = CreateSecretFeature.State(secretType: .apiKeyToken)
+        initialState.meta.name = "MyKey"
+        initialState.meta.content = .apiKeyToken(APIKeyTokenFields(value: "sk_test"))
+
+        // createSecret은 일부러 비워 둔다 — 불리면 TestStore가 unimplemented로 실패한다.
+        let store = TestStore(initialState: initialState) {
+            CreateSecretFeature()
+        } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { _, _, _ in true }
+        }
+
+        await store.send(.didTapSave) {
+            $0.isSaving = true
+        }
+        await store.receive(.nameDuplicated) {
+            $0.isSaving = false
+            $0.validationErrors[.name] = .module("A secret with this name already exists.")
+        }
+    }
+
+    @Test("didTapSave 중복 검사: 생성은 제외할 시크릿이 없으므로 excludingID가 nil이다")
+    func didTapSave_duplicateCheckPassesNilExcludingID() async {
+        var initialState = CreateSecretFeature.State(secretType: .apiKeyToken)
+        initialState.meta.name = "  MyKey  "
+        initialState.meta.content = .apiKeyToken(APIKeyTokenFields(value: "sk_test"))
+
+        let created = Secret(
+            id: UUID(),
+            name: "MyKey",
+            secretType: .apiKeyToken,
+            subType: .apiKey,
+            createdAt: Date(),
+            updatedAt: Date(),
+            payload: SecretPayload(encryptedData: Data(), keyTag: "test", schemaVersion: 1)
+        )
+        let passed = LockIsolated<(String, SecretType, Secret.ID?)?>(nil)
+
+        let store = TestStore(initialState: initialState) {
+            CreateSecretFeature()
+        } withDependencies: {
+            $0.secretManagementClient.isNameDuplicated = { name, secretType, excludingID in
+                passed.setValue((name, secretType, excludingID))
+                return false
+            }
+            $0.secretManagementClient.createSecret = { _, _, _ in created }
+        }
+
+        await store.send(.didTapSave) {
+            $0.isSaving = true
+        }
+        await store.receive(.saveResponse(.success(created))) {
+            $0.isSaving = false
+        }
+        await store.receive(.delegate(.secretCreated(created.id)))
+
+        #expect(passed.value?.0 == "  MyKey  ")
+        #expect(passed.value?.1 == .apiKeyToken)
+        #expect(passed.value?.2 == nil)
+    }
+
 }
 
 // MARK: - Error mapping unit tests

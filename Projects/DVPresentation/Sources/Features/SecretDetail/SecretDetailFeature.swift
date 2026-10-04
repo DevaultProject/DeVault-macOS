@@ -200,6 +200,8 @@ public struct SecretDetailFeature {
         /// 저장 응답. 방금 저장한 payload를 함께 싣는다 — 성공 시 `payloadState`를 그 값으로 바꿔야
         /// 조회로 돌아갔을 때 눈 버튼이 저장 전 값을 보여주지 않는다.
         case saveResponse(Result<Secret, SecretUseCaseError>, saved: CreateSecretPayload)
+        /// 같은 타입에 같은 이름이 이미 있어 저장을 멈췄다.
+        case nameDuplicated
         /// 앱 수준 사건. 정책이 무효화 대상으로 보면 인증 창과 열린 필드를 모두 닫는다.
         case lifecycleEvent(AppLifecycleEvent)
         case deleteResponse(Result<Secret, SecretUseCaseError>)
@@ -257,6 +259,7 @@ public struct SecretDetailFeature {
     // MARK: - Dependencies
 
     @Dependency(\.secretClient) var secretClient
+    @Dependency(\.secretManagementClient) var secretManagementClient
     @Dependency(\.entitlementClient) var entitlementClient
     @Dependency(\.appLifecycleClient) var appLifecycleClient
     @Dependency(\.revealAuthPolicy) var revealAuthPolicy
@@ -568,6 +571,11 @@ public struct SecretDetailFeature {
             case .didTapSave:
                 return handleSave(&state)
 
+            case .nameDuplicated:
+                state.isSaving = false
+                state.validationErrors[.name] = .module("A secret with this name already exists.")
+                return .none
+
             case .saveResponse(.success(let updated), let saved):
                 state.isSaving = false
                 state.secret = updated
@@ -680,8 +688,17 @@ public struct SecretDetailFeature {
                 now: now
             )
 
-            return .run { [id = state.secret.id] send in
+            return .run { [
+                id = state.secret.id,
+                name = fields.name,
+                secretType = state.secret.secretType
+            ] send in
                 do {
+                    // 재인증보다 앞에 둔다 — 거절될 저장 때문에 생체인증 시트를 띄울 이유가 없다.
+                    guard try await !secretManagementClient.isNameDuplicated(name, secretType, id) else {
+                        await send(.nameDuplicated)
+                        return
+                    }
                     if needsAuthentication {
                         try await secretClient.authenticate(.editSecret)
                         await send(.saveAuthenticated)
