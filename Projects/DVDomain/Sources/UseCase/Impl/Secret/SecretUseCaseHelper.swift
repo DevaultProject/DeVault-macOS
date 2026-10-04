@@ -33,9 +33,14 @@ enum SecretUseCaseHelper {
 
     /// 생성·수정이 공유하는 이름 규칙. 앞뒤 공백을 제거하고, 남는 것이 없으면 거부합니다.
     private static func normalizedName(_ rawName: String) throws -> String {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw SecretUseCaseError.invalidName }
+        guard let name = comparableName(rawName) else { throw SecretUseCaseError.invalidName }
         return name
+    }
+
+    /// 중복 검사가 쓰는 이름. 저장과 같은 trim 규칙을 거쳐야 "저장은 됐는데 중복 검사는 통과"하는 틈이 안 생깁니다. 빈 이름에 던지지 않는 것은 타이핑 도중에도 불리기 때문입니다 — 아직 비교할 것이 없는 상태이지 오류가 아닙니다.
+    static func comparableName(_ rawName: String) -> String? {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     private static func endOfDay(_ date: Date) -> Date {
