@@ -12,7 +12,7 @@ public enum CreatableSecretType: String, CaseIterable, Hashable {
     case environmentVariableSet
     case etc
     
-    /// CreateSecret 화면의 상단 타이틀 라벨. String Catalog 룩업 대상.
+    /// String Catalog 룩업 대상이다.
     var displayName: LocalizedStringResource {
         switch self {
         case .apiKeyToken:            return .module("API Keys/Token")
@@ -24,7 +24,7 @@ public enum CreatableSecretType: String, CaseIterable, Hashable {
         }
     }
     
-    /// 상단 서브 탭바를 구성할 하위 타입 목록. 빈 배열이면 탭바 미표시.
+    /// 빈 배열이면 상단 서브 탭바가 표시되지 않는다.
     var availableSubTypes: [CreatableSecretSubType] {
         switch self {
         case .apiKeyToken:            return [.apiKey, .accessToken, .webhookSecret]
@@ -36,7 +36,6 @@ public enum CreatableSecretType: String, CaseIterable, Hashable {
         }
     }
     
-    /// 도메인 enum으로 변환할 때 사용.
     var domainType: SecretType {
         switch self {
         case .apiKeyToken:            return .apiKeyToken
@@ -48,7 +47,7 @@ public enum CreatableSecretType: String, CaseIterable, Hashable {
         }
     }
 
-    /// 타입 선택 화면의 카드 아이콘. SecretList 아바타 폴백과 동일한 소스(`SecretType.icon`)를 쓴다.
+    /// SecretList 아바타 폴백과 동일한 소스(`SecretType.icon`)를 쓴다.
     var icon: Image {
         domainType.icon
     }

@@ -240,11 +240,8 @@ private extension DVMultiSelectDropdown {
 // MARK: - PopoverContent
 
 /// 팝오버 본문. **선택 상태를 직접 소유하고** 바깥에는 `onSelectionChange`로 알린다.
-///
-/// 부모가 소유하면 항목을 연속으로 누를 때 **방금 누른 행만 갱신되고 이전에 누른 행들은 옛 체크
-/// 상태로 남는다.** 팝오버가 별도 윈도우에 호스팅되어 부모의 상태 변경이 이 서브트리까지 내려오지
-/// 않기 때문이며, `@Binding`으로 넘기든 값 + 콜백으로 넘기든 똑같이 재현된다. 전달 방식이 아니라
-/// 갱신 도달 여부의 문제라, 소유권을 안으로 옮겨 갱신이 이 서브트리 안에서 끝나게 해야 한다.
+/// 부모가 소유하면, 팝오버가 별도 윈도우에 호스팅돼 부모의 상태 변경이 이 서브트리까지 내려오지
+/// 않아 연속으로 누를 때 방금 누른 행만 갱신되고 이전 행은 옛 체크 상태로 남는다.
 private struct PopoverContentView<Item: Identifiable>: View {
 
     let items: [Item]

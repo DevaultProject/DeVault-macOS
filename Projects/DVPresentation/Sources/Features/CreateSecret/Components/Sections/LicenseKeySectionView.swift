@@ -42,8 +42,7 @@ struct LicenseKeySectionView: View, CreateSecretSectionHintProviding {
             memo: $memo
         ) {
             LabeledTextFieldView(
-                // "License Key"는 위 서브타입 선택 버튼과 같은 문자열이라 그걸 쓰면 String Catalog
-                // 키가 겹친다 — 버튼은 영어로 고정하고 싶어서 이 필드만 별도 키로 분리한다.
+                // "License Key"는 서브타입 선택 버튼과 String Catalog 키가 겹쳐 별도 키로 분리한다.
                 label: .module("License Key Value"),
                 placeholder: .module("e.g XXXXX-XXXXX-XXXXX-XXXXX"),
                 text: $licenseKey.licenseKey,

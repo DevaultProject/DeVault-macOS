@@ -3,25 +3,23 @@
 import ComposableArchitecture
 import DVDomain
 
-/// 구독 구매 Flow Client. 페이월이 쓴다.
-///
-/// 가격은 `SubscriptionProduct.displayPrice`를 그대로 쓴다. 직접 포맷하면 통화 기호와 자릿수가 지역에 따라 어긋난다. 월 환산도 `monthlyEquivalentPrice`로 이미 계산돼 온다.
+/// 가격은 `SubscriptionProduct.displayPrice`를 그대로 쓴다 — 직접 포맷하면 통화 기호와 자릿수가 지역에 따라 어긋난다. 월 환산도 `monthlyEquivalentPrice`로 이미 계산돼 온다.
 @DependencyClient
 public struct PurchaseClient: Sendable {
 
-    /// 페이월에 표시할 상품. 기간이 짧은 것부터 정렬돼 온다.
+    /// 기간이 짧은 것부터 정렬돼 온다.
     public var products: @Sendable () async throws -> [SubscriptionProduct]
 
-    /// 상품을 구매한다. `.userCancelled`는 오류가 아니므로 알럿을 띄우지 않는다.
+    /// `.userCancelled`는 오류가 아니므로 알럿을 띄우지 않는다.
     public var purchase: @Sendable (_ productID: String) async throws -> PurchaseResult
 
     /// 기기를 바꾼 사용자를 위해 구매 이력을 동기화한다.
     public var restore: @Sendable () async throws -> Void
 
-    /// 구독 설정 화면에 표시할 현재 상태. 게이트 판정에는 쓰지 않는다.
+    /// 게이트 판정에는 쓰지 않는다.
     public var subscriptionStatus: @Sendable () async -> SubscriptionStatus = { .free }
 
-    /// 등급 캐시를 StoreKit에 다시 물어 갱신한다. `Transaction.updates`가 아직 반영 전일 때
+    /// `Transaction.updates`가 아직 반영 전일 때
     /// 사용자가 수동으로 강제 재조회할 수 있는 탈출구다("방금 결제했는데 왜 무료로 보이지").
     public var refreshEntitlement: @Sendable () async -> Void = {}
 

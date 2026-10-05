@@ -9,11 +9,9 @@ import DVDomain
 
 /// Secret 조회/복호화 실패 시 Presentation 계층 오류.
 enum SecretDetailError: Equatable {
-    /// 생체인증·패스코드 인증 요구.
     case authRequired
     /// 복호화 실패 (키 없음·복호화 오류·디코딩 실패).
     case decryptionFailed
-    /// 그 외 예기치 않은 오류.
     case unexpected
 
     static func map(_ error: SecretUseCaseError) -> SecretDetailError {
@@ -95,10 +93,9 @@ extension AlertState where Action == SecretDetailFeature.Action.Alert {
         }
     }
 
-    /// 이 시크릿에 **연결된** 프로젝트 조회 실패. 재시도를 제공하는 유일한 alert다.
-    ///
-    /// 연결을 모르는 채로 수정에 들어가면 편집 baseline이 빈 목록이 되어 저장할 때
-    /// **실제 연결이 조용히 끊긴다.** 읽을 때까지 수정을 막으므로 복구 경로가 필요하다.
+    /// 이 시크릿에 **연결된** 프로젝트 조회 실패. 재시도를 제공하는 유일한 alert다. 연결을 모르는 채로
+    /// 수정에 들어가면 편집 baseline이 빈 목록이 되어 저장할 때 **실제 연결이 조용히 끊긴다.**
+    /// 읽을 때까지 수정을 막으므로 복구 경로가 필요하다.
     static var linkedProjectsLoadFailed: Self {
         Self {
             TextState("Failed to load linked projects", bundle: .module)

@@ -50,8 +50,8 @@ public struct SidebarFeature {
 
   @ObservableState
   public struct State: Equatable {
-    /// 사이드바가 지금 무엇을 하고 있는지. **강조 판정은 여기서만 파생된다.**
-    /// 선택과 생성 여부를 두 필드로 나눠 두면 조합 규칙이 뷰와 리듀서에 따로 생겨 어긋난다.
+    /// **강조 판정은 여기서만 파생된다.** 선택과 생성 여부를 두 필드로 나눠 두면 조합 규칙이
+    /// 뷰와 리듀서에 따로 생겨 어긋난다.
     public internal(set) var mode: Mode = .browsing(.filter(.all))
     public internal(set) var isProjectSectionExpanded: Bool = true
 
@@ -61,7 +61,7 @@ public struct SidebarFeature {
       case creating(previous: SidebarSelection)
     }
 
-    /// 지금 강조할 항목. **뷰와 리듀서가 함께 보는 단일 기준이다.**
+    /// **뷰와 리듀서가 함께 보는 단일 기준이다.**
     public var highlighted: SidebarSelection? {
       guard case .browsing(let selection) = mode else { return nil }
       return selection
@@ -113,9 +113,8 @@ public struct SidebarFeature {
     // MARK: - View
 
     case task
-    /// 이미 불러온 목록을 다시 읽는다. `task`와 달리 `.loading`으로 되돌리지 않아
-    /// 화면에서 목록이 사라졌다 나타나지 않는다 — 프로젝트 추가·이름 변경처럼 이미 보고 있는
-    /// 목록이 조금 달라지는 경우에 쓴다.
+    /// `task`와 달리 `.loading`으로 되돌리지 않아 화면에서 목록이 사라졌다 나타나지 않는다 —
+    /// 프로젝트 추가·이름 변경처럼 이미 보고 있는 목록이 조금 달라지는 경우에 쓴다.
     case refresh
     case didSelect(SidebarSelection)
     case didTapAddButton
@@ -232,18 +231,13 @@ public struct SidebarFeature {
         state.countsState = .failed(error)
         return .none
 
-      // 이미 강조된 항목을 다시 눌러도 macOS List는 선택 이벤트를 보낸다. 흘려보내면
-      // 목록 State가 새로 만들어져 버려진다.
-      //
-      // `selection`이 아니라 `highlighted`를 본다 — 생성 중에는 강조가 없어야 같은 필터를
-      // 다시 눌러 목록으로 돌아갈 수 있다.
+      // 이미 강조된 항목을 다시 눌러도 macOS List는 선택 이벤트를 보낸다 — 흘려보내면 목록 State가 버려진다.
+      // `selection`이 아니라 `highlighted`를 본다 — 생성 중에는 강조가 없어야 같은 필터로 돌아갈 수 있다.
       case .didSelect(let selection) where state.highlighted == selection:
         return .none
 
-      // 생성 중이면 `previous`를 건드리지 않고 알리기만 한다. 이 선택은 아직 확정이 아니라
-      // 부모가 띄우는 "변경사항을 버릴까요?"를 거쳐야 하고, 계속 편집을 고르면 없던 일이
-      // 돼야 한다. 여기서 갈아두면 되돌릴 방법이 없어 강조와 목록이 어긋난 채 남는다.
-      // 확정됐을 때 목적지를 옮기는 것은 부모의 몫이다(`MainFeature`).
+      // 생성 중엔 선택이 아직 확정이 아니다 — 부모의 "변경사항을 버릴까요?" 확인을 거쳐야 해서
+      // `mode`를 바꾸지 않고 알리기만 한다. 확정됐을 때 목적지를 옮기는 건 부모의 몫이다.
       case .didSelect(let selection):
         if case .browsing = state.mode {
           state.mode = .browsing(selection)
@@ -273,7 +267,7 @@ public struct SidebarFeature {
         state.renameText = text
         return .none
 
-      // 강조만 끄고 켠다. "돌아갈 곳"은 유지해야 생성을 마치고 보던 목록으로 돌아간다.
+      // "돌아갈 곳"은 유지해야 생성을 마치고 보던 목록으로 돌아간다.
       case .setCreatingSecret(let value):
         switch (value, state.mode) {
         case (true, .browsing(let selection)):
@@ -297,7 +291,7 @@ public struct SidebarFeature {
           state.renameText = ""
           return .none
         }
-        return .run { [id, name] send in  // 캡처 리스트 명시
+        return .run { [id, name] send in
           do {
             let updated = try await sidebarClient.renameProject(id, name)
             await send(.renameResponse(projectID: id, .success(updated)))
@@ -342,13 +336,13 @@ public struct SidebarFeature {
       case .didTapDelete(id: let id):
         guard let project = state.projects[id: id] else { return .none }
         state.deletingProjectID = id
-        state.alert = makeDeleteAlert(for: project)  // helper로 분리
+        state.alert = makeDeleteAlert(for: project)
         return .none
 
       case .alert(.presented(.confirmDelete)):
         guard let id = state.deletingProjectID else { return .none }
         state.deletingProjectID = nil
-        return .run { [id] send in  // 캡처 리스트 명시
+        return .run { [id] send in
           do {
             try await sidebarClient.deleteProject(id)
             await send(.deleteResponse(.success(id)))
@@ -393,8 +387,7 @@ public struct SidebarFeature {
 
 private extension SidebarFeature {
 
-  /// 프로젝트 목록 조회. `task`(최초)와 `refresh`(재조회)가 공유하며, 다른 것은 호출 전에
-  /// `.loading`으로 되돌리는지 여부뿐이다.
+  /// `task`(최초)와 `refresh`(재조회)가 공유하며, 다른 것은 호출 전에 `.loading`으로 되돌리는지 여부뿐이다.
   func fetchProjectsEffect() -> Effect<Action> {
     .run { send in
       do {
@@ -409,7 +402,7 @@ private extension SidebarFeature {
     .cancellable(id: CancelID.fetch, cancelInFlight: true)
   }
 
-  /// 필터·프로젝트 개수 집계. 생성/삭제가 연달아 일어나면 직전 집계는 취소한다 (E3).
+  /// 생성/삭제가 연달아 일어나면 직전 집계는 취소한다 (E3).
   func countsEffect(projectIDs: [ProjectItem.ID]) -> Effect<Action> {
     .run { [now] send in
       do {

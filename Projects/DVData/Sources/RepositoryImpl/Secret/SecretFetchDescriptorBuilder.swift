@@ -5,7 +5,6 @@ import SwiftData
 
 import DVDomain
 
-/// Domain의 SecretQuery를 SwiftData의 FetchDescriptor<SwiftDataModel.Secret>로 바꾸는 타입
 enum SecretFetchDescriptorBuilder {
     static func make(from query: SecretQuery) -> FetchDescriptor<SwiftDataModel.Secret> {
         var descriptor = FetchDescriptor<SwiftDataModel.Secret>(
@@ -16,11 +15,10 @@ enum SecretFetchDescriptorBuilder {
         return descriptor
     }
 
-    /// 개수 집계 전용 descriptor. 정렬은 개수에 영향이 없으므로 생략한다.
-    ///
-    /// `fetch` 경로는 SwiftData predicate를 통과한 뒤 `InMemorySecretQueryFilter`가 만료 항목을 한 번 더
-    /// 걸러내지만, 개수 집계는 엔티티를 메모리로 올리지 않으므로 그 규칙을 predicate에 직접 넣어야
-    /// 목록에 보이는 개수와 수치가 일치한다. (규칙 원본: `InMemorySecretQueryFilter.matchesExpiry`)
+    /// 정렬은 개수에 영향이 없으므로 생략한다. `fetch` 경로는 SwiftData predicate를 통과한 뒤
+    /// `InMemorySecretQueryFilter`가 만료 항목을 한 번 더 걸러내지만, 개수 집계는 엔티티를 메모리로
+    /// 올리지 않으므로 그 규칙을 predicate에 직접 넣어야 목록에 보이는 개수와 수치가 일치한다.
+    /// (규칙 원본: `InMemorySecretQueryFilter.matchesExpiry`)
     ///
     /// `searchText`는 반영하지 않는다 — 사이드바 카운트는 검색어와 무관한 전체 개수를 보여준다.
     static func makeCountDescriptor(
@@ -34,9 +32,8 @@ enum SecretFetchDescriptorBuilder {
         return descriptor
     }
 
-    /// 휴지통만 제외하는 개수 집계용 descriptor를 만든다. 컬렉션·검색·만료 조건을 일절 걸지 않는다.
-    ///
-    /// 무료 티어 한도 계산 전용이다. `makeCountDescriptor`는 사이드바 배지용이라 `.all`에 만료 조건이 붙어 있어, 한도 계산에 쓰면 만료된 Secret만큼 적게 세어진다.
+    /// 컬렉션·검색·만료 조건을 일절 걸지 않는다. 무료 티어 한도 계산 전용이다 — `makeCountDescriptor`는
+    /// 사이드바 배지용이라 `.all`에 만료 조건이 붙어 있어, 한도 계산에 쓰면 만료된 Secret만큼 적게 세어진다.
     static func makeTotalCountExcludingTrashDescriptor() -> FetchDescriptor<SwiftDataModel.Secret> {
         var descriptor = FetchDescriptor<SwiftDataModel.Secret>(
             predicate: #Predicate<SwiftDataModel.Secret> { $0.deletedAt == nil }
@@ -45,10 +42,9 @@ enum SecretFetchDescriptorBuilder {
         return descriptor
     }
 
-    /// `.all`/`.liked`만 만료 조건을 추가하고, 나머지는 목록용 predicate를 그대로 쓴다.
-    ///
-    /// 만료일이 없는 Secret은 "만료되지 않음"으로 취급해야 하는데, `#Predicate` 안에서는 강제 언래핑을
-    /// 쓸 수 없다(SwiftData가 SQL로 번역하지 못해 fetch 시점에 실패한다). `?? .distantFuture`로 대체한다.
+    /// `.all`/`.liked`만 만료 조건을 추가하고, 나머지는 목록용 predicate를 그대로 쓴다. 만료일이 없는
+    /// Secret은 "만료되지 않음"으로 취급해야 하는데, `#Predicate` 안에서는 강제 언래핑을 쓸 수 없다
+    /// (SwiftData가 SQL로 번역하지 못해 fetch 시점에 실패한다). `?? .distantFuture`로 대체한다.
     private static func countPredicate(
         from query: SecretQuery,
         referenceDate: Date
