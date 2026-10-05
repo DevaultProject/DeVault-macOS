@@ -15,8 +15,8 @@ public struct SecretListFeature {
   @ObservableState
   public struct State: Equatable {
     public let collection: SecretQuery.Collection
-    /// `.project`일 때 표시할 프로젝트 이름. `SecretQuery.Collection.project`은 id만 가지고 있어서,
-    /// 어떤 프로젝트인지 알고 있는 호출부(사이드바)가 이름을 함께 넘겨준다.
+    /// `SecretQuery.Collection.project`은 id만 가지고 있어서, 어떤 프로젝트인지 알고 있는 호출부(사이드바)가
+    /// 이름을 함께 넘겨준다.
     public internal(set) var projectName: String?
     public internal(set) var secretsState: LoadingState<IdentifiedArrayOf<Secret>, SecretUseCaseError> = .idle
     public internal(set) var selectedSecretID: Secret.ID?
@@ -31,13 +31,10 @@ public struct SecretListFeature {
       self.projectName = projectName
     }
 
-    /// 다른 대상을 보도록 바꾼다. **State를 직접 갈아끼우지 말고 이걸 쓴다.**
-    ///
-    /// 대상이 같으면 목록을 그대로 둔다. 새로 만들면 `secretsState`가 비는데 뷰의
-    /// `.task(id: collection)`은 `collection`이 그대로라 다시 돌지 않아 빈 화면이 남는다.
-    ///
-    /// **데이터가 무효해진 경우에는 쓰지 않는다** — 저장소 전환은 이전 시크릿이 남으면 안 되므로
-    /// 통째로 새로 만든다(`MainFeature.resetVaultContent`).
+    /// **State를 직접 갈아끼우지 말고 이걸 쓴다** — 대상이 같으면 목록을 그대로 두고, 새로 만들면 `secretsState`가
+    /// 비는데 뷰의 `.task(id: collection)`은 `collection`이 그대로라 다시 돌지 않아 빈 화면이 남는다.
+    /// **데이터가 무효해진 경우에는 쓰지 않는다** — 저장소 전환은 이전 시크릿이 남으면 안 되므로 통째로
+    /// 새로 만든다(`MainFeature.resetVaultContent`).
     mutating func retarget(to collection: SecretQuery.Collection, projectName: String? = nil) {
       guard self.collection == collection else {
         self = .init(collection: collection, projectName: projectName)
@@ -115,7 +112,6 @@ public struct SecretListFeature {
 
     public enum Delegate: Equatable {
       case secretSelected(Secret.ID?)
-      /// 삭제·복구·영구삭제로 Secret 집합이 바뀌었음을 부모에게 알린다.
       /// 부모가 사이드바 개수를 다시 세는 근거가 된다.
       case secretsChanged
     }
@@ -302,7 +298,6 @@ public struct SecretListFeature {
     }
   }
 
-  /// 컬렉션 전체 정리. Deleted면 영구 삭제, 그 외(Expired)는 소프트 삭제로 '삭제됨'으로 옮긴다.
   private func emptyCollectionEffect(collection: SecretQuery.Collection) -> Effect<Action> {
     .run { send in
       do {

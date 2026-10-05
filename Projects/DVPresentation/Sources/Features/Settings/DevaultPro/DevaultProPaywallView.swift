@@ -26,11 +26,7 @@ struct DevaultProPaywallView: View {
       .task { await store.send(.task).finish() }
   }
 
-  /// `vaultGreenTint` 배경 위에 놓이는 아이콘·배지 글자색.
-  ///
-  /// 라이트 모드에서는 옅은 tint 위에 `vaultGreen`이 또렷하지만, 다크모드의 `vaultGreenTint`는
-  /// 옅은 색이 아니라 채도 있는 진초록(#1A6B50)이라 같은 계열인 `vaultGreen`과 명도차가 거의
-  /// 없다. 다크모드에서는 흰색으로 바꿔 대비를 확보한다.
+  /// `vaultGreenTint` 배경 위에 놓이는 아이콘·배지 글자색. 다크모드의 `vaultGreenTint`는 `vaultGreen`과 명도차가 거의 없어 흰색으로 바꿔 대비를 확보한다.
   private var accentOnTint: Color {
     colorScheme == .dark ? Color.dv(.white) : Color.dv(.vaultGreen)
   }

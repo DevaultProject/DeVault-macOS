@@ -19,9 +19,7 @@ public struct DevaultProPaywallFeature {
     var errorMessage: String?
     /// 이미 구독 중인 채로 열리면 카피와 버튼 문구가 "가입"이 아니라 "변경"이어야 한다.
     var isChangingPlan = false
-    /// 현재 구독 중인 상품 ID.
     var currentProductID: String?
-    /// 변경 예약이 있으면 그 예약 상품 ID. 없으면 nil.
     var renewalProductID: String?
 
     var isBusy: Bool { isPurchasing || isRestoring }

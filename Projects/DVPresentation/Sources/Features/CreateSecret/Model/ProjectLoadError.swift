@@ -7,9 +7,7 @@ import Foundation
 /// 프로젝트 목록 로드 실패 시 사용자에게 표시할 Presentation 계층 오류.
 /// `ProjectUseCaseError`에서 매핑한다.
 enum ProjectLoadError: Equatable {
-    /// 저장소 읽기 실패.
     case repositoryFailure
-    /// 그 외 예기치 않은 오류.
     case unexpected
 
     static func map(_ error: ProjectUseCaseError) -> ProjectLoadError {

@@ -9,7 +9,6 @@ public struct SettingsRepositoryImpl: SettingsRepository, @unchecked Sendable {
   private let defaults: UserDefaults
   private let ubiquitousStore: NSUbiquitousKeyValueStore
 
-  // TODO: SecretEnvironment를 DVDomain 공용 타입으로 이동하면 `.dev.rawValue`로 대체한다.
   private enum DefaultValue {
     static let environment = "dev"
     // AppAppearance.system.rawValue와 동일. 기본은 macOS 시스템 설정을 따른다.
@@ -100,9 +99,7 @@ public struct SettingsRepositoryImpl: SettingsRepository, @unchecked Sendable {
     defaultsStream(appearance)
   }
 
-  /// UserDefaults 변경을 구독해 `read()` 결과를 방출한다. 구독 즉시 현재값을 한 번 내보낸다.
-  ///
-  /// `didChangeNotification`은 **suite 안의 아무 키가 바뀌어도** 오므로, 값이 실제로 달라졌을 때만 방출한다. 그렇지 않으면 자동 잠금 시간을 바꿔도 등급이 바뀐 것처럼 보여 구독자가 헛일을 한다.
+  /// 구독 즉시 현재값을 한 번 내보내며, `didChangeNotification`은 **suite 안의 아무 키가 바뀌어도** 오므로 값이 실제로 달라졌을 때만 방출한다 — 그렇지 않으면 자동 잠금 시간을 바꿔도 등급이 바뀐 것처럼 보여 구독자가 헛일을 한다.
   private func defaultsStream<Value: Equatable & Sendable>(
     _ read: @escaping @Sendable () -> Value
   ) -> AsyncStream<Value> {

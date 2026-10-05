@@ -4,7 +4,6 @@ import SwiftUI
 
 import DVDesign
 
-/// 라벨 + 읽기 전용 값으로 구성된 설정 행.
 struct SettingsValueRow: View {
   enum ValueStyle {
     case regular

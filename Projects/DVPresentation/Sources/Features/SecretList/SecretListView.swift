@@ -31,11 +31,10 @@ struct SecretListView: View {
 
 extension SecretListView {
 
-  /// `DVTitleBar`-리스트 사이 spacing. 헤더가 차지하는 총 높이를 계산할 때도 같이 쓴다.
+  /// 헤더가 차지하는 총 높이를 계산할 때도 같이 쓴다.
   private static let headerContentSpacing: CGFloat = 12
 
-  /// 헤더(`DVTitleBar` + spacing)가 차지하는 총 높이. `list`가 헤더 밑에서 시작하도록
-  /// 위쪽에 이만큼 여백을 예약해 둘 때 쓴다.
+  /// `list`가 헤더 밑에서 시작하도록 위쪽에 이만큼 여백을 예약해 둘 때 쓴다.
   private static var headerReservedHeight: CGFloat {
     DVTitleBar.totalHeight + headerContentSpacing
   }
@@ -134,7 +133,6 @@ extension SecretListView {
     return Text(.module("Recover it to view this secret."))
   }
 
-  /// All/Star/Expired/Deleted 어디서든 만료 상태를 알려준다.
   /// 임계값은 `SecretExpiryPolicy`가 소유한다 — 조회 화면 Expire Date 필드와 같은 정책을 써야 한다.
   private func expiryStatus(for secret: Secret) -> SecretExpiryStatus? {
     SecretExpiryStatus(expiresAt: secret.expiresAt)
@@ -164,7 +162,6 @@ extension SecretListView {
     }
   }
 
-  /// All/Star/Expired는 "프로젝트에 추가/삭제", Deleted는 "복구/영구 삭제"를 보여준다.
   @ViewBuilder
   private func contextMenuItems(for secret: Secret) -> some View {
     switch store.collection {
@@ -183,7 +180,6 @@ extension SecretListView {
     }
   }
 
-  /// divider 위: 정렬 기준(시간/만료/이름). divider 아래: 방향(오름/내림차순).
   /// `Menu`가 바깥 클릭·ESC·포커스 상실 처리를 대신하므로 이 화면은 두 축의 값만 계산하면 된다.
   @ViewBuilder
   private var sortMenuContent: some View {
@@ -260,7 +256,6 @@ extension SecretListView {
     }
   }
 
-  /// Notice/Expired/Deleted는 정렬이 필요 없는 화면이라 정렬 UI 자체를 숨긴다.
   /// Notice는 항상 만료 임박 순으로 고정되므로(`SecretListFeature.State.query`) 사용자가 바꿀 이유가 없다.
   private var showsSort: Bool {
     switch store.collection {
@@ -271,9 +266,7 @@ extension SecretListView {
     }
   }
 
-  /// Expired/Deleted 탭의 제목행 우측 정리 버튼(정렬 자리). 아이콘 하나를 공유한다.
-  /// Expired="모두 삭제"(→삭제됨으로 이동), Deleted="비우기"(→영구 삭제).
-  /// 활성 여부는 검색과 무관한 컬렉션 전체 수(`collectionCount`)로 판단
+  /// 활성 여부는 검색과 무관한 컬렉션 전체 수(`collectionCount`)로 판단한다.
   private var emptyAction: DVTitleBar.TrailingAction? {
     switch store.collection {
     case .expired:

@@ -2,7 +2,6 @@
 
 import Foundation
 
-/// 사이드바에 표시할 Secret 개수 묶음.
 /// 필터 카드 5종과 프로젝트 행 각각의 개수를 한 번의 조회로 함께 받아온다.
 public struct SecretCounts: Equatable, Sendable {
 

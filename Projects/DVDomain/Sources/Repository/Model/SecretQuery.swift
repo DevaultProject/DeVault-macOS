@@ -4,12 +4,12 @@ import Foundation
 
 /// Secret 목록 조회 범위, 필터, 검색어, 정렬 조건을 표현합니다.
 public struct SecretQuery: Equatable, Sendable {
-    public var collection: Collection // 어디 탭/사이드 바 범위에서 볼 것인가
-    public var secretType: SecretType? // 어떤 종류의 Secret인가
-    public var service: String? // 어떤 서비스인가
-    public var environment: String? // 어떤 실행 환경인가
-    public var searchText: String? // 사용자가 입력한 텍스트 검색어
-    public var sort: Sort // 어떤 순서로 볼 것인가
+    public var collection: Collection
+    public var secretType: SecretType?
+    public var service: String?
+    public var environment: String?
+    public var searchText: String?
+    public var sort: Sort
 
     public init(
         collection: Collection = .all,
@@ -41,21 +41,15 @@ extension SecretQuery {
         case deleted
         case project(id: UUID)
 
-        /// Notice에 담을 "만료 임박" 기간(일). 목록 행 배지의 upcoming window와 같은 기준을 써야
-        /// 사이드바 카드 숫자와 배지가 뜨는 시크릿 집합이 어긋나지 않는다.
+        /// 목록 행 배지의 upcoming window와 같은 기준을 써야 사이드바 카드 숫자와 배지가 뜨는 시크릿 집합이 어긋나지 않는다.
         public static let noticeWindowDays = SecretExpiryPolicy.upcomingWindowDays
 
-        /// `referenceDate`로부터 `noticeWindowDays`만큼 민 시각.
         public static func noticeWindowEnd(from referenceDate: Date) -> Date {
             referenceDate.addingTimeInterval(TimeInterval(noticeWindowDays) * 86_400)
         }
     }
 
-    /// 정렬 기준(`key`)과 방향(`direction`)을 독립된 축으로 표현한다.
-    ///
-    /// 이전엔 `recentlyAdded`/`oldestFirst`/`expiringSoon`/`nameAscending`/`nameDescending`처럼
-    /// 기준과 방향을 한 케이스에 묶어뒀다. 3기준 × 2방향 = 6개 조합 중 5개만 존재했고,
-    /// 특히 "만료 내림차순(만료 늦은 순)"을 표현할 방법이 없었다.
+    /// 정렬 기준(`key`)과 방향(`direction`)을 독립된 축으로 표현한다 — 묶인 케이스로는 "만료 내림차순" 같은 조합을 표현할 수 없었다.
     public struct Sort: Equatable, Sendable {
         public enum Key: Equatable, Sendable {
             /// `updatedAt` 기준. 목록 행에 표시되는 날짜와 같은 필드를 써야 사용자가 보는 순서와 정렬 기준이 일치한다.
@@ -78,7 +72,7 @@ extension SecretQuery {
             self.direction = direction
         }
 
-        /// 기존 `recentlyAdded`와 동일한 기본 정렬 — 최근 수정 순.
+        /// 최근 수정 순으로 보여주는 기본 정렬.
         public static let recentlyAdded = Sort(key: .time, direction: .descending)
     }
 }
