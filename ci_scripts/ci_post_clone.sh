@@ -33,7 +33,20 @@ mise exec -- tuist install
 #   서명되어 업로드에서 거부되므로, CI에서는 반드시 이 분기로 생성한다.
 # TUIST_BUILD_NUMBER=$CI_BUILD_NUMBER → 업로드마다 고유·증가하는 빌드 번호를 CFBundleVersion에 주입.
 #   Xcode Cloud가 제공하는 값이며, 없으면(로컬 등) Project.swift 기본값 "1"로 떨어진다.
-echo "=== [ci_post_clone] 워크스페이스 생성 (배포 서명 + 빌드 번호 ${CI_BUILD_NUMBER:-1}) ==="
-TUIST_CI_SIGNING=1 TUIST_BUILD_NUMBER="${CI_BUILD_NUMBER:-1}" mise exec -- tuist generate --no-open
+# TUIST_MARKETING_VERSION=$CI_TAG → 태그 빌드의 버전을 CFBundleShortVersionString에 주입.
+#   태그가 없는 CI 빌드는 기존 마케팅 버전(1.0.0)을 사용한다.
+marketing_version="${CI_TAG:-1.0.0}"
+if [ -n "${CI_TAG:-}" ]; then
+    if ! printf '%s\n' "$CI_TAG" | awk -F. 'NF == 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ { valid = 1 } END { exit !valid }'; then
+        echo "유효하지 않은 릴리스 태그: $CI_TAG (예: 1.0.1)" >&2
+        exit 1
+    fi
+fi
+
+echo "=== [ci_post_clone] 워크스페이스 생성 (배포 서명 + 버전 $marketing_version + 빌드 번호 ${CI_BUILD_NUMBER:-1}) ==="
+TUIST_CI_SIGNING=1 \
+TUIST_MARKETING_VERSION="$marketing_version" \
+TUIST_BUILD_NUMBER="${CI_BUILD_NUMBER:-1}" \
+    mise exec -- tuist generate --no-open
 
 echo "=== [ci_post_clone] 완료 ==="
