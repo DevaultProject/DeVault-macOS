@@ -9,9 +9,11 @@ import DVDomain
 
 /// Secret 조회/복호화 실패 시 Presentation 계층 오류.
 enum SecretDetailError: Equatable {
+    /// 생체인증·패스코드 인증 요구.
     case authRequired
     /// 복호화 실패 (키 없음·복호화 오류·디코딩 실패).
     case decryptionFailed
+    /// 그 외 예기치 않은 오류.
     case unexpected
 
     static func map(_ error: SecretUseCaseError) -> SecretDetailError {
