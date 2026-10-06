@@ -15,7 +15,6 @@ public struct CreateSecretFeature {
     @ObservableState
     public struct State: Equatable {
 
-        /// 이전 화면에서 주입되는 SecretType. 이 화면 안에서는 변경 불가.
         let secretType: CreatableSecretType
 
         var selectedSubType: CreatableSecretSubType?
@@ -35,16 +34,14 @@ public struct CreateSecretFeature {
 
         var isSaving = false
 
-        /// 프로젝트 목록을 로드 중인 동안 true. Project picker spinner용.
+        /// Project picker spinner용.
         var isLoadingProjects = false
 
-        /// 설정의 기본 환경을 이미 얹었는지. `.task`는 화면이 다시 만들어질 때마다 실행되므로
-        /// 이 표시가 없으면 사용자가 고른 환경을 덮어쓴다.
+        /// `.task`는 화면이 다시 만들어질 때마다 실행되므로 이 표시가 없으면 사용자가 고른 환경을 덮어쓴다.
         var didApplyDefaultEnvironment = false
 
         @Presents var alert: AlertState<Action.Alert>?
 
-        /// 프로젝트 생성 시트 State. `didTapCreateProject` 시 세팅되어 sheet 노출.
         @Presents var createProject: CreateProjectFeature.State?
 
         public init(secretType: CreatableSecretType) {
@@ -56,7 +53,6 @@ public struct CreateSecretFeature {
             )
         }
 
-        /// Create 버튼의 disable/enable 판정.
         /// 필수 필드 검증은 `didTapSave`가 `handleSave`에서 수행해 `validationErrors`를 채운다 —
         /// 여기서 사전 차단하면 인라인 warning이 절대 안 뜨므로 저장 중 재클릭만 막는다.
         var isSaveEnabled: Bool {
@@ -75,14 +71,13 @@ public struct CreateSecretFeature {
         case didTapCancel
         case didTapSave
         case didTapCreateProject
-        /// Project 생성 게이트 판정 결과. 폼 안에서 만드는 경로도 사이드바와 같은 규칙을 탄다.
+        /// 폼 안에서 만드는 경로도 사이드바와 같은 규칙을 탄다.
         case canCreateProjectResponse(Result<Bool, ProjectUseCaseError>)
 
         // MARK: - Internal
 
         case projectsResponse(Result<[Project], ProjectUseCaseError>)
         case saveResponse(Result<Secret, SecretUseCaseError>)
-        /// 감지 엔진이 후보 서비스를 넘겨주면 `state.serviceCandidates`에 저장.
         case didDetectServiceCandidates([String])
 
         // MARK: - Child
@@ -101,8 +96,8 @@ public struct CreateSecretFeature {
         public enum Delegate: Equatable {
             case secretCreated(Secret.ID)
             case cancelled
-            /// 폼 안에서 프로젝트를 새로 만들었다. **시크릿 저장 여부와 무관하게** 프로젝트는 이미
-            /// 만들어졌으므로 사이드바가 곧바로 반영해야 한다 — 취소하고 나가도 프로젝트는 남는다.
+            /// **시크릿 저장 여부와 무관하게** 폼 안에서 만든 프로젝트는 이미 만들어졌으므로
+            /// 사이드바가 곧바로 반영해야 한다 — 취소하고 나가도 프로젝트는 남는다.
             case projectsChanged
             /// 무료 한도에 걸려 프로젝트를 더 만들 수 없다. 페이월은 상위가 소유하므로 올려보낸다.
             case paywallRequired
@@ -131,12 +126,7 @@ public struct CreateSecretFeature {
             // MARK: View
 
             case .task:
-                // 설정의 기본 환경을 폼 초기값으로 **한 번만** 얹는다. `.task`는 화면이 다시
-                // 만들어질 때마다 실행되는데(설정 화면을 다녀오면 State는 살아남은 채 뷰만
-                // 다시 만들어진다) 매번 얹으면 사용자가 고른 환경이 조용히 되돌아간다.
-                //
-                // 저장된 문자열이 폼 enum에 없으면 `.dev`로 떨어뜨린다 — 설정 화면이 읽을 때와
-                // 같은 규칙이다(`GeneralSettingsFeature.task`).
+                // 설정의 기본 환경을 폼 초기값으로 **한 번만** 얹는다 — `.task`가 재실행될 때마다 얹으면 사용자가 고른 환경이 조용히 되돌아간다.
                 if !state.didApplyDefaultEnvironment {
                     state.didApplyDefaultEnvironment = true
                     state.meta.environment = SecretEnvironment(
@@ -187,7 +177,7 @@ public struct CreateSecretFeature {
                 return handleSave(state: &state)
 
             case .didTapCreateProject:
-                // 시트를 열기 전에 묻는다. 열어 두고 저장에서 막으면 입력한 이름이 날아간다.
+                // 시트를 열어 두고 저장에서 막으면 입력한 이름이 날아간다.
                 return .run { send in
                     await send(.canCreateProjectResponse(Result {
                         try await entitlementClient.canCreateProject()

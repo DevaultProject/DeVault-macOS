@@ -73,7 +73,6 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
     
-    /// SecretFetchDescriptorBuilder로 원하는 조건으로 fetch 후 InMemorySecretQueryFilter로 searchText 보정
     public func fetch(_ query: SecretQuery) async throws -> [DVDomain.Secret] {
         do {
             let descriptor = SecretFetchDescriptorBuilder.make(from: query)
@@ -96,8 +95,7 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
-    /// 조건에 맞는 개수만 집계한다. 엔티티를 Domain으로 매핑하지 않으므로
-    /// 손상된 레코드가 섞여 있어도 실패하지 않는다.
+    /// 엔티티를 Domain으로 매핑하지 않으므로 손상된 레코드가 섞여 있어도 실패하지 않는다.
     public func count(_ query: SecretQuery) async throws -> Int {
         do {
             let descriptor = SecretFetchDescriptorBuilder.makeCountDescriptor(
@@ -114,7 +112,7 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
     
-    /// 휴지통을 제외한 전체 개수를 집계한다. 무료 티어 한도 계산 전용이다.
+    /// 무료 티어 한도 계산 전용이다.
     public func totalCountExcludingTrash() async throws -> Int {
         do {
             let descriptor = SecretFetchDescriptorBuilder.makeTotalCountExcludingTrashDescriptor()
@@ -128,7 +126,6 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
-    /// SecretPatch 적용하여 update
     public func patch(id: UUID, with patch: SecretPatch) async throws -> DVDomain.Secret {
         do {
             guard let localSecret = try fetchLocalSecret(id: id) else {
@@ -358,7 +355,6 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
-    /// 쿼리에 맞는 로컬 Secret 전체에 patch를 적용하고 한 번만 save한다
     public func patchAll(matching query: SecretQuery, with patch: SecretPatch) async throws {
         do {
             let descriptor = SecretFetchDescriptorBuilder.make(from: query)
@@ -374,7 +370,6 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
-    /// 쿼리에 맞는 로컬 Secret 전체를 삭제하고 한 번만 save한다.
     public func deleteAll(matching query: SecretQuery) async throws {
         do {
             let descriptor = SecretFetchDescriptorBuilder.make(from: query)
@@ -424,7 +419,6 @@ extension SecretRepositoryImpl {
         "\(projectID.uuidString):\(secretID.uuidString)"
     }
 
-    /// SecretPatch를 SwiftData model에 반영
     private func apply(_ patch: SecretPatch, to secret: SwiftDataModel.Secret) {
         if case let .set(name) = patch.name {
             secret.name = name
@@ -464,7 +458,6 @@ extension SecretRepositoryImpl {
         }
     }
 
-    /// payload가 있으면 업데이트하고, 없으면 새 payload를 만든다.
     private func apply(_ payload: DVDomain.SecretPayload, to secret: SwiftDataModel.Secret) {
         if let localPayload = secret.payload {
             localPayload.encryptedData = payload.encryptedData
@@ -482,7 +475,6 @@ extension SecretRepositoryImpl {
         }
     }
 
-    /// metadata가 nil이면 기존 metadata를 삭제하고, 값이 있으면 업데이트 또는 생성한다.
     private func apply(_ metadata: DVDomain.SecretMetadata?, to secret: SwiftDataModel.Secret) {
         guard let metadata else {
             if let localMetadata = secret.metadata {

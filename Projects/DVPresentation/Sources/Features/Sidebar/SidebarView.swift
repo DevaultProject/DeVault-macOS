@@ -12,7 +12,7 @@ struct SidebarView: View {
   // MARK: - Metrics
 
   private enum Metrics {
-    /// 갱신 중 이전 값에 씌우는 흐림. 더 낮추면 목록이 비활성처럼 보인다.
+    /// 더 낮추면 목록이 비활성처럼 보인다.
     static let refreshingOpacity: Double = 0.55
   }
 
@@ -128,11 +128,9 @@ extension SidebarView {
     .dvAnimation(MotionMetrics.layout, value: store.isProjectSectionExpanded)
   }
 
-  /// 스피너 대신 자리를 유지한 채 opacity만 움직인다. 갱신이 잦아 스피너로 갈아끼우면
-  /// 목록이 사라졌다 나타나는 것으로 보인다.
-  ///
-  /// 첫 로드 동안에는 **아무것도 그리지 않는다.** 아직 목록이 없어 흐릴 대상이 없고,
-  /// "없다"고 쓰면 로딩 중에 잘못 알린 셈이 된다. 도착하면 opacity로 나타난다.
+  /// 스피너 대신 자리를 유지한 채 opacity만 움직인다 — 갱신이 잦아 스피너로 갈아끼우면 목록이 사라졌다
+  /// 나타나는 것으로 보인다. 첫 로드 동안에는 **아무것도 그리지 않는다** — 아직 목록이 없어 흐릴 대상이
+  /// 없고, "없다"고 쓰면 로딩 중에 잘못 알린 셈이 된다(도착하면 opacity로 나타난다).
   @ViewBuilder
   private var projectSectionBody: some View {
     if case .failed = store.projectsState {
@@ -263,15 +261,12 @@ extension SidebarView {
     }
   }
 
-  /// 개수는 로드 완료 후에만 실제 값을 갖는다. 로드 전·실패 시에는 nil을 넘겨
-  /// 숫자 자리를 비운다 — 0으로 대체하면 "시크릿 없음"과 구분되지 않는다.
+  /// 로드 전·실패 시에는 nil을 넘겨 숫자 자리를 비운다 — 0으로 대체하면 "시크릿 없음"과 구분되지 않는다.
   private func count(for filter: SidebarFilter) -> Int? {
     store.counts?.count(for: filter)
   }
 
 
-  /// macOS 26부터는 Liquid Glass 버튼으로 그린다.
-  ///
   /// 배포 타겟이 macOS 14라 분기가 필요하다. 이 SDK의 SwiftUI에는 `glassEffect` modifier가 없고
   /// 버튼용 `GlassProminentButtonStyle`이 제공되므로 그쪽을 쓴다 — 색을 잃지 않도록 `.glass`가
   /// 아니라 tint를 받는 prominent 쪽을 골랐다. 26 미만은 기존 초록 원형 그대로다.

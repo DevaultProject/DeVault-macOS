@@ -121,6 +121,5 @@ private struct Component: Hashable {
         Component(name: "DVDropdown"),
         Component(name: "DVLabeledField"),
         Component(name: "DVChipsField"),
-//        Component(name: "DVInputField"),
     ]
 }

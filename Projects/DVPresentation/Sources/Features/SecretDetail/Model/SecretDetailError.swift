@@ -95,10 +95,9 @@ extension AlertState where Action == SecretDetailFeature.Action.Alert {
         }
     }
 
-    /// 이 시크릿에 **연결된** 프로젝트 조회 실패. 재시도를 제공하는 유일한 alert다.
-    ///
-    /// 연결을 모르는 채로 수정에 들어가면 편집 baseline이 빈 목록이 되어 저장할 때
-    /// **실제 연결이 조용히 끊긴다.** 읽을 때까지 수정을 막으므로 복구 경로가 필요하다.
+    /// 이 시크릿에 **연결된** 프로젝트 조회 실패. 재시도를 제공하는 유일한 alert다. 연결을 모르는 채로
+    /// 수정에 들어가면 편집 baseline이 빈 목록이 되어 저장할 때 **실제 연결이 조용히 끊긴다.**
+    /// 읽을 때까지 수정을 막으므로 복구 경로가 필요하다.
     static var linkedProjectsLoadFailed: Self {
         Self {
             TextState("Failed to load linked projects", bundle: .module)

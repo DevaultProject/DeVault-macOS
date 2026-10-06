@@ -3,10 +3,7 @@
 import ComposableArchitecture
 import DVDomain
 
-/// iCloud 동기화를 사용할 수 없는 상태를 안내하는 alert. 온보딩과 Settings의 iCloud 탭이 공유한다.
-///
-/// 상태별로 문구를 구분하고, 재시도 가능한 상태에는 재시도 버튼을, 계정 문제로 인한 상태에는
-/// 시스템 설정 앱을 바로 여는 버튼을 추가한다. 어떤 상태든 iCloud 없이 계속 진행할 수 있다.
+/// 온보딩과 Settings의 iCloud 탭이 공유한다.
 ///
 /// message/canRetry/canOpenSettings를 하나의 exhaustive switch로 묶어야 새 ICloudAccountStatus
 /// 케이스 추가 시 컴파일러가 전부 재검토를 강제한다.

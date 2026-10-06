@@ -26,9 +26,6 @@ public struct SecretDetailFeature {
     /// 이어서 할 일을 State가 아니라 **액션에 싣는 것**은 취소와 함께 사라지게 하려는 것이다.
     /// 복호화는 `CancelID.reveal`을 공유해 나중 요청이 앞 요청을 취소하는데, State에 남겨두면
     /// 취소된 요청의 몫이 다음 응답에 얹혀 누르지도 않은 동작이 일어난다.
-    ///
-    /// 하나만 찰 수 있다는 것을 **타입이 보장한다** — 이전에는 `revealing:`·`thenCopy:` 두 파라미터를
-    /// 두고 "둘이 동시에 차는 경우는 없다"를 주석으로만 지켰다.
     public enum RevealContinuation: Equatable {
         /// 값만 받아온다. 재시도 경로처럼 어떤 필드가 유발했는지 잃은 경우.
         case none
@@ -84,12 +81,8 @@ public struct SecretDetailFeature {
         /// `internal(set)` — 모듈 외부(뷰)에서 바인딩 대상으로 쓸 수 없다.
         /// `SecretListFeature.State.secretsState`와 동일한 접근 수준.
         public internal(set) var secret: Secret
-        /// `ifLet`이 시크릿 전환을 알아보게 하는 식별자.
-        ///
-        /// `MainFeature`는 다른 시크릿을 선택하면 이 State를 nil을 거치지 않고 곧바로 교체하는데,
-        /// `ifLet`은 자식 State의 식별자가 달라질 때만 진행 중인 effect를 취소한다. 식별자가 없으면
-        /// 두 State가 같은 것으로 보여 취소가 걸리지 않고, 늦게 도착한 A의 복호화 응답이 B의 State에
-        /// 실려 인증한 적 없는 B에 A의 평문과 인증 창이 열린다.
+        /// `ifLet`이 시크릿 전환을 알아보게 하는 식별자. 없으면 State가 nil을 거치지 않고 곧바로
+        /// 교체될 때 진행 중인 복호화 effect가 취소되지 않아, 늦게 도착한 응답이 다음 시크릿에 실린다.
         public var id: Secret.ID { secret.id }
         public var mode: Mode = .viewing
         /// 수정 모드에서만 유효. viewing일 때는 반드시 nil.
@@ -285,9 +278,7 @@ public struct SecretDetailFeature {
                     }
                 )
 
-            // 디자인에서 close(×) 버튼을 제거했으므로 현재 이 액션을 발생시키는 UI 경로가 없다.
-            // detail은 사이드바 전환·리스트 선택 해제(`secretSelected(nil)`)로 닫힌다.
-            // 삭제 성공 후 닫기에서 재사용할 예정이라 액션과 delegate는 유지한다.
+            // detail은 사이드바 전환·리스트 선택 해제(`secretSelected(nil)`)로도 닫힌다.
             case .didTapClose:
                 return .send(.delegate(.closed))
 
@@ -306,11 +297,9 @@ public struct SecretDetailFeature {
                 state.linkedProjectsState = .loading
                 return linkedProjectsEffect(id: state.secret.id)
 
-            // 복호화는 인증을 통과해야만 성공하므로, 도착 자체가 인증 성공을 뜻한다.
-            //
-            // 다만 **복사가 유발한 복호화는 열람 인증 창을 열지 않는다.** 복사는 자체 정책을
-            // 따로 갖고(`CopyToClipboardUseCase`가 설정을 읽어 결정한다), 여기서 창을 열면
-            // 복사 한 번에 누르지도 않은 열람 권한이 따라붙는다.
+            // 복호화는 인증을 통과해야만 성공하므로 도착 자체가 인증 성공을 뜻한다. 다만 복사가
+            // 유발한 복호화는 열람 인증 창을 열지 않는다 — 복사는 자체 정책을 따로 갖고 있어(`CopyToClipboardUseCase`),
+            // 여기서 창을 열면 복사 한 번에 누르지도 않은 열람 권한이 따라붙는다.
             case .payloadResponse(.success(let payload), let continuation):
                 state.payloadState = .loaded(payload)
                 if continuation.opensRevealWindow {
@@ -368,12 +357,9 @@ public struct SecretDetailFeature {
                 state.revealedFields.remove(field)
                 return .none
 
-            // 수정 진입 복호화가 도는 동안에는 새 복호화를 시작하지 않는다. 취소 그룹을 나눈
-            // 뒤로 이 둘은 서로를 대체하지 않으므로, 막지 않으면 인증 시트가 둘 뜨고 늦게 온
-            // 응답이 먼저 온 응답 위에 자기 continuation을 덮어쓴다.
-            //
-            // 눈·복사끼리는 막지 않는다 — 나중 요청이 앞 요청을 대체하는 것이 의도된 규칙이다
-            // (``CancelID/reveal``). 여기서 함께 막으면 그 규칙까지 사라진다.
+            // 수정 진입 복호화가 도는 동안에는 새 복호화를 시작하지 않는다 — 취소 그룹이 갈려서
+            // 막지 않으면 인증 시트가 둘 뜨고 늦게 온 응답이 먼저 온 응답의 continuation을 덮어쓴다.
+            // 눈·복사끼리는 막지 않는다 — 나중 요청이 앞 요청을 대체하는 게 의도된 규칙이다(``CancelID/reveal``).
             case .didTapToggleReveal where state.isEnteringEdit,
                  .didTapCopy where state.isEnteringEdit:
                 return .none
@@ -610,7 +596,7 @@ public struct SecretDetailFeature {
 
     // MARK: - Editing
 
-    /// 편집 진입. 폼 초기값과 dirty 판정 기준 둘을 함께 세운다.
+    /// 폼 초기값과 dirty 판정 기준 둘을 함께 세운다.
     private func beginEditing(_ state: inout State, payload: CreateSecretPayload) {
         let fields = SecretMetaFields(
             secret: state.secret,
@@ -625,11 +611,8 @@ public struct SecretDetailFeature {
         state.mode = .editing
     }
 
-    /// 편집 종료. 편집 전용 상태를 한 번에 비운다 —
-    /// 하나라도 남으면 다음 진입의 dirty 판정 기준이 어긋난다.
-    ///
-    /// 진행 중인 프로젝트 조회도 함께 끊는다. 남겨두면 늦게 도착한 응답이 방금 비운 목록을
-    /// 조회 모드에 되살린다.
+    /// 편집 전용 상태를 한 번에 비운다 — 하나라도 남으면 다음 진입의 dirty 판정이 어긋난다.
+    /// 진행 중인 프로젝트 조회도 함께 끊는다 — 남겨두면 늦게 도착한 응답이 방금 비운 목록을 되살린다.
     private func endEditing(_ state: inout State) -> Effect<Action> {
         state.mode = .viewing
         state.editFields = nil
@@ -641,7 +624,7 @@ public struct SecretDetailFeature {
         return .cancel(id: CancelID.projects)
     }
 
-    /// 저장. 변경 없음 판정 → 필수 필드 검증 → 다시 쓸 대상 결정 순이다.
+    /// 변경 없음 판정 → 필수 필드 검증 → 다시 쓸 대상 결정 순이다.
     private func handleSave(_ state: inout State) -> Effect<Action> {
         guard state.mode == .editing,
               let fields = state.editFields,
@@ -713,12 +696,8 @@ public struct SecretDetailFeature {
         }
     }
 
-    /// 폼이 편집 진입 시점과 **의미상** 달라졌는지.
-    ///
-    /// 그대로 비교하지 않는 이유는 `projectIds`의 순서가 임의이기 때문이다 — 드롭다운이 선택을
-    /// Set으로 다루고 `Array(Set)`으로 되돌리므로(`ProjectFieldView.setBinding`), 같은 프로젝트를
-    /// 껐다 켜기만 해도 순서가 달라진다. 그것을 변경으로 세면 물어볼 이유가 없는 확인 alert가 뜨고,
-    /// 저장은 `updatedAt`만 바꾸는 write를 내보내 목록 정렬을 흔든다.
+    /// `projectIds`는 Set을 거쳐 순서가 임의로 바뀌므로 그대로 비교하지 않는다 — 안 그러면
+    /// 같은 프로젝트를 껐다 켜기만 해도 불필요한 확인 alert가 뜨고 목록 정렬을 흔드는 write가 나간다.
     private static func isDirty(_ fields: SecretMetaFields, from baseline: SecretMetaFields) -> Bool {
         sortedProjectIds(fields) != sortedProjectIds(baseline)
     }
@@ -731,11 +710,8 @@ public struct SecretDetailFeature {
         return normalized
     }
 
-    /// 바뀐 공통 필드만 `.set`으로 싣는다. 안 바뀐 것은 `.unchanged`로 두어 불필요한 write를 만들지 않는다.
-    ///
-    /// 비교를 폼 값이 아니라 `toSecretDraft` 결과로 하는 이유는 `""` → `nil` 접힘 같은 매핑 규칙을
-    /// 여기서 한 벌 더 알지 않기 위해서다. 이름 trim과 만료일 23:59:59 고정은 도메인이 하므로
-    /// 화면에서 맞추지 않는다.
+    /// 바뀐 공통 필드만 `.set`으로 싣는다. 비교를 폼 값이 아니라 `toSecretDraft` 결과로 하는 이유는
+    /// `""` → `nil` 접힘 같은 매핑 규칙을 여기서 한 벌 더 알지 않기 위해서다.
     private static func patch(
         from fields: SecretMetaFields,
         baseline: SecretMetaFields,
@@ -814,10 +790,8 @@ public struct SecretDetailFeature {
         .cancellable(id: continuation.cancelID, cancelInFlight: true)
     }
 
-    /// Copy에 필요한 payload만 복호화한다. 인증은 이어지는 `copySensitiveValue`가 설정을 읽어
-    /// 결정하며, 이 응답은 Reveal 인증 유효시간을 갱신하지 않는다(`.copy` continuation).
-    ///
-    /// `revealEffect`와 나뉘어 있는 것은 **Client 호출이 다르기 때문**이다 —
+    /// Copy에 필요한 payload만 복호화한다. 인증은 이어지는 `copySensitiveValue`가 설정을 읽어 결정하며,
+    /// 이 응답은 Reveal 인증 유효시간을 갱신하지 않는다. `revealEffect`와 나뉜 건 Client 호출이 달라서다 —
     /// 이쪽은 `loadPayloadForCopy`, 저쪽은 `revealPayload`로 인증 정책 자체가 갈린다.
     private func loadPayloadForCopyEffect(
         secret: Secret,
