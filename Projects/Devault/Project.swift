@@ -15,6 +15,8 @@ let isLocalSigning = Environment.localSigning.getBoolean(default: false)
 /// CI에서 App Store 배포 아카이브를 만들 때 켠다. `ci_post_clone.sh`가 `TUIST_CI_SIGNING=1`로 설정한다.
 let isCISigning = Environment.ciSigning.getBoolean(default: false)
 
+let apsEnvironment = isCISigning ? "production" : "development"
+
 /// 아카이브 빌드 번호(CFBundleVersion). App Store는 업로드마다 고유·증가값을 요구하므로
 /// CI에선 `$CI_BUILD_NUMBER`를 주입하고, 로컬은 기본값 "42"를 쓴다.
 let buildNumber = Environment.buildNumber.getString(default: "42")
@@ -126,7 +128,7 @@ let project = Project.project(
                 // 3rd-party dependency
                 .tca(),
             ],
-            settings: .settings(base: signingSettings)
+            settings: .settings(base: signingSettings.merging(["APS_ENVIRONMENT": .string(apsEnvironment)]) { _, new in new })
         ),
         // StoreKit은 앱 번들 신원이 있어야 거래하므로 호스트 없는 유닛 번들에서는 상품 조회가 빈 배열로 떨어진다. 앱을 의존성으로 두면 Tuist가 TEST_HOST를 잡아준다.
         .tests(
