@@ -5,6 +5,7 @@ import ProjectDescription
 public enum External: String {
     case ComposableArchitecture
     case Lottie
+    case argon2
 }
 
 extension TargetDependency {
@@ -18,5 +19,9 @@ extension TargetDependency {
 
     public static func lottie() -> TargetDependency {
         .external(dependency: .Lottie)
+    }
+
+    public static func argon2() -> TargetDependency {
+        .external(dependency: .argon2)
     }
 }

@@ -8,6 +8,7 @@ import ProjectDescriptionHelpers
 let packageSettings = PackageSettings(
     productTypes: [
         "ComposableArchitecture": .staticFramework,
+        "argon2": .staticFramework,
     ],
     // SwiftCompilerPlugin을 쓰는 매크로 플러그인 타겟만 요구치(12.0)에 맞춤
     targetSettings: [
@@ -32,6 +33,11 @@ let package = Package(
         .package(
             url: "https://github.com/airbnb/lottie-spm",
             from: "4.6.0"
+        ),
+        // 태그엔 Package.swift가 없어 커밋 SHA로 고정
+        .package(
+            url: "https://github.com/P-H-C/phc-winner-argon2",
+            revision: "f57e61e19229e23c4445b85494dbf7c07de721cb"
         ),
     ]
 )
