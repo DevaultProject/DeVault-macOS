@@ -11,6 +11,7 @@ let project = Project.project(
             dependencies: [
                 .domain(),
                 .core(),
+                .argon2(),
             ]
         ),
         .tests(
