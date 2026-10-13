@@ -57,6 +57,11 @@ struct DevaultSecretPayloadBoxTests {
         #expect(DevaultSecretPayloadBox.envSet(EnvSetPayload(content: "")).subType == nil)
     }
 
+    @Test("SecretSubType case 개수가 늘어나면 이 테스트가 실패해 DevaultSecretPayloadBox 갱신을 상기시킨다")
+    func subTypeCaseCountGuard() {
+        #expect(SecretSubType.allCases.count == 9)
+    }
+
     @Test("secretType이 subType 없는 타입(database·envSet)도 올바르게 반환한다")
     func secretTypeMapping() {
         #expect(DevaultSecretPayloadBox.database(DatabasePayload(linkString: "")).secretType == .database)

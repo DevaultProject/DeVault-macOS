@@ -30,12 +30,9 @@ public enum DevaultSecretPayloadBox: Equatable, Sendable, Codable {
 
     public var secretType: SecretType {
         switch self {
-        case .apiKey, .accessToken, .webhookSecret: return .apiKeyToken
-        case .oauthClient, .serviceAccount: return .oauth
-        case .sshKey, .sslTlsCertificate: return .sshAndCredentials
-        case .licenseKey, .custom: return .etc
         case .database: return .database
         case .envSet: return .environmentVariableSet
+        default: return subType!.secretType
         }
     }
 }
