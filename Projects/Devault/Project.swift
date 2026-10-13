@@ -114,6 +114,26 @@ let project = Project.project(
                 // About 패널·App Store에 노출.
                 "NSHumanReadableCopyright": .string("Copyright © 2026 Devault. All rights reserved."),
                 "CFBundleLocalizations": .array([.string("en"), .string("ko")]),
+                // .dvt는 시스템이 모르는 포맷이라 Exported로 직접 선언 — Imported는 남이 정의한 타입을 이 앱이 열 때 쓴다.
+                "UTExportedTypeDeclarations": .array([
+                    .dictionary([
+                        "UTTypeIdentifier": .string("com.devault.container"),
+                        "UTTypeDescription": .string("DeVault Secret Container"),
+                        "UTTypeConformsTo": .array([.string("public.data")]),
+                        "UTTypeTagSpecification": .dictionary([
+                            "public.filename-extension": .array([.string("dvt")]),
+                        ]),
+                    ]),
+                ]),
+                // Viewer: 더블클릭·Open with으로 열리지만 문서 편집·저장 창은 없음(Import 후 평문은 암호화 저장소로만 들어감)
+                "CFBundleDocumentTypes": .array([
+                    .dictionary([
+                        "CFBundleTypeName": .string("DeVault Secret Container"),
+                        "LSItemContentTypes": .array([.string("com.devault.container")]),
+                        "CFBundleTypeRole": .string("Viewer"),
+                        "LSHandlerRank": .string("Owner"),
+                    ]),
+                ]),
             ]),
             sources: .sources,
             resources: [.glob(pattern: "Resources/**", excluding: ["Resources/*.entitlements"])],
