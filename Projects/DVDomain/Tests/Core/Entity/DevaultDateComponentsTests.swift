@@ -16,23 +16,22 @@ struct DevaultDateComponentsTests {
         #expect(decoded == components)
     }
 
-    @Test("같은 연/월/일이면 시간대가 달라도 같은 성분으로 본다")
-    func sameComponentsAcrossTimeZones() {
+    @Test("절대 시각은 기기마다 달라도, 같은 성분을 각자 복원하면 같은 날짜로 재추출된다")
+    func sameComponentsSurviveRoundTripAcrossTimeZones() {
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = TimeZone(identifier: "UTC")!
         var seoul = Calendar(identifier: .gregorian)
         seoul.timeZone = TimeZone(identifier: "Asia/Seoul")!
 
-        let date = DateComponents(
-            calendar: utc,
-            year: 2026, month: 12, day: 31, hour: 12
-        ).date!
+        let components = DevaultDateComponents(year: 2026, month: 12, day: 31)
+        let utcDate = components.endOfDay(calendar: utc)!
+        let seoulDate = components.endOfDay(calendar: seoul)!
 
-        let fromUTC = DevaultDateComponents(date: date, calendar: utc)
-        let fromSeoul = DevaultDateComponents(date: date, calendar: seoul)
-
-        // 정오(UTC) 기준이라 서울(UTC+9)에서도 같은 날짜로 떨어진다 — 자정 근처라면 갈릴 수 있음(바로 이게 고치려는 버그).
-        #expect(fromUTC == fromSeoul)
+        // 기기마다 복원하는 절대 시각 자체는 다르다(시간대 차이만큼).
+        #expect(utcDate != seoulDate)
+        // 그래도 각자 자기 시간대로 다시 추출하면 원래 날짜 그대로다 — 이게 Export/Import 양쪽이 실제로 기대는 속성.
+        #expect(DevaultDateComponents(date: utcDate, calendar: utc) == components)
+        #expect(DevaultDateComponents(date: seoulDate, calendar: seoul) == components)
     }
 
     @Test("endOfDay는 그 날짜의 23:59:59를 복원한다")
