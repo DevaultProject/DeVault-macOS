@@ -10,13 +10,13 @@ public struct DevaultContainerHeader: Equatable, Sendable {
     public static let nonceByteCount = 12
 
     public var version: UInt16
-    public var expiresAt: Date
+    public var expiresAt: Date?
     public var salt: Data
     public var nonce: Data
 
     public init(
         version: UInt16,
-        expiresAt: Date,
+        expiresAt: Date?,
         salt: Data,
         nonce: Data
     ) {
