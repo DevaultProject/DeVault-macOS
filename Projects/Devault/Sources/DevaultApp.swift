@@ -19,7 +19,7 @@ struct DevaultApp: App {
     AppFeature()
   }
 
-  /// 트랜잭션 감시 Task. 앱이 사는 동안 유지해야 외부 갱신·환불·가족 공유 승인을 놓치지 않는다.
+  /// 앱이 사는 동안 유지해야 외부 갱신·환불·가족 공유 승인을 놓치지 않는다.
   private let transactionObserver: Task<Void, Never>
 
   init() {

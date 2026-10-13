@@ -48,30 +48,19 @@ public struct SecretDetailView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            // 모드 전환만 애니메이션한다. `value`를 좁히지 않으면 편집 중 타이핑 한 글자마다
-            // 폼 전체가 다시 애니메이션된다.
+            // `value`를 좁히지 않으면 편집 중 타이핑 한 글자마다 폼 전체가 다시 애니메이션된다.
             .dvAnimation(MotionMetrics.layout, value: store.mode)
-            // 프레임 상한. header/footer는 본문과 분리된 채 각자 이 프레임을 따라간다.
+            // header/footer는 본문과 분리된 채 각자 이 프레임을 따라간다.
             .formMaxWidth()
             .formLayout(layout)
         }
         // 진행 중임을 알리는 지점은 화면당 하나로 모은다 — `windowBusy`는 서브트리마다 값을
         // 세우는 preference라, 조상과 자손이 각각 부르면 어느 쪽이 남는지가 배치에 좌우된다.
-        //
-        // 수정 진입 복호화도 저장과 같이 다룬다. 화면이 통째로 바뀌는 것을 기다리는 동안이라
-        // 진행 표시가 필요하고, 창이 잠기면 그 사이 눈·복사가 끼어들 수 없다.
-        //
         // 눈·복사가 유발한 복호화는 여기에 넣지 않는다 — 창을 잠그면 "나중 요청이 앞 요청을
         // 대체한다"는 규칙(``SecretDetailFeature/CancelID/reveal``)이 눌러볼 수 없게 되어 사라진다.
         .windowBusy(store.isSaving || store.isEnteringEdit)
-        // `id:`가 필수다. 다른 리스트 셀을 선택하면 MainFeature가 `secretDetail`에 새 State를
-        // 할당하지만, 뷰의 타입·위치가 그대로라 SwiftUI는 뷰를 재생성하지 않는다. 그러면 평범한
-        // `.task`는 다시 실행되지 않아 `linkedProjects` / `payloadState`가 빈 채로 남는다
-        // (`store.secret`을 직접 읽는 헤더·Name만 갱신되어 더 헷갈린다).
-        //
-        // `finish()`를 await해야 secret이 바뀔 때 이전 secret의 lifecycle 구독과 프로젝트 조회가
-        // 함께 끝난다. 눈·복사는 이 task의 자식이 아니므로 여기서 취소되지 않는다 —
-        // 그쪽은 `State.id`를 보고 `ifLet`이 취소한다.
+        // `id:`가 필수다 — 다른 시크릿 선택 시 뷰가 재생성되지 않아 평범한 `.task`는 다시 돌지 않는다.
+        // `finish()`를 await해야 secret이 바뀔 때 이전 secret의 lifecycle 구독·프로젝트 조회가 함께 끝난다.
         .task(id: store.secret.id) {
             await store.send(.task).finish()
         }
@@ -88,9 +77,9 @@ extension SecretDetailView {
 
     // MARK: Viewing
 
-    /// 복호화 여부와 무관하게 항상 같은 섹션을 렌더한다. payload 필드는 값이 있든 없든 마스킹되므로 복호화 전후로 화면 구성이 달라지지 않고, 로딩·실패 전용 화면도 필요 없다(실패는 alert로 알린다).
-    ///
-    /// secure·copy 동작은 Environment로 내려보낸다 — 필드가 9개 섹션 안쪽에 흩어져 있어 파라미터로 넘기면 중간 섹션들이 쓰지도 않는 값을 계속 실어 나른다.
+    /// payload 필드는 값이 있든 없든 마스킹되므로 복호화 전후로 화면 구성이 달라지지 않고, 로딩·실패 전용 화면도
+    /// 필요 없다(실패는 alert로 알린다). secure·copy 동작은 Environment로 내려보낸다 — 필드가 9개 섹션
+    /// 안쪽에 흩어져 있어 파라미터로 넘기면 중간 섹션들이 쓰지도 않는 값을 계속 실어 나른다.
     private var viewingSection: some View {
         DetailPayloadSectionView(
             secret: store.secret,
@@ -108,7 +97,7 @@ extension SecretDetailView {
         )
     }
 
-    /// reveal 전에는 payload만 빈 껍데기를 넘긴다. 민감 필드는 어차피 마스킹되어 화면이 같고, metadata는 평문이라 `Secret`에서 그대로 채워지므로 평문 필드가 처음부터 보인다.
+    /// 민감 필드는 어차피 마스킹되어 화면이 같고, metadata는 평문이라 `Secret`에서 그대로 채워지므로 평문 필드가 처음부터 보인다.
     private var displayedPayload: CreateSecretPayload {
         if case .loaded(let payload) = store.payloadState {
             return payload
@@ -116,7 +105,7 @@ extension SecretDetailView {
         return .beforeReveal(for: store.secret)
     }
 
-    /// 헤더 + 본문 공통 컨테이너. 복호화 전후로 padding·정렬이 어긋나지 않게 한곳에 둔다.
+    /// 복호화 전후로 padding·정렬이 어긋나지 않게 한곳에 둔다.
     private func bodyStack<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -143,11 +132,9 @@ extension SecretDetailView {
         .disabled(store.isDeleting)
     }
 
-    /// 복호화는 **진행 중일 때만** 막는다. `.idle`에서 누르면 그때 복호화가 시작되고,
-    /// `.failed`에서 누르면 재시도가 된다 — 실패했다고 수정을 영영 막을 이유가 없다.
-    ///
-    /// 연결된 프로젝트는 다르다. 빈 목록을 baseline으로 삼으면 저장할 때 실제 연결이 끊기므로
-    /// `.loaded`가 아니면 잠근다 — 복구는 `linkedProjectsLoadFailed` alert의 Retry가 맡는다.
+    /// 복호화는 **진행 중일 때만** 막는다 — `.idle`에서 누르면 그때 복호화가 시작되고, `.failed`에서 누르면
+    /// 재시도가 된다(실패했다고 수정을 영영 막을 이유가 없다). 연결된 프로젝트는 다르다 — 빈 목록을 baseline으로
+    /// 삼으면 저장할 때 실제 연결이 끊기므로 `.loaded`가 아니면 잠근다(복구는 `linkedProjectsLoadFailed` alert의 Retry가 맡는다).
     private var isEditEnabled: Bool {
         if case .loading = store.payloadState { return false }
         guard case .loaded = store.linkedProjectsState else { return false }
@@ -156,11 +143,9 @@ extension SecretDetailView {
 
     // MARK: Editing
 
-    /// 생성 화면과 **같은 SectionView**를 쓴다(`SecretFormSectionsView`). 마스킹·여러 줄 입력 같은
-    /// 배선이 그쪽에 이미 있으므로 편집 모드용으로 다시 만들 것이 없다.
-    ///
-    /// `editFields`가 `nil`인 채로 `mode == .editing`인 조합은 reducer가 만들지 않지만,
-    /// `if let`이 그 조합을 아예 렌더 불가능하게 만든다.
+    /// 생성 화면과 **같은 SectionView**를 쓴다(`SecretFormSectionsView`) — 마스킹·여러 줄 입력 같은
+    /// 배선이 그쪽에 이미 있으므로 편집 모드용으로 다시 만들 것이 없다. `editFields`가 `nil`인 채로
+    /// `mode == .editing`인 조합은 reducer가 만들지 않지만, `if let`이 그 조합을 아예 렌더 불가능하게 만든다.
     @ViewBuilder
     private var editingSection: some View {
         // `Binding($store.editFields)`를 쓰면 안 된다. 그 이니셜라이저는 **생성 시점에만** nil을
@@ -191,7 +176,7 @@ extension SecretDetailView {
         }
     }
 
-    /// 편집 모드에서만 보이는 하단 액션 바. 생성 화면과 같은 컴포넌트를 쓰고 라벨만 다르다.
+    /// 생성 화면과 같은 컴포넌트를 쓰고 라벨만 다르다.
     private var footer: some View {
         FooterActionsView(
             saveTitle: .module("Save"),
@@ -214,7 +199,7 @@ extension SecretDetailView {
 /// `DetailPayloadSectionView`의 sweep 프리뷰가 담당하므로 여기서 조합을 늘리지 않는다.
 private let _previewSecret = [Secret].previewSubTypeMatrix[0]
 
-/// reveal까지 끝난 모습. 진입만으로는 이 상태에 도달하지 않으므로 State를 직접 세팅한다 —
+/// 진입만으로는 이 상태에 도달하지 않으므로 State를 직접 세팅한다 —
 /// 마스킹이 풀린 필드와 그대로 가려진 필드가 한 화면에 같이 보이는 것이 확인 대상이다.
 #Preview("SecretDetail · reveal 후") {
     SecretDetailView(
@@ -234,7 +219,7 @@ private let _previewSecret = [Secret].previewSubTypeMatrix[0]
     .frame(width: 420, height: 700)
 }
 
-/// 진입 직후 모습 — 복호화하지 않으므로 payload 필드가 전부 마스킹된 채로 그려진다.
+/// 복호화하지 않으므로 payload 필드가 전부 마스킹된 채로 그려진다.
 /// 평문 필드(Services·Environment 등)는 `Secret`에서 오므로 값이 그대로 보여야 한다.
 #Preview("SecretDetail · 복호화 전") {
     SecretDetailView(
@@ -247,7 +232,7 @@ private let _previewSecret = [Secret].previewSubTypeMatrix[0]
     .frame(width: 420, height: 700)
 }
 
-/// 인증 취소 시나리오. 실패는 alert로만 알리고 필드는 마스킹된 채 남는다 —
+/// 실패는 alert로만 알리고 필드는 마스킹된 채 남는다 —
 /// 화면 전체를 덮는 실패 뷰가 없다는 것이 이 프리뷰가 확인하려는 지점이다.
 #Preview("SecretDetail · 인증 취소") {
     SecretDetailView(
@@ -323,7 +308,6 @@ private func _editingPreviewState(
     .frame(width: 420, height: 700)
 }
 
-/// 필수 필드를 비우고 Save를 누른 뒤의 모습.
 #Preview("SecretDetail · 편집 검증 실패") {
     SecretDetailView(
         store: Store(

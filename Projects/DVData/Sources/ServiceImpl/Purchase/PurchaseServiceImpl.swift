@@ -6,9 +6,7 @@ import StoreKit
 import DVCore
 import DVDomain
 
-/// StoreKit 2로 구독을 판매하고 권한을 확인하는 구현체.
-///
-/// 등급을 자체 필드에 들고 있지 않고 `SettingsRepository`의 캐시에 쓴다. 게이트 판정은 동기로 답해야 하는데 StoreKit 조회는 비동기라, 값을 UserDefaults에 두면 동기 읽기와 변경 스트림을 둘 다 공짜로 얻는다. 서비스가 상태를 갖지 않으므로 락도 actor도 필요 없다.
+/// 게이트 판정은 동기로 답해야 하는데 StoreKit 조회는 비동기라, 등급을 `SettingsRepository`의 UserDefaults 캐시에 써서 동기 읽기를 확보한다.
 public struct PurchaseServiceImpl: PurchaseService {
 
     private let settingsRepository: any SettingsRepository
@@ -68,11 +66,7 @@ public struct PurchaseServiceImpl: PurchaseService {
             }
             await transaction.finish()
             Log.info("[Purchase] 구매 성공 — productID: \(productID)", category: .data)
-            // 방금 검증한 트랜잭션이 손에 있으므로 currentEntitlements를 다시 묻지 않는다. 구매 직후에는
-            // 스토어가 아직 반영 전이라 같은 트랜잭션을 미검증으로 돌려주는 순간이 있고, 그때 다시 물으면
-            // 결제에 성공한 사용자가 잠시 무료로 떨어진다. 갱신일 등 세부 정보도 지금 손에 있는
-            // 트랜잭션으로 바로 캐시에 채워 둔다 — `subscriptionStatus()`가 나중에 재조회 없이 즉시
-            // 정확한 값을 돌려줄 수 있게 하기 위해서다.
+            // 구매 직후엔 스토어 반영 전이라 재조회 시 같은 트랜잭션이 미검증으로 돌아올 수 있어, 방금 검증한 트랜잭션으로 캐시를 바로 채운다.
             applyEntitlement(.pro)
             settingsRepository.setCachedSubscriptionStatus(await status(for: transaction))
             await logPendingPlanChange()
@@ -119,10 +113,7 @@ public struct PurchaseServiceImpl: PurchaseService {
             return await status(for: transaction)
         }
 
-        // 구매/복원 직후에는 스토어가 아직 반영 전이라 currentEntitlements가 잠시 비어 있을 수 있다
-        // (`purchase(productID:)` 주석 참고). 재조회로 그 틈을 메우는 대신, 등급이 바뀔 때마다
-        // `setCachedSubscriptionStatus`로 이미 저장해 둔 값을 그대로 돌려준다 — 재시도·대기 없이도
-        // 항상 정확하다. 캐시가 free면 진짜 무료 사용자다.
+        // 구매/복원 직후 스토어 반영 지연을 재조회로 메우지 않고, 등급이 바뀔 때마다 저장해 둔 캐시를 그대로 돌려준다.
         let cached = settingsRepository.cachedSubscriptionStatus()
         return cached.entitlement == .pro ? cached : .free
     }
@@ -171,9 +162,7 @@ public struct PurchaseServiceImpl: PurchaseService {
         }
     }
 
-    /// 다음 갱신 때 적용될 상품이 지금 권한과 다르면 남긴다. 같은 레벨·다른 기간의 기간 전환(crossgrade)은 **갱신일까지 화면에 아무 변화도 만들지 않으므로**, 이 줄이 변경 접수 여부를 확인하는 유일한 신호다.
-    ///
-    /// 기준은 방금 구매한 트랜잭션이 아니라 `activeTransaction()`이다. 전환이 유예되면 구매 트랜잭션은 이미 새 상품이라 그것끼리 비교하면 차이가 사라진다. 화면이 "현재 플랜"으로 읽는 값과 같은 것을 봐야 한다.
+    /// 같은 레벨·다른 기간의 기간 전환(crossgrade)은 **갱신일까지 화면에 아무 변화도 만들지 않으므로**, 이 줄이 변경 접수 여부를 확인하는 유일한 신호다. 기준은 방금 구매한 트랜잭션이 아니라 `activeTransaction()`이다 — 전환이 유예되면 구매 트랜잭션은 이미 새 상품이라 그것끼리 비교하면 차이가 사라진다. 화면이 "현재 플랜"으로 읽는 값과 같은 것을 봐야 한다.
     private func logPendingPlanChange() async {
         guard let current = await activeTransaction(),
               let statuses = try? await current.subscriptionStatus,
@@ -191,7 +180,7 @@ public struct PurchaseServiceImpl: PurchaseService {
 
 extension PurchaseServiceImpl {
 
-    /// `Product`를 도메인 값 타입으로 옮긴다. **기간을 읽지 못하면 제외한다** — 페이월이 설명할 수 없는 상품을 띄우느니 빼는 편이 낫다.
+    /// **기간을 읽지 못하면 제외한다** — 페이월이 설명할 수 없는 상품을 띄우느니 빼는 편이 낫다.
     private static func subscriptionProduct(from product: Product) -> SubscriptionProduct? {
         guard let months = periodInMonths(of: product) else {
             Log.error("[Purchase] 구독 기간을 읽지 못해 상품에서 제외 — productID: \(product.id)", category: .data)
@@ -207,7 +196,7 @@ extension PurchaseServiceImpl {
         )
     }
 
-    /// 구독 기간을 개월로 환산한다. 주·일 단위 구독은 쓰지 않으므로 nil을 돌려준다.
+    /// 주·일 단위 구독은 쓰지 않으므로 nil을 돌려준다.
     private static func periodInMonths(of product: Product) -> Int? {
         guard let period = product.subscription?.subscriptionPeriod else { return nil }
         switch period.unit {
@@ -218,7 +207,7 @@ extension PurchaseServiceImpl {
         }
     }
 
-    /// 월 환산 가격을 스토어의 통화 서식으로 만든다. 1개월 상품은 `displayPrice`와 같아지므로 nil이다.
+    /// 1개월 상품은 `displayPrice`와 같아지므로 nil이다.
     private static func monthlyEquivalentPrice(of product: Product, months: Int) -> String? {
         guard months > 1 else { return nil }
         return (product.price / Decimal(months)).formatted(product.priceFormatStyle)
@@ -229,7 +218,7 @@ extension PurchaseServiceImpl {
 
 extension PurchaseServiceImpl {
 
-    /// 완료 처리되지 않은 트랜잭션을 걷는다. 남겨두면 StoreKit이 앱을 켤 때마다 다시 전달한다.
+    /// 남겨두면 StoreKit이 앱을 켤 때마다 다시 전달한다.
     private func finishUnfinishedTransactions() async {
         for await verification in Transaction.unfinished {
             guard case .verified(let transaction) = verification else { continue }
@@ -237,17 +226,9 @@ extension PurchaseServiceImpl {
         }
     }
 
-    /// 현재 유효한 구독 트랜잭션. 없으면 nil.
-    ///
-    /// `Transaction.currentEntitlements`(Apple이 "지금 유효한 그룹 멤버"라고 계산해 주는 필터링된 뷰)를
-    /// 쓰지 않는다. 같은 그룹 안에서 플랜만 바꾸는 crossgrade 직후 이 뷰가 **아무것도 못 돌려주는**
-    /// 현상이 확인됐다(로컬 StoreKit 테스트 세션에서 재현).
-    ///
-    /// 개별 트랜잭션의 날짜 필드(`revocationDate`/`expirationDate`)를 직접 비교하는 방식도 시도했지만,
-    /// 로컬 테스트 세션에서 강제 만료·환불을 시켜도 **원래 서명된 트랜잭션 객체의 날짜 필드 자체는
-    /// 갱신되지 않아** 오탐이 났다. 대신 트랜잭션의 `subscriptionStatus`(Apple이 계산하는 그룹 단위
-    /// 상태 — `.subscribed`/`.expired`/`.revoked` 등)를 신뢰한다. 이 값은 crossgrade·환불·만료를
-    /// 전부 정확히 반영한다.
+    /// `Transaction.currentEntitlements`는 같은 그룹 안에서 플랜만 바꾸는 crossgrade 직후 아무것도
+    /// 못 돌려주는 경우가 있어 쓰지 않는다. 대신 트랜잭션의 `subscriptionStatus`(Apple이 계산하는
+    /// 그룹 단위 상태)를 신뢰한다 — crossgrade·환불·만료를 전부 정확히 반영한다.
     private func activeTransaction() async -> StoreKit.Transaction? {
         for await verification in Transaction.all {
             guard case .verified(let transaction) = verification else { continue }
@@ -267,8 +248,7 @@ extension PurchaseServiceImpl {
         return nil
     }
 
-    /// 다음 주기 갱신 정보: 자동 갱신 여부와 예약된 상품(autoRenewPreference). 조회 실패 시 갱신 없음으로 본다.
-    /// autoRenewPreference는 다음 갱신에 적용될 상품 — 지금과 다르면 crossgrade가 예약된 것이다.
+    /// 조회 실패 시 갱신 없음으로 본다. autoRenewPreference는 다음 갱신에 적용될 상품 — 지금과 다르면 crossgrade가 예약된 것이다.
     private func renewalInfo(
         for transaction: StoreKit.Transaction
     ) async -> (willAutoRenew: Bool, autoRenewPreference: String?) {

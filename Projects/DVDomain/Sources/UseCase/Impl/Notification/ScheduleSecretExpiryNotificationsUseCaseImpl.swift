@@ -37,8 +37,8 @@ public struct ScheduleSecretExpiryNotificationsUseCaseImpl: ScheduleSecretExpiry
                 // 만료일이 나중에 제거된 Secret의 정리도 같은 호출이 처리한다.
                 await schedule(secret: secret)
             }
-            // 조회에 잡히지 않는(원격 삭제·전체 삭제 등으로 사라진) Secret의 고아 예약을 걷어낸다.
-            // 개별 취소는 ID를 알아야 하지만, pending 목록과 현재 Secret 집합의 차집합으로 특정한다.
+            // 원격 삭제·전체 삭제 등으로 조회에 잡히지 않게 된 Secret의 예약은 개별 취소에 필요한 ID를 알 수 없어,
+            // pending 목록과 현재 Secret 집합의 차집합으로 특정한다.
             await cancelOrphans(existing: secrets)
             // 등급이 바뀌면 여기로 다시 들어온다. 예약 건수는 화면에 드러나지 않으므로 강등 뒤 실제로 줄었는지 확인할 곳이 이 줄뿐이다.
             let scheduled = await pendingExpiryIdentifiers().count
@@ -103,9 +103,7 @@ public struct ScheduleSecretExpiryNotificationsUseCaseImpl: ScheduleSecretExpiry
         await notificationService.cancel(identifiers: expiry)
     }
 
-    /// 현재 존재하는 Secret 집합에 속하지 않는 만료 알림(고아)을 취소한다.
-    /// 원격 삭제된 Secret은 조회 결과에 없어 ID를 모르므로, pending 목록에서 유효 식별자 집합의
-    /// 차집합으로 특정한다.
+    /// 원격 삭제된 Secret은 조회 결과에 없어 ID를 모르므로, pending 목록에서 유효 식별자 집합의 차집합으로 특정한다.
     private func cancelOrphans(existing secrets: [Secret]) async {
         let valid = Set(secrets.flatMap { secret in
             ExpiryAlertDay.allCases.map { Self.notificationID(secretID: secret.id, timing: $0) }
@@ -115,7 +113,7 @@ public struct ScheduleSecretExpiryNotificationsUseCaseImpl: ScheduleSecretExpiry
         await notificationService.cancel(identifiers: orphans)
     }
 
-    /// pending 알림 중 만료 알림 식별자만 골라 반환한다(다른 종류의 알림은 건드리지 않는다).
+    /// 다른 종류의 알림도 pending 목록에 섞여 있어 접두사로 걸러낸다.
     private func pendingExpiryIdentifiers() async -> [String] {
         await notificationService.pendingIdentifiers().filter { $0.hasPrefix(Self.expiryIDPrefix) }
     }
@@ -124,15 +122,8 @@ public struct ScheduleSecretExpiryNotificationsUseCaseImpl: ScheduleSecretExpiry
         "\(expiryIDPrefix)\(secretID.uuidString)-\(timing.rawValue)d"
     }
 
-    /// 이번 Secret에 실제로 예약할 알림 시점. 무료 등급이면 개수를 ``EntitlementLimits/maxExpiryAlertDays``로 줄인다.
-    ///
-    /// **저장된 설정은 건드리지 않고 읽은 값을 줄이기만 한다** — 지우면 재구독 시 복원할 수 없다(설계 §2).
-    ///
-    /// 남길 하나는 **가장 이른 시점**이다. 시크릿 교체에는 시간이 필요해서 만료에 가까운 알림은 대응할 여유를 주지 못한다. 특정 시점을 고정하지 않는 이유는 ``EntitlementLimits/maxExpiryAlertDays``에 적었다.
-    /// - Parameters:
-    ///   - expiresAt: 이 Secret의 만료 시각
-    ///   - now: 지났는지 판단할 기준 시각
-    /// - Returns: 예약할 시점 목록. 사용자가 아무 시점도 고르지 않았으면 빈 배열
+    /// 무료 등급이면 개수를 ``EntitlementLimits/maxExpiryAlertDays``로 줄인다 — 저장된 설정은 건드리지 않고 읽은 값만 줄이며
+    /// (지우면 재구독 시 복원 불가), 남기는 하나는 가장 이른 시점이다(시크릿 교체에 걸리는 시간만큼 대응 여유를 줘야 한다).
     private func scheduledTimings(expiresAt: Date, now: Date) -> [ExpiryAlertDay] {
         let selected = settingsRepository.expiryAlertDaysBefore()
         guard !entitlementUseCase.canUseMultipleExpiryAlertDays() else { return selected }

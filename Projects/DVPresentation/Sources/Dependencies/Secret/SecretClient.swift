@@ -13,7 +13,7 @@ public struct SecretClient: Sendable {
   // MARK: - Secret
 
   public var fetchByQuery: @Sendable (_ query: SecretQuery) async throws -> [Secret]
-  /// 휴지통을 제외한 전체 Secret 개수. 무료 한도(15개) 사용량 표시에 쓴다.
+  /// 무료 한도(15개) 사용량 표시에 쓴다.
   public var totalCountExcludingTrash: @Sendable () async throws -> Int
   public var softDelete: @Sendable (_ id: Secret.ID) async throws -> Secret
   public var restore: @Sendable (_ id: Secret.ID) async throws -> Secret
@@ -30,19 +30,17 @@ public struct SecretClient: Sendable {
   /// Copy가 자체 인증 정책을 적용하도록 Reveal 인증 없이 payload를 복호화한다.
   /// 반환값은 화면에 공개하지 않고 민감 값 Copy 흐름에서만 사용한다.
   public var loadPayloadForCopy: @Sendable (_ secret: Secret) async throws -> CreateSecretPayload
-  /// 즐겨찾기 여부를 갱신하고 갱신된 Secret을 반환한다.
   /// payload 복호화가 없으므로 **생체인증을 타지 않는다**(`PatchSecretUseCase.updateSimple`).
   public var setLiked: @Sendable (_ id: Secret.ID, _ liked: Bool) async throws -> Secret
 
-  /// 수정 화면의 저장. 공통 필드·프로젝트 연결과 함께 `change`가 가리키는 것만 다시 쓴다.
-  ///
-  /// `PatchSecretUseCase`의 overload 4개를 그대로 노출하지 않는 이유는 그것들이 제네릭이라
-  /// `@DependencyClient`의 저장 프로퍼티에 담기지 않기 때문이다. 생성 경로가 `dispatchCreateSecret`으로
-  /// 같은 문제를 푼 것과 같은 형태로, Live가 `change`를 보고 overload를 고른다.
+  /// 공통 필드·프로젝트 연결과 함께 `change`가 가리키는 것만 다시 쓴다. `PatchSecretUseCase`의 overload 4개를
+  /// 그대로 노출하지 않는 이유는 그것들이 제네릭이라 `@DependencyClient`의 저장 프로퍼티에 담기지 않기
+  /// 때문이다 — 생성 경로가 `dispatchCreateSecret`으로 같은 문제를 푼 것과 같은 형태로, Live가 `change`를
+  /// 보고 overload를 고른다.
   ///
   /// **이 호출 자체는 인증을 타지 않는다** — 암호화만 하고 복호화는 하지 않기 때문이다.
   /// 다만 진입 시점의 인증이 저장 시점까지 열려 있다는 보장은 없으므로, 창이 닫혀 있으면
-  /// 화면이 직전에 `authenticate`를 먼저 부른다 (`SecretDetailFeature.handleSave`).
+  /// 화면이 직전에 `authenticate`를 먼저 부른다(`SecretDetailFeature.handleSave`).
   ///
   /// - Parameter patch: 공통 필드. 바뀐 것만 `.set`, 나머지는 `.unchanged`. 이름 trim과
   ///   만료일 23:59:59 고정은 도메인(`PatchSecretUseCase`)이 수행하므로 화면에서 맞출 필요가 없다.
@@ -54,14 +52,12 @@ public struct SecretClient: Sendable {
     _ change: SecretContentChange,
     _ projectIds: PatchField<[Project.ID]>
   ) async throws -> Secret
-  /// 해당 Secret에 연결된 Project 목록. `Secret` 엔티티에는 프로젝트 정보가 없어 별도 조회가 필요하다.
+  /// `Secret` 엔티티에는 프로젝트 정보가 없어 별도 조회가 필요하다.
   public var fetchLinkedProjects: @Sendable (_ secretID: Secret.ID) async throws -> [Project]
 
   // MARK: - Reveal / Copy
 
-  /// 로컬 인증만 수행한다. 복호화는 하지 않는다.
-  ///
-  /// `revealPayload`가 인증과 복호화를 함께 하므로 첫 reveal에는 그쪽을 쓴다. 이미 복호화된
+  /// 복호화는 하지 않는다. `revealPayload`가 인증과 복호화를 함께 하므로 첫 reveal에는 그쪽을 쓴다. 이미 복호화된
   /// payload를 들고 있는데 인증 창만 만료된 경우, 다시 복호화할 이유가 없어 이 액션이 필요하다.
   public var authenticate: @Sendable (_ reason: AuthenticationReason) async throws -> Void
 
@@ -69,10 +65,8 @@ public struct SecretClient: Sendable {
   /// 설정된 시간 뒤 자동 정리, 반복 복사 감지가 함께 수행된다.
   public var copySensitiveValue: @Sendable (_ value: String) async throws -> Void
 
-  /// 평문 값을 클립보드에 복사한다(`ClipboardCopyPolicy.plain`). 인증도 자동 정리도 반복 감지도 없다.
-  ///
-  /// metadata에서 오는 평문(Redirect URL·Public Key·Host 등)은 비밀이 아니라 민감 값 정책을
-  /// 적용할 대상이 아니다. 클립보드가 비면 붙여넣으려던 값이 사라지고, 반복 복사가 비정상 접근
+  /// 인증도 자동 정리도 반복 감지도 없다(`ClipboardCopyPolicy.plain`). metadata에서 오는 평문(Redirect URL·Public Key·Host 등)은
+  /// 비밀이 아니라 민감 값 정책을 적용할 대상이 아니다. 클립보드가 비면 붙여넣으려던 값이 사라지고, 반복 복사가 비정상 접근
   /// 카운터에 쌓이면 하지도 않은 일로 보안 경고가 뜬다.
   public var copyPlainValue: @Sendable (_ value: String) async throws -> Void
 
@@ -121,9 +115,7 @@ private extension SecretClient {
       permanentlyDelete: { _ in },
       softDeleteAll: { _ in },
       permanentlyDeleteAll: { _ in },
-      // live `dispatchRevealPayload`와 case 구성이 1:1로 일치해야 한다 —
-      // 한쪽만 바뀌면 프리뷰가 실제와 다른 payload 타입을 조용히 반환한다.
-      // metadata는 CreateSecret 폼이 실제로 입력받는 필드만 채운다(나머지는 live에서도 항상 nil).
+      // live와 case 구성이 1:1로 일치해야 한다 — 한쪽만 바뀌면 프리뷰가 실제와 다른 payload 타입을 조용히 반환한다.
       revealPayload: { secret, _ in
           switch (secret.secretType, secret.subType) {
           case (.apiKeyToken, .apiKey), (.apiKeyToken, nil):

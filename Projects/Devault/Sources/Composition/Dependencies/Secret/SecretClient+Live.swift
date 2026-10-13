@@ -129,8 +129,6 @@ extension SecretClient: @retroactive DependencyKey {
 
 // MARK: - Update Dispatch
 
-/// `SecretContentChange`가 가리키는 것만 다시 쓰도록 `PatchSecretUseCase`의 overload를 고른다.
-///
 /// `dispatchCreateSecret`과 같은 이유로 존재한다 — 도메인 overload가 제네릭이라 Client 경계를
 /// 넘지 못하고, 구체 payload·metadata 타입은 `CreateSecretPayload`의 case에서만 나온다.
 private func dispatchUpdateSecret(

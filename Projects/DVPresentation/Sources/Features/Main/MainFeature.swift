@@ -32,9 +32,7 @@ public struct MainFeature {
     /// New▸로 요청한 타입을, 작성 중이던 폼을 취소 확인한 뒤 열기 위해 보관한다.
     var pendingCreateType: CreatableSecretType?
 
-    /// 삭제된 시크릿을 고른 상태라면 detail 컬럼에 상세 대신 그릴 복구 안내 대상.
-    ///
-    /// 저장 필드로 두지 않는다 — 상세를 닫는 경로가 여럿이라 한 곳만 빠뜨려도 안내가 남는다.
+    /// 삭제된 시크릿을 고른 상태라면 detail 컬럼에 상세 대신 그릴 복구 안내 대상. 저장 필드로 두지 않는다 — 상세를 닫는 경로가 여럿이라 한 곳만 빠뜨려도 안내가 남는다.
     var deletedNoticeSecret: Secret? {
       guard secretDetail == nil,
             let id = secretList.selectedSecretID,
@@ -175,7 +173,7 @@ public struct MainFeature {
       case .paywall:
         return .none
 
-      // 알림은 어떤 id가 바뀌었는지 알려주지 않으므로 목록만 다시 읽는 `.refresh`로는 부족하다. 다른 기기에서 지금 조회 중인 시크릿이 삭제됐다면 상세가 그대로 떠 있어 복사·수정이 계속 가능하다 — 재조회 결과와 대조해 선택을 정리하는 `.refreshRevalidatingSelection`을 쓴다.
+      // 알림은 어떤 id가 바뀌었는지 알려주지 않아, 재조회 결과와 대조해 선택을 정리해야 한다.
       case .iCloudRemoteChangeDetected:
         return .concatenate(
           .send(.secretList(.refreshRevalidatingSelection)),
@@ -214,8 +212,7 @@ public struct MainFeature {
         return .none
 
       // 삭제된 시크릿은 상세를 만들지 않는다 — 상세가 조회·복사·수정의 유일한 진입점이다.
-      //
-      // 목록의 선택이 아니라 여기서 막는다. 선택을 막으면 `List` selection이 확정되지 않아 방향키 탐색과 컨텍스트 메뉴의 영구 삭제가 키보드로 도달 불가가 된다.
+      // 목록의 선택이 아니라 여기서 막는다 — 선택을 막으면 `List` selection이 확정되지 않아 방향키 탐색과 컨텍스트 메뉴의 영구 삭제가 키보드로 도달 불가가 된다.
       case .secretList(.delegate(.secretSelected(let id))):
         if let id, case .loaded(let secrets) = state.secretList.secretsState, let secret = secrets[id: id],
            secret.deletedAt == nil {
@@ -226,10 +223,6 @@ public struct MainFeature {
         return .none
 
       // 자식끼리 직접 연결하지 않고 공통 부모가 사이드바 개수 갱신을 지시한다 (TCA_GUIDELINES 7.4).
-      //
-      // 리스트 메뉴로 지금 조회 중인 시크릿을 삭제·복구·영구삭제한 경우의 조회뷰 정리는 여기서
-      // 하지 않는다 — `SecretListFeature`가 재조회 후 남은 목록의 맨 위 항목으로 스스로 재선택하고
-      // (없으면 `nil`) 그 결과를 `.secretSelected`로 보내므로, 위 `.secretSelected` 케이스가 그대로 처리한다.
       case .secretList(.delegate(.secretsChanged)):
         return .send(.sidebar(.countsRefreshRequested))
 
@@ -241,13 +234,7 @@ public struct MainFeature {
         state.secretList.selectedSecretID = nil
         return .none
 
-      // 즐겨찾기·저장으로 Secret이 바뀌면 목록을 재조회한다. 단순 항목 교체로는
-      // liked / expired / project 같은 필터 컬렉션에서 조건을 벗어난 항목이 남는다.
-      //
-      // 사이드바 개수도 함께 지시한다. `.refresh`는 목록만 다시 읽고 `.secretsChanged`를
-      // 발신하지 않으므로(그 delegate는 `.mutationResponse` 성공 경로에서만 나온다) 개수가
-      // 그대로 남는다 — 즐겨찾기는 Starred, 삭제는 All·Deleted 개수를 바꾼다.
-      // `.merge`는 도착 순서를 보장하지 않아 테스트가 깨지기 쉬우므로 순차 실행한다.
+      // 단순 항목 교체로는 liked / expired / project 같은 필터 컬렉션에서 조건을 벗어난 항목이 남는다.
       case .secretDetail(.delegate(.secretUpdated)):
         return .concatenate(
           .send(.secretList(.refresh)),
@@ -341,9 +328,7 @@ public struct MainFeature {
         // 생성 중이면 목록을 옮기지 않는다 — 마치고 엉뚱한 목록으로 돌아오게 된다.
         if case .browsing = state.sidebar.mode {
           state.sidebar.selection = .project(id: item.id)
-          // 새 프로젝트는 아직 `sidebar.projects`에 없어 이름을 찾을 수 없으므로
-          // `applySelection`을 쓰지 못한다. 상세를 놓는 것은 같은 이유로 필요하다 —
-          // 남겨두면 빈 목록 옆에 이전 시크릿이 그대로 떠 있고 Touch ID를 다시 요구한다.
+          // 새 프로젝트는 아직 `sidebar.projects`에 없어 이름을 찾을 수 없어 `applySelection`을 못 쓴다.
           state.secretDetail = nil
           state.secretList.retarget(to: .project(id: item.id), projectName: item.name)
         }
@@ -434,10 +419,8 @@ extension MainFeature {
     }
   }
 
-  /// 사이드바에서 고른 곳으로 이동한다. 생성 중이었다면 그 플로우를 접는다.
   /// 고른 곳이 이미 보고 있던 곳일 수 있어(생성 중 같은 필터 재선택) `retarget`을 거친다.
-  ///
-  /// **사이드바를 옮기는 것도 여기서 한다.** `SidebarFeature.didSelect`는 생성 중일 때
+  /// **사이드바를 옮기는 것도 여기서 한다** — `SidebarFeature.didSelect`는 생성 중일 때
   /// 알리기만 하므로(확인을 거쳐야 확정된다) 여기서 옮기지 않으면 이어지는
   /// `setCreatingSecret(false)`가 이전 자리를 강조해 목록과 어긋난다.
   private func applySelection(_ selection: SidebarSelection, _ state: inout State) {
@@ -458,7 +441,7 @@ extension MainFeature {
     return .send(.sidebar(.setCreatingSecret(true)))
   }
 
-  /// 생성 플로우로 들어간다. 조회 중이던 시크릿을 함께 놓는다 — 상세 State가 살아남으면
+  /// 조회 중이던 시크릿을 함께 놓는다 — 상세 State가 살아남으면
   /// 돌아올 때 되살아나고 `.task(id:)`가 Touch ID까지 다시 요구한다.
   private func enterCreating(_ state: inout State) {
     state.createSecret = nil
@@ -467,7 +450,7 @@ extension MainFeature {
     state.secretList.selectedSecretID = nil
   }
 
-  /// 생성 플로우를 벗어난다. 한쪽만 남으면 `screen`이 `.creating`으로 판정돼 컬럼이 접힌 채 남는다.
+  /// 한쪽만 남으면 `screen`이 `.creating`으로 판정돼 컬럼이 접힌 채 남는다.
   private func exitCreating(_ state: inout State) {
     state.createSecret = nil
     state.selectSecretType = nil

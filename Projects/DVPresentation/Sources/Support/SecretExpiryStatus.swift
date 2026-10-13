@@ -10,7 +10,6 @@ import DVDomain
 /// 조회 화면도 강제로 끌려간다.
 enum SecretExpiryStatus: Equatable {
 
-    /// 이미 만료됐다.
     case expired
 
     /// 아직 안 지났고 ``criticalWindow`` 이내에 만료된다 — 즉시 조치가 필요한 단계.
@@ -43,7 +42,7 @@ enum SecretExpiryStatus: Equatable {
         }
     }
 
-    /// 단계별 표현. 목록 행과 조회 필드가 이 하나를 통해 같은 아이콘·색을 얻는다.
+    /// 목록 행과 조회 필드가 이 하나를 통해 같은 아이콘·색을 얻는다.
     var emphasis: DVExpiryEmphasis {
         switch self {
         case .expired, .critical: return .danger
@@ -51,7 +50,7 @@ enum SecretExpiryStatus: Equatable {
         }
     }
 
-    /// 배지에 hover 시 뜨는 설명 문구. 아이콘·색만으로는 "며칠 남았는지"가 전달되지 않는다.
+    /// 아이콘·색만으로는 "며칠 남았는지"가 전달되지 않는다.
     var tooltipText: String {
         switch self {
         case .expired:
