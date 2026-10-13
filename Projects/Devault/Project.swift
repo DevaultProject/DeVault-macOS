@@ -15,9 +15,15 @@ let isLocalSigning = Environment.localSigning.getBoolean(default: false)
 /// CI에서 App Store 배포 아카이브를 만들 때 켠다. `ci_post_clone.sh`가 `TUIST_CI_SIGNING=1`로 설정한다.
 let isCISigning = Environment.ciSigning.getBoolean(default: false)
 
+let apsEnvironment = isCISigning ? "production" : "development"
+
 /// 아카이브 빌드 번호(CFBundleVersion). App Store는 업로드마다 고유·증가값을 요구하므로
 /// CI에선 `$CI_BUILD_NUMBER`를 주입하고, 로컬은 기본값 "42"를 쓴다.
 let buildNumber = Environment.buildNumber.getString(default: "42")
+
+/// 마케팅 버전(CFBundleShortVersionString). Xcode Cloud 태그 빌드에선 `CI_TAG`를 주입하고,
+/// 로컬 빌드는 현재 릴리스 버전을 기본값으로 사용한다.
+let marketingVersion = Environment.marketingVersion.getString(default: "1.0.0")
 
 /// 로컬 StoreKit 테스트 스토어를 실행 스킴에 붙인다. `generate-storekit`이 `TUIST_STORE_KIT_TESTING=1`로 설정한다.
 ///
@@ -99,8 +105,8 @@ let project = Project.project(
                 "CFBundleName": .string("DeVault"),
                 // Mac App Store 필수. 여기엔 주 카테고리(생산성)만 들어감
                 "LSApplicationCategoryType": .string("public.app-category.productivity"),
-                // 마케팅 버전(기본값 "1.0"을 덮어쓴다).
-                "CFBundleShortVersionString": .string("1.0.0"),
+                // 태그 기반 릴리스 버전. 로컬 빌드 기본값은 위 marketingVersion 선언에서 정한다.
+                "CFBundleShortVersionString": .string(marketingVersion),
                 "CFBundleVersion": .string(buildNumber),
                 // 표준 AES-GCM(CryptoKit)만 사용 → 수출 규정 면제 대상.
                 "ITSAppUsesNonExemptEncryption": .boolean(false),
@@ -122,7 +128,7 @@ let project = Project.project(
                 // 3rd-party dependency
                 .tca(),
             ],
-            settings: .settings(base: signingSettings)
+            settings: .settings(base: signingSettings.merging(["APS_ENVIRONMENT": .string(apsEnvironment)]) { _, new in new })
         ),
         // StoreKit은 앱 번들 신원이 있어야 거래하므로 호스트 없는 유닛 번들에서는 상품 조회가 빈 배열로 떨어진다. 앱을 의존성으로 두면 Tuist가 TEST_HOST를 잡아준다.
         .tests(

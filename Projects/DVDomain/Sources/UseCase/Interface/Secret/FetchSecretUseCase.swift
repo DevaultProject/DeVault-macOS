@@ -26,6 +26,15 @@ public protocol FetchSecretUseCase: Sendable {
     /// - Returns: `deletedAt == nil`인 Secret의 개수
     func totalCountExcludingTrash() async throws -> Int
 
+    /// 같은 타입 안에 이름이 겹치는 Secret이 있는지 확인한다.
+    ///
+    /// 이름은 생성 경로와 같게 trim한 뒤 **대소문자를 구분해** 비교한다. 휴지통은 빼고 만료된 Secret은 포함한다. 공백뿐이면 `false` — 빈 이름은 ``SecretUseCaseError/invalidName``이 생성 시점에 막는다.
+    /// - Parameters:
+    ///   - name: 검사할 이름
+    ///   - secretType: 비교 범위가 되는 타입
+    ///   - excludingID: 비교에서 뺄 Secret의 ID. 수정 화면에서 자기 자신을 뺄 때 쓴다
+    func isNameDuplicated(name: String, secretType: SecretType, excludingID: UUID?) async throws -> Bool
+
     /// Secret에 연결된 Project 목록을 조회한다.
     /// - Parameter secretID: 조회할 Secret의 ID
     /// - Returns: 해당 Secret에 연결된 Project 배열
