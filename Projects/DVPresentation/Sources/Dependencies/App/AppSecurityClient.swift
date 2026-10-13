@@ -4,7 +4,9 @@ import ComposableArchitecture
 
 @DependencyClient
 public struct AppSecurityClient: Sendable {
+  /// 앱 실행 시 인증 요구 여부.
   public var isRequireAuthOnLaunchEnabled: @Sendable () -> Bool = { true }
+  /// 설정된 비활성 시간이 지날 때마다 값을 방출한다.
   public var inactivityTimeoutStream: @Sendable () -> AsyncStream<Void> = {
     AsyncStream { $0.finish() }
   }
