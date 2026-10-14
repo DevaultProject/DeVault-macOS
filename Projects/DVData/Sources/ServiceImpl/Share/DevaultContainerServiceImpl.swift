@@ -23,13 +23,15 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         expiresAt: Date?
     ) throws -> Data {
         let salt = Data((0..<DevaultContainerHeader.saltByteCount).map { _ in UInt8.random(in: .min ... .max) })
-        let key = try passwordKeyDerivationService.deriveKey(
+        var key = try passwordKeyDerivationService.deriveKey(
             password: password,
             salt: salt,
             derivedKeyByteCount: Self.derivedKeyByteCount
         )
+        defer { Self.wipe(&key) }
 
-        let plaintext = try JSONEncoder().encode(payload)
+        var plaintext = try JSONEncoder().encode(payload)
+        defer { Self.wipe(&plaintext) }
         let aad = DevaultContainerFileCodec.encodeHeaderPrefix(
             version: DevaultContainerHeader.currentVersion,
             expiresAt: expiresAt,
@@ -49,11 +51,12 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
     public func `import`(data: Data, password: String) throws -> DevaultContainerPayload {
         let file = try DevaultContainerFileCodec.decode(data)
 
-        let key = try passwordKeyDerivationService.deriveKey(
+        var key = try passwordKeyDerivationService.deriveKey(
             password: password,
             salt: file.header.salt,
             derivedKeyByteCount: Self.derivedKeyByteCount
         )
+        defer { Self.wipe(&key) }
 
         let aad = DevaultContainerFileCodec.encodeHeaderPrefix(
             version: file.header.version,
@@ -61,7 +64,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
             salt: file.header.salt
         )
 
-        let plaintext: Data
+        var plaintext: Data
         do {
             plaintext = try cryptoService.open(
                 sealedData: file.ciphertext,
@@ -72,11 +75,18 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         } catch {
             throw DevaultImportError.wrongPassword
         }
+        defer { Self.wipe(&plaintext) }
 
         do {
             return try JSONDecoder().decode(DevaultContainerPayload.self, from: plaintext)
         } catch {
             throw DevaultImportError.corrupted
+        }
+    }
+
+    private static func wipe(_ data: inout Data) {
+        data.withUnsafeMutableBytes { pointer in
+            _ = memset_s(pointer.baseAddress, pointer.count, 0, pointer.count)
         }
     }
 }
