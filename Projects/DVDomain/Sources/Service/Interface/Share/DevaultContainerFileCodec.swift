@@ -23,12 +23,16 @@ public enum DevaultContainerFileCodec {
     }
 
     public static func encodeHeader(_ header: DevaultContainerHeader) -> Data {
+        encodeHeaderPrefix(version: header.version, expiresAt: header.expiresAt, salt: header.salt) + header.nonce
+    }
+
+    /// nonce 확정 전에 AAD로 써야 해서 헤더에서 nonce만 뺀 33바이트.
+    public static func encodeHeaderPrefix(version: UInt16, expiresAt: Date?, salt: Data) -> Data {
         var bytes = Data()
         bytes.append(contentsOf: DevaultContainerHeader.magic)
-        bytes.append(contentsOf: bigEndianBytes(header.version))
-        bytes.append(contentsOf: bigEndianBytes(unixSeconds(header.expiresAt)))
-        bytes.append(header.salt)
-        bytes.append(header.nonce)
+        bytes.append(contentsOf: bigEndianBytes(version))
+        bytes.append(contentsOf: bigEndianBytes(unixSeconds(expiresAt)))
+        bytes.append(salt)
         return bytes
     }
 

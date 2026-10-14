@@ -4,7 +4,7 @@ import Foundation
 
 /// 짧은 시간 안에 반복되는 접근을 비정상으로 판단하는 슬라이딩 윈도 카운터입니다.
 /// `Date`(벽시계)는 NTP 보정·DST로 시각이 튈 수 있어, 단조 증가하는 `ContinuousClock.Instant` 사용
-// TODO: Clipboard·Authentication이 공유하는 범용 유틸인데 Interface/Clipboard/에 있음 — 공용 폴더(예: Shared/)로 이동 검토
+// TODO: Clipboard·Authentication이 공유하는 범용 유틸인데 Interface/Clipboard/에 있음 — 공용 폴더로 이동 검토
 public final class AbnormalAccessMonitor: @unchecked Sendable {
     private let window: Duration
     private let threshold: Int
