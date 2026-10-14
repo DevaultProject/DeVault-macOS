@@ -43,17 +43,29 @@ struct PasswordKeyDerivationServiceImplTests {
         #expect(key32.count == 32)
     }
 
-    @Test("빈 비밀번호·빈 salt·0 이하 길이는 invalidParameters를 던진다")
+    @Test("빈 비밀번호·짧은 salt·0 이하 길이는 invalidParameters를 던진다")
     func rejectsInvalidParameters() {
         #expect(throws: PasswordKeyDerivationError.invalidParameters) {
             try service.deriveKey(password: "", salt: salt, derivedKeyByteCount: 32)
         }
         #expect(throws: PasswordKeyDerivationError.invalidParameters) {
-            try service.deriveKey(password: "correct horse", salt: Data(), derivedKeyByteCount: 32)
+            try service.deriveKey(password: "correct horse", salt: Data(repeating: 0xAB, count: 4), derivedKeyByteCount: 32)
         }
         #expect(throws: PasswordKeyDerivationError.invalidParameters) {
             try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 0)
         }
+        #expect(throws: PasswordKeyDerivationError.invalidParameters) {
+            try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: -1)
+        }
+    }
+
+    @Test("커스텀 m/t/p 파라미터로 초기화해도 정상 동작하고 기본값과 다른 키가 나온다")
+    func worksWithCustomCostParameters() throws {
+        let customService = PasswordKeyDerivationServiceImpl(memoryCostKiB: 8 * 1024, timeCost: 2, parallelism: 1)
+        let customKey = try customService.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
+        let defaultKey = try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
+        #expect(customKey.count == 32)
+        #expect(customKey != defaultKey)
     }
 
     @Test("공식 RFC 9106 Argon2id KAT 벡터와 일치한다")
