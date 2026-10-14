@@ -36,12 +36,17 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
 
         var passwordBytes = Array(password.utf8)
         defer {
-            for index in passwordBytes.indices {
-                passwordBytes[index] = 0
+            passwordBytes.withUnsafeMutableBytes { buffer in
+                _ = memset_s(buffer.baseAddress, buffer.count, 0, buffer.count)
             }
         }
         var saltBytes = Array(salt)
         var output = [UInt8](repeating: 0, count: derivedKeyByteCount)
+        defer {
+            output.withUnsafeMutableBytes { buffer in
+                _ = memset_s(buffer.baseAddress, buffer.count, 0, buffer.count)
+            }
+        }
 
         let result = argon2id_hash_raw(
             timeCost, memoryCostKiB, parallelism,

@@ -69,7 +69,9 @@ public enum DevaultContainerFileCodec {
 
     private static func unixSeconds(_ date: Date?) -> UInt64 {
         guard let date else { return 0 }
-        return UInt64(max(0, date.timeIntervalSince1970))
+        let seconds = date.timeIntervalSince1970
+        guard seconds.isFinite, seconds >= 0, seconds <= Double(UInt64.max) else { return UInt64.max }
+        return UInt64(seconds)
     }
 
     private static func date(fromUnixSeconds seconds: UInt64) -> Date? {
