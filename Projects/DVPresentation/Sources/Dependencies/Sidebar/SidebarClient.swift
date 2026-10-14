@@ -6,9 +6,13 @@ import ComposableArchitecture
 
 @DependencyClient
 public struct SidebarClient: Sendable {
+  /// 전체 Project 목록을 조회한다.
   public var fetchProjects: @Sendable () async throws -> [ProjectItem]
+  /// 새 Project를 만든다.
   public var createProject: @Sendable (_ name: String) async throws -> ProjectItem
+  /// Project 이름을 바꾼다.
   public var renameProject: @Sendable (_ id: ProjectItem.ID, _ name: String) async throws -> ProjectItem
+  /// Project를 삭제한다.
   public var deleteProject: @Sendable (_ id: ProjectItem.ID) async throws -> Void
 
   /// 필터 카드·프로젝트 행에 표시할 Secret 개수를 한 번에 조회한다.
