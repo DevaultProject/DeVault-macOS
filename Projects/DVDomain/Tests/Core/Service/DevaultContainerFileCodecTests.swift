@@ -82,4 +82,26 @@ struct DevaultContainerFileCodecTests {
 
         #expect(headerBytes == fileBytes.prefix(DevaultContainerHeader.byteCount))
     }
+
+    @Test("극단적으로 먼 미래의 expiresAt을 인코딩해도 크래시하지 않는다")
+    func doesNotCrashOnExtremeFutureDate() {
+        let extremeFuture = Date(timeIntervalSince1970: .greatestFiniteMagnitude)
+        let header = DevaultContainerHeader(version: 1, expiresAt: extremeFuture, salt: salt, nonce: nonce)
+
+        let encoded = DevaultContainerFileCodec.encodeHeader(header)
+
+        #expect(encoded.count == DevaultContainerHeader.byteCount)
+    }
+
+    @Test("1970년 근접 expiresAt은 영구(nil) sentinel과 충돌하지 않는다")
+    func nearEpochExpiryDoesNotCollideWithPermanentSentinel() throws {
+        let nearEpoch = Date(timeIntervalSince1970: 0.5)
+        let header = DevaultContainerHeader(version: 1, expiresAt: nearEpoch, salt: salt, nonce: nonce)
+        let encoded = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
+
+        // now를 epoch 이전으로 둬서 expired 분기를 피하고, 디코딩된 expiresAt이 nil로 뭉개지지 않았는지만 확인한다.
+        let decoded = try DevaultContainerFileCodec.decode(encoded, now: Date(timeIntervalSince1970: 0))
+
+        #expect(decoded.header.expiresAt != nil)
+    }
 }
