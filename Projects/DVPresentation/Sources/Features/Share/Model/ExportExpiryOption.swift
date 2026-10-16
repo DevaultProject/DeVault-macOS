@@ -2,8 +2,7 @@
 
 import Foundation
 
-/// Export Sheet의 "Expires in" 드롭다운 옵션. 만료는 UX 장치일 뿐 보안 경계가 아니므로
-/// 선택 폭을 넓게 둘 필요가 없다 — 실제 날짜 성분 변환은 `ShareClient` Live가 맡는다.
+/// Export Sheet의 "Expires in" 드롭다운 옵션.
 public enum ExportExpiryOption: CaseIterable, Equatable, Sendable {
   case oneDay
   case threeDays
