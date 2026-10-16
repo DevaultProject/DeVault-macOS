@@ -202,15 +202,15 @@ struct SecretListFeatureTests {
         #expect(query.sort == SecretQuery.Sort(key: .expiry, direction: .ascending))
     }
 
-    @Test("didSelectSecret은 selectedSecretID를 갱신하고 delegate로 알린다")
+    @Test("didChangeSelection은 selectedSecretID를 갱신하고 delegate로 알린다")
     func selectSecretNotifiesDelegate() async {
         let store = TestStore(initialState: SecretListFeature.State()) {
             SecretListFeature()
         }
 
         let id = UUID()
-        await store.send(.didSelectSecret(id: id)) {
-            $0.selectedSecretID = id
+        await store.send(.didChangeSelection([id])) {
+            $0.selectedSecretIDs = [id]
         }
         await store.receive(.delegate(.secretSelected(id)))
     }
@@ -223,11 +223,25 @@ struct SecretListFeatureTests {
         }
 
         let id = UUID()
-        await store.send(.didSelectSecret(id: id)) {
-            $0.selectedSecretID = id
+        await store.send(.didChangeSelection([id])) {
+            $0.selectedSecretIDs = [id]
         }
         await store.receive(.delegate(.secretSelected(id)))
         #expect(store.state.alert == nil)
+    }
+
+    @Test("여러 개를 선택하면 selectedSecretID(파생값)는 nil이다 — 상세는 하나 고를 때만 연다")
+    func multiSelectionHasNoSingleSelectedSecretID() async {
+        let store = TestStore(initialState: SecretListFeature.State()) {
+            SecretListFeature()
+        }
+
+        let first = UUID()
+        let second = UUID()
+        await store.send(.didChangeSelection([first, second])) {
+            $0.selectedSecretIDs = [first, second]
+        }
+        await store.receive(.delegate(.secretSelected(nil)))
     }
 
     @Test("didTapDelete는 softDelete를 호출하고 성공하면 목록을 재조회한다")
@@ -616,6 +630,34 @@ struct SecretListFeatureTests {
         await store.receive(.delegate(.secretSelected(nil)))
     }
 
+    // 하나만 보면(selectedSecretID는 2개 이상 선택 시 nil) 나머지 선택이 원격에서 지워져도 걸러지지 않는다.
+    @Test("원격 변경 재조회는 멀티선택 중에도 사라진 id만 걸러낸다")
+    func remoteRefreshPrunesStaleIDsFromMultiSelection() async {
+        let deleted = makeSecret(name: "다른 기기에서 삭제된 시크릿")
+        let remaining = makeSecret(name: "남은 시크릿")
+
+        var initial = SecretListFeature.State()
+        initial.secretsState = .loaded([deleted, remaining])
+        initial.selectedSecretIDs = [deleted.id, remaining.id]
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.secretClient.fetchByQuery = { _ in [remaining] }
+        }
+
+        await store.send(.refreshRevalidatingSelection)
+        await store.receive(.secretsResponse(.success([remaining]))) {
+            $0.secretsState = .loaded([remaining])
+            $0.collectionCount = 1
+        }
+        await store.receive(.revalidateSelection) {
+            $0.selectedSecretIDs = [remaining.id]
+        }
+        // 2개 중 1개만 남으면 selectedSecretID(파생값)가 nil → 특정 id로 바뀌어 알린다.
+        await store.receive(.delegate(.secretSelected(remaining.id)))
+    }
+
     // 원격 변경은 사용자가 한 조작이 아니다. 목록에 그대로 있는데 다른 항목으로 옮기면 보고 있던 화면이 제멋대로 바뀐다.
     @Test("원격 변경 재조회 뒤에도 조회 중이던 시크릿이 남아 있으면 선택을 유지한다")
     func remoteRefreshKeepsSelectionWhenViewedSecretRemains() async {
@@ -687,6 +729,46 @@ struct SecretListFeatureTests {
             $0.collectionCount = 0
         }
         #expect(store.state.selectedSecretID == viewed.id)
+    }
+
+    @Test("didTapExportSelected는 선택된 id를 담아 delegate로 알리고 선택을 비운다")
+    func exportSelectedSendsDelegateAndClearsSelection() async {
+        let secret = makeSecret(name: "첫 번째")
+
+        var initial = SecretListFeature.State()
+        initial.selectedSecretIDs = [secret.id]
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportSelected) {
+            $0.selectedSecretIDs = []
+        }
+        await store.receive(.delegate(.exportRequested(ids: [secret.id])))
+        await store.receive(.delegate(.secretSelected(nil)))
+    }
+
+    @Test("didTapExportSelected는 선택이 비어 있으면 아무 일도 안 한다")
+    func exportSelectedIgnoresEmptySelection() async {
+        let store = TestStore(initialState: SecretListFeature.State()) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportSelected)
+    }
+
+    @Test("Deleted 컬렉션에서는 선택해도 내보낼 수 없다")
+    func exportSelectedIgnoredOnDeletedCollection() async {
+        let secret = makeSecret(name: "휴지통 항목")
+        var initial = SecretListFeature.State(collection: .deleted)
+        initial.selectedSecretIDs = [secret.id]
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportSelected)
     }
 
     // MARK: - Helpers
