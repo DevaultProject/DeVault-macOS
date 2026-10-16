@@ -126,6 +126,7 @@ extension SecretDetailView {
             isEditEnabled: isEditEnabled,
             isEditing: store.mode == .editing,
             onToggleLike: { store.send(.didTapToggleLike) },
+            onShare: { store.send(.didTapShare) },
             onEdit: { store.send(.didTapEdit) },
             onDelete: { store.send(.didTapDelete) }
         )

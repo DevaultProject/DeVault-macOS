@@ -27,7 +27,7 @@ extension ExportSecretSheetView {
 
   private var content: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Text(.module("Export Secrets"))
+      Text(.module("Export Secret"))
         .dvFont(.bodyLG)
         .foregroundStyle(Color.dv(.gray900))
 
@@ -44,11 +44,10 @@ extension ExportSecretSheetView {
         }
       }
 
-      HStack {
+      VStack(alignment: .leading, spacing: 8) {
         Text(.module("Expires in"))
           .dvFont(.bodyMD)
           .foregroundStyle(Color.dv(.gray700))
-        Spacer()
         Picker(String.module("Expires in"), selection: expiryBinding) {
           ForEach(ExportExpiryOption.allCases, id: \.self) { option in
             Text(option.displayName).tag(option)
@@ -56,6 +55,7 @@ extension ExportSecretSheetView {
         }
         .labelsHidden()
         .pickerStyle(.menu)
+        .fixedSize()
       }
 
       HStack(spacing: 10) {
@@ -65,7 +65,7 @@ extension ExportSecretSheetView {
         }
         .keyboardShortcut(.cancelAction)
 
-        DVButton(titleText: .module("Export"), style: .secondaryProminent) {
+        DVButton(titleText: .module("Export…"), style: .secondaryProminent) {
           store.send(.didTapExport)
         }
         .keyboardShortcut(.defaultAction)
