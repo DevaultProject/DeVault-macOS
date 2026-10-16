@@ -43,6 +43,16 @@ struct MainView: View {
       ) { paywallStore in
         DevaultProPaywallView(store: paywallStore)
       }
+      .sheet(
+        item: $store.scope(state: \.exportSecret, action: \.exportSecret)
+      ) { exportSecretStore in
+        ExportSecretSheetView(store: exportSecretStore)
+      }
+      .sheet(item: exportedFileBinding) { file in
+        ExportedFileActionsView(file: file) {
+          store.send(.didDismissExportedFile)
+        }
+      }
   }
 }
 
@@ -210,6 +220,13 @@ extension MainView {
       store.send(.didTapLock)
     }
     .accessibilityLabel(String.module("Lock App"))
+  }
+
+  private var exportedFileBinding: Binding<ExportedFile?> {
+    Binding(
+      get: { store.exportedFile },
+      set: { if $0 == nil { store.send(.didDismissExportedFile) } }
+    )
   }
 }
 
