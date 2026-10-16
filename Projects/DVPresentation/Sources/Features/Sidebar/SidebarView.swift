@@ -206,6 +206,7 @@ extension SidebarView {
           .tag(project.id)
           .contextMenu {
             Button(String.module("Rename")) { store.send(.didTapRename(id: project.id)) }
+            Button(String.module("Export Project")) { store.send(.didTapExportProject(id: project.id)) }
             Divider()
             Button(String.module("Delete Project"), role: .destructive) {
               store.send(.didTapDelete(id: project.id))

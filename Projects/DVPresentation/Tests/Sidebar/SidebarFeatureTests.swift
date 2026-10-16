@@ -320,6 +320,20 @@ struct SidebarFeatureTests {
     }
   }
 
+  @Test("didTapExportProject는 delegate로 알리기만 한다")
+  func didTapExportProjectSendsDelegate() async {
+    let item = ProjectItem(id: UUID(), name: "Backend")
+    var state = SidebarFeature.State()
+    state.projectsState = .loaded([item])
+
+    let store = TestStore(initialState: state) {
+      SidebarFeature()
+    }
+
+    await store.send(.didTapExportProject(id: item.id))
+    await store.receive(.delegate(.exportProjectTapped(id: item.id)))
+  }
+
   @Test("didConfirmRename 성공 시 delegate를 발송하고 refetch한다")
   func didConfirmRenameSuccessDelegate() async {
     let item = ProjectItem(id: UUID(), name: "Backend")
