@@ -72,6 +72,10 @@ struct ContentView: View {
             DVChipsFieldPreviewView()
         case "DVMultiSelectDropdown":
             DVMultiSelectDropdownPreviewView()
+        case "ImportedSecretRow":
+            ImportedSecretRowPreviewView()
+        case "DuplicateActionOption":
+            DuplicateActionOptionPreviewView()
         default:
             ComponentPlaceholderView(name: component.name)
         }
@@ -121,5 +125,7 @@ private struct Component: Hashable {
         Component(name: "DVDropdown"),
         Component(name: "DVLabeledField"),
         Component(name: "DVChipsField"),
+        Component(name: "ImportedSecretRow"),
+        Component(name: "DuplicateActionOption"),
     ]
 }
