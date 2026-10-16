@@ -32,6 +32,8 @@ public struct DVTitleBar: View {
     public let sortMenu: SortMenu?
     /// 정렬 버튼이 없는 화면에서 제목행 우측(정렬 자리)에 놓는 '비우기/모두 삭제' 버튼.
     public let trailingAction: TrailingAction?
+    /// 정렬/정리 버튼 왼쪽에 독립적으로 놓는 아이콘 버튼(예: 내보내기). `sortMenu`/`trailingAction`과 상호배타가 아니다.
+    public let shareAction: IconAction?
 
     @FocusState private var searchFieldFocused: Bool
     // 정렬 버튼과 정리 버튼은 상호배타(같은 자리)라 hover 상태를 공유한다.
@@ -66,6 +68,26 @@ public struct DVTitleBar: View {
         }
     }
 
+    /// `shareAction`처럼 아이콘을 호출부가 고르는 범용 제목행 아이콘 버튼.
+    public struct IconAction {
+        public let systemName: String
+        public let accessibilityLabel: String
+        public let isEnabled: Bool
+        public let handler: () -> Void
+
+        public init(
+            systemName: String,
+            accessibilityLabel: String,
+            isEnabled: Bool = true,
+            handler: @escaping () -> Void
+        ) {
+            self.systemName = systemName
+            self.accessibilityLabel = accessibilityLabel
+            self.isEnabled = isEnabled
+            self.handler = handler
+        }
+    }
+
     // MARK: - Init
 
     public init(
@@ -74,7 +96,8 @@ public struct DVTitleBar: View {
         searchPromptText: String = "Search",
         isSearchFocused: Binding<Bool>? = nil,
         sortMenu: SortMenu? = nil,
-        trailingAction: TrailingAction? = nil
+        trailingAction: TrailingAction? = nil,
+        shareAction: IconAction? = nil
     ) {
         self.titleText = titleText
         self.searchText = searchText
@@ -82,6 +105,7 @@ public struct DVTitleBar: View {
         self.isSearchFocused = isSearchFocused
         self.sortMenu = sortMenu
         self.trailingAction = trailingAction
+        self.shareAction = shareAction
     }
 
     // MARK: - Body
@@ -100,11 +124,14 @@ public struct DVTitleBar: View {
 extension DVTitleBar {
 
     private var titleRow: some View {
-        HStack {
+        HStack(spacing: 12) {
             Text(titleText)
                 .dvFont(.headingXL)
                 .foregroundStyle(Color.dv(.gray900))
             Spacer()
+            if let shareAction {
+                iconActionButton(shareAction)
+            }
             if let sortMenu {
                 sortMenuButton(sortMenu)
             } else if let trailingAction {
@@ -112,6 +139,21 @@ extension DVTitleBar {
             }
         }
         .padding(.vertical, Metrics.titleRowVerticalPadding)
+    }
+
+    private func iconActionButton(_ action: IconAction) -> some View {
+        DVIconButton(
+            systemName: action.systemName,
+            font: .bodyXL,
+            idle: .gray800,
+            hovered: .gray900,
+            pressed: .gray900,
+            disabled: .gray400,
+            hitSize: 30,
+            action: action.handler
+        )
+        .disabled(!action.isEnabled)
+        .accessibilityLabel(action.accessibilityLabel)
     }
 
     private func trailingActionButton(_ action: TrailingAction) -> some View {

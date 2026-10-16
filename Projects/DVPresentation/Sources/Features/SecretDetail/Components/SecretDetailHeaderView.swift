@@ -28,6 +28,7 @@ struct SecretDetailHeaderView: View {
     /// 성공하면 `state.secret`이 교체되어 저장 diff의 baseline과 어긋나기 때문이다.
     var isEditing: Bool = false
     let onToggleLike: () -> Void
+    let onShare: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -96,6 +97,11 @@ extension SecretDetailHeaderView {
     private var actionsContainer: some View {
         HStack(spacing: 6) {
             actionButton(
+                systemName: "square.and.arrow.up",
+                accessibilityLabel: .module("Export"),
+                action: onShare
+            )
+            actionButton(
                 systemName: "pencil",
                 accessibilityLabel: .module("Edit"),
                 isEnabled: isEditEnabled,
@@ -156,6 +162,7 @@ private let _headerWidth: CGFloat = 380
         subType: .accessToken,
         isLiked: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -169,6 +176,7 @@ private let _headerWidth: CGFloat = 380
         subType: .apiKey,
         isLiked: true,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -182,6 +190,7 @@ private let _headerWidth: CGFloat = 380
         subType: .serviceAccount,
         isLiked: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -195,6 +204,7 @@ private let _headerWidth: CGFloat = 380
         subType: .sslTlsCertificate,
         isLiked: true,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -208,6 +218,7 @@ private let _headerWidth: CGFloat = 380
         subType: nil,
         isLiked: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -221,6 +232,7 @@ private let _headerWidth: CGFloat = 380
         subType: nil,
         isLiked: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -234,6 +246,7 @@ private let _headerWidth: CGFloat = 380
         subType: nil,
         isLiked: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -249,6 +262,7 @@ private let _headerWidth: CGFloat = 380
         isLiked: true,
         isEditing: true,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )
@@ -263,6 +277,7 @@ private let _headerWidth: CGFloat = 380
         isLiked: false,
         isEditEnabled: false,
         onToggleLike: {},
+        onShare: {},
         onEdit: {},
         onDelete: {}
     )

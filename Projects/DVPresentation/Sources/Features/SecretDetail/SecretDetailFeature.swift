@@ -162,6 +162,7 @@ public struct SecretDetailFeature {
         /// 비밀이 아니므로 민감 값 복사 정책(자동 정리·반복 감지)도 타지 않는다.
         case didTapCopyPlainValue(String)
         case didTapToggleLike
+        case didTapShare
         case didTapDelete
         case didTapEdit
         /// 수정 잠금 판정 결과. 복호화·인증을 시작하기 **전에** 묻는다.
@@ -222,6 +223,7 @@ public struct SecretDetailFeature {
             case closed
             case secretUpdated(Secret)
             case deleted(Secret.ID)
+            case shareTapped(Secret.ID)
             /// 편집 폼 안에서 프로젝트를 새로 만들었다. **저장 여부와 무관하게** 프로젝트는 이미
             /// 만들어졌으므로 사이드바가 곧바로 반영해야 한다 — 취소하고 나가도 프로젝트는 남는다.
             case projectsChanged
@@ -391,6 +393,9 @@ public struct SecretDetailFeature {
             // 복호화를 기다릴 이유가 없다 — 값이 payload가 아니라 metadata·secret에서 왔다.
             case .didTapCopyPlainValue(let value):
                 return copyPlainEffect(value: value)
+
+            case .didTapShare:
+                return .send(.delegate(.shareTapped(state.secret.id)))
 
             case .didTapToggleLike:
                 let liked = !state.secret.liked
