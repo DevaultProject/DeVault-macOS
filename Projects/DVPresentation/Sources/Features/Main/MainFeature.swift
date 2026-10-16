@@ -19,6 +19,9 @@ public struct MainFeature {
     @Presents var createProject: CreateProjectFeature.State?
     /// 게이트에 막혀 띄우는 업그레이드 시트.
     @Presents var paywall: DevaultProPaywallFeature.State?
+    @Presents var exportSecret: ExportSecretSheetFeature.State?
+    /// Export가 끝난 뒤 Share/Save As 선택을 기다리는 임시 파일. sheet가 아닌 단순 optional이라 @Presents 미사용.
+    var exportedFile: ExportedFile?
     /// sheet가 아닌 2-column NavigationSplitView 전환 용도이므로 @Presents 미사용
     var createSecret: CreateSecretFeature.State?
     /// sheet가 아닌 3-column NavigationSplitView detail 컬럼 용도이므로 @Presents 미사용
@@ -91,6 +94,10 @@ public struct MainFeature {
     case createSecret(CreateSecretFeature.Action)
     case secretDetail(SecretDetailFeature.Action)
     case settings(SettingsFeature.Action)
+    case exportSecret(PresentationAction<ExportSecretSheetFeature.Action>)
+    /// 프로젝트 공유 버튼 — 사이드바는 id만 알아서, 내보낼 시크릿 목록을 여기서 조회한다(휴지통 제외는 `secretClient.fetchByQuery`가 보장).
+    case projectExportSecretsFetched(Result<[Secret.ID], SecretUseCaseError>)
+    case didDismissExportedFile
 
     // MARK: - Delegate
 
@@ -105,6 +112,7 @@ public struct MainFeature {
 
   @Dependency(\.date.now) var now
   @Dependency(\.entitlementClient) var entitlementClient
+  @Dependency(\.secretClient) var secretClient
 
   // MARK: - Init
 
@@ -226,7 +234,30 @@ public struct MainFeature {
       case .secretList(.delegate(.secretsChanged)):
         return .send(.sidebar(.countsRefreshRequested))
 
-      case .secretList:
+      case .secretList(let secretListAction):
+        if case .delegate(.exportRequested(let ids)) = secretListAction {
+          state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
+        }
+        return .none
+
+      case .exportSecret(let presentationAction):
+        if case .presented(.delegate(.exportSucceeded(let url))) = presentationAction {
+          state.exportedFile = ExportedFile(url: url)
+        }
+        return .none
+
+      // 빈 프로젝트는 비밀번호를 받고 Touch ID까지 거치고도 내보낼 게 없다 — `didTapExportSelected`와 같은 가드.
+      case .projectExportSecretsFetched(.success(let ids)):
+        guard !ids.isEmpty else { return .none }
+        state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
+        return .none
+
+      // 조회 실패는 저장소가 깨진 것이다 — `.canCreateProjectResponse(.failure)`와 같은 이유로 조용히 무시한다.
+      case .projectExportSecretsFetched(.failure):
+        return .none
+
+      case .didDismissExportedFile:
+        state.exportedFile = nil
         return .none
 
       case .secretDetail(.delegate(.closed)):
@@ -254,7 +285,10 @@ public struct MainFeature {
       case .secretDetail(.delegate(.projectsChanged)):
         return .send(.sidebar(.refresh))
 
-      case .secretDetail:
+      case .secretDetail(let secretDetailAction):
+        if case .delegate(.shareTapped(let id)) = secretDetailAction {
+          state.exportSecret = ExportSecretSheetFeature.State(secretIDs: [id])
+        }
         return .none
 
       case .createSecretRequested(let secretType):
@@ -341,24 +375,38 @@ public struct MainFeature {
         return .none
       }
     }
-    .ifLet(\.selectSecretType, action: \.selectSecretType) {
-      SelectSecretTypeFeature()
-    }
-    .ifLet(\.$createProject, action: \.createProject) {
-      CreateProjectFeature()
-    }
-    .ifLet(\.$paywall, action: \.paywall) {
-      DevaultProPaywallFeature()
-    }
-    .ifLet(\.createSecret, action: \.createSecret) {
-      CreateSecretFeature()
-    }
-    .ifLet(\.secretDetail, action: \.secretDetail) {
-      SecretDetailFeature()
-    }
-    .ifLet(\.settings, action: \.settings) {
-      SettingsFeature()
-    }
+    // `.ifLet` 체인이 길어지면 Xcode 타입체크가 타임아웃 나서 여러 식으로 쪼갰다.
+    presentationsA
+    presentationsB
+  }
+
+  private var presentationsA: some ReducerOf<Self> {
+    EmptyReducer()
+      .ifLet(\.selectSecretType, action: \.selectSecretType) {
+        SelectSecretTypeFeature()
+      }
+      .ifLet(\.$createProject, action: \.createProject) {
+        CreateProjectFeature()
+      }
+      .ifLet(\.$paywall, action: \.paywall) {
+        DevaultProPaywallFeature()
+      }
+      .ifLet(\.$exportSecret, action: \.exportSecret) {
+        ExportSecretSheetFeature()
+      }
+  }
+
+  private var presentationsB: some ReducerOf<Self> {
+    EmptyReducer()
+      .ifLet(\.createSecret, action: \.createSecret) {
+        CreateSecretFeature()
+      }
+      .ifLet(\.secretDetail, action: \.secretDetail) {
+        SecretDetailFeature()
+      }
+      .ifLet(\.settings, action: \.settings) {
+        SettingsFeature()
+      }
   }
 }
 
@@ -416,6 +464,16 @@ extension MainFeature {
         state.secretList.projectName = item.name
       }
       return .none
+
+    case .exportProjectTapped(let id):
+      return .run { send in
+        do {
+          let secrets = try await secretClient.fetchByQuery(SecretQuery(collection: .project(id: id)))
+          await send(.projectExportSecretsFetched(.success(secrets.map(\.id))))
+        } catch {
+          await send(.projectExportSecretsFetched(.failure(SecretUseCaseError.map(error))))
+        }
+      }
     }
   }
 

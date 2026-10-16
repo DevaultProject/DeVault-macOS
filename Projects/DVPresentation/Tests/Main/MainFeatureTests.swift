@@ -957,7 +957,7 @@ struct MainFeatureTests {
       MainFeature()
     }
 
-    await store.send(.secretList(.didSelectSecret(id: secret.id))) {
+    await store.send(.secretList(.didChangeSelection([secret.id]))) {
       $0.secretList.selectedSecretID = secret.id
     }
     await store.receive(.secretList(.delegate(.secretSelected(secret.id)))) {
@@ -985,7 +985,7 @@ struct MainFeatureTests {
       MainFeature()
     }
 
-    await store.send(.secretList(.didSelectSecret(id: nil))) {
+    await store.send(.secretList(.didChangeSelection([]))) {
       $0.secretList.selectedSecretID = nil
     }
     await store.receive(.secretList(.delegate(.secretSelected(nil)))) {
@@ -1009,7 +1009,7 @@ struct MainFeatureTests {
       MainFeature()
     }
 
-    await store.send(.secretList(.didSelectSecret(id: deleted.id))) {
+    await store.send(.secretList(.didChangeSelection([deleted.id]))) {
       $0.secretList.selectedSecretID = deleted.id
     }
     await store.receive(.secretList(.delegate(.secretSelected(deleted.id))))
@@ -1032,7 +1032,7 @@ struct MainFeatureTests {
     }
     #expect(store.state.deletedNoticeSecret == deleted)
 
-    await store.send(.secretList(.didSelectSecret(id: live.id))) {
+    await store.send(.secretList(.didChangeSelection([live.id]))) {
       $0.secretList.selectedSecretID = live.id
     }
     await store.receive(.secretList(.delegate(.secretSelected(live.id)))) {
@@ -1077,7 +1077,7 @@ struct MainFeatureTests {
       }
     }
 
-    await store.send(.secretList(.didSelectSecret(id: secretA.id))) {
+    await store.send(.secretList(.didChangeSelection([secretA.id]))) {
       $0.secretList.selectedSecretID = secretA.id
     }
     await store.receive(.secretList(.delegate(.secretSelected(secretA.id)))) {
@@ -1088,7 +1088,7 @@ struct MainFeatureTests {
       $0.secretDetail?.payloadState = .loading
     }
 
-    await store.send(.secretList(.didSelectSecret(id: secretB.id))) {
+    await store.send(.secretList(.didChangeSelection([secretB.id]))) {
       $0.secretList.selectedSecretID = secretB.id
     }
     await store.receive(.secretList(.delegate(.secretSelected(secretB.id)))) {
@@ -1318,6 +1318,35 @@ struct MainFeatureTests {
     }
     await store.receive(.sidebar(.countsResponse(.success(SecretCounts())))) {
       $0.sidebar.countsState = .loaded(SecretCounts())
+    }
+  }
+
+  @Test("secretList의 exportRequested 델리게이트는 exportSecret 시트를 연다")
+  func exportRequestedOpensExportSheet() async {
+    let secretID = UUID()
+    let store = TestStore(initialState: MainFeature.State()) {
+      MainFeature()
+    }
+
+    await store.send(.secretList(.delegate(.exportRequested(ids: [secretID])))) {
+      $0.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secretID])
+    }
+  }
+
+  @Test("exportProjectTapped는 해당 프로젝트의 시크릿을 조회해 exportSecret 시트를 연다")
+  func exportProjectTappedFetchesSecretsAndOpensExportSheet() async {
+    let projectID = UUID()
+    let secret = Self.makeSecret()
+
+    let store = TestStore(initialState: MainFeature.State()) {
+      MainFeature()
+    } withDependencies: {
+      $0.secretClient.fetchByQuery = { _ in [secret] }
+    }
+
+    await store.send(.sidebar(.delegate(.exportProjectTapped(id: projectID))))
+    await store.receive(.projectExportSecretsFetched(.success([secret.id]))) {
+      $0.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secret.id])
     }
   }
 
