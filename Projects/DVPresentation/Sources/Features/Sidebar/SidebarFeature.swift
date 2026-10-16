@@ -122,6 +122,7 @@ public struct SidebarFeature {
     case didTapSettings
     case didToggleProjectSection
     case didTapRename(id: ProjectItem.ID)
+    case didTapExportProject(id: ProjectItem.ID)
     case didChangeRenameText(String)
     case didConfirmRename
     case didCancelRename
@@ -157,6 +158,7 @@ public struct SidebarFeature {
       case addProjectTapped
       case projectRenamed(ProjectItem)
       case settingsTapped
+      case exportProjectTapped(id: ProjectItem.ID)
     }
   }
 
@@ -262,6 +264,9 @@ public struct SidebarFeature {
         state.renamingProjectID = id
         state.renameText = project.name
         return .none
+
+      case .didTapExportProject(let id):
+        return .send(.delegate(.exportProjectTapped(id: id)))
 
       case .didChangeRenameText(let text):
         state.renameText = text
