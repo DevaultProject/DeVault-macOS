@@ -19,7 +19,7 @@ public struct ExportSecretSheetFeature {
   public struct State: Equatable {
     public let secretIDs: [Secret.ID]
     public internal(set) var password = ""
-    public internal(set) var expiryOption: ExportExpiryOption = .sevenDays
+    public internal(set) var expiryOption: ExportExpiryOption = .oneHour
     public internal(set) var isExporting = false
     public internal(set) var passwordError: String?
     @Presents var alert: AlertState<Action.Alert>?
@@ -102,9 +102,11 @@ public struct ExportSecretSheetFeature {
 
       case .exportSucceeded(let url):
         state.isExporting = false
+        // dismiss를 먼저 끝내야 한다 — delegate가 부모에서 다른 시트(Export Complete)를 여는데,
+        // 이 시트가 아직 닫히기 전에 열리면 두 .sheet(item:)가 겹쳐 뜨는 경합이 생긴다.
         return .run { send in
-          await send(.delegate(.exportSucceeded(url)))
           await dismiss()
+          await send(.delegate(.exportSucceeded(url)))
         }
 
       case .exportFailed:

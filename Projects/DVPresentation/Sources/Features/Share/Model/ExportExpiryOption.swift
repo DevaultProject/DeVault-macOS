@@ -4,6 +4,7 @@ import Foundation
 
 /// Export Sheet의 "Expires in" 드롭다운 옵션.
 public enum ExportExpiryOption: CaseIterable, Equatable, Sendable {
+  case oneHour
   case oneDay
   case threeDays
   case sevenDays
@@ -13,6 +14,7 @@ public enum ExportExpiryOption: CaseIterable, Equatable, Sendable {
   /// Export 시점 기준 만료 시각. `.never`는 만료 없음(nil)을 뜻한다.
   public func expiresAt(from now: Date = .now) -> Date? {
     switch self {
+    case .oneHour: return Calendar.current.date(byAdding: .hour, value: 1, to: now)
     case .oneDay: return Calendar.current.date(byAdding: .day, value: 1, to: now)
     case .threeDays: return Calendar.current.date(byAdding: .day, value: 3, to: now)
     case .sevenDays: return Calendar.current.date(byAdding: .day, value: 7, to: now)
@@ -24,6 +26,7 @@ public enum ExportExpiryOption: CaseIterable, Equatable, Sendable {
   /// Picker에 표시할 옵션 라벨. DVPresentation 모듈의 String Catalog 룩업 대상.
   var displayName: LocalizedStringResource {
     switch self {
+    case .oneHour: return .module("1 hour")
     case .oneDay: return .module("1 day")
     case .threeDays: return .module("3 days")
     case .sevenDays: return .module("7 days")
