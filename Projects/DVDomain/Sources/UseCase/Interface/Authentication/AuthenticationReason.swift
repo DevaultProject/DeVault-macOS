@@ -30,4 +30,10 @@ public enum AuthenticationReason: Equatable, Sendable {
 
     /// 설정의 전체 데이터 삭제. 되돌릴 수 없는 작업이라 삭제 직전에 한 번 더 묻는다.
     case deleteAllData
+
+    /// 시크릿 공유(.dvt) 파일 생성 직전.
+    case exportSecrets
+
+    /// 시크릿 공유(.dvt) 파일 가져오기 실행 직전.
+    case importSecrets
 }

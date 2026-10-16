@@ -812,6 +812,40 @@
         }
       }
     },
+    "Authenticate to export secrets." : {
+      "comment" : "Reason shown in the system authentication sheet right before generating a .dvt export file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate to export secrets."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시크릿을 내보내려면 인증이 필요합니다."
+          }
+        }
+      }
+    },
+    "Authenticate to import secrets." : {
+      "comment" : "Reason shown in the system authentication sheet right before importing a .dvt file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate to import secrets."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시크릿을 가져오려면 인증이 필요합니다."
+          }
+        }
+      }
+    },
     "Authenticate to unlock DeVault." : {
       "comment" : "Reason shown in the system authentication sheet when unlocking the app.",
       "localizations" : {

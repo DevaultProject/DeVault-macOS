@@ -19,6 +19,10 @@ extension AuthenticationReason {
             return String.module("Authenticate to enable Touch ID.")
         case .deleteAllData:
             return String.module("Authenticate to delete all data.")
+        case .exportSecrets:
+            return String.module("Authenticate to export secrets.")
+        case .importSecrets:
+            return String.module("Authenticate to import secrets.")
         }
     }
 }
