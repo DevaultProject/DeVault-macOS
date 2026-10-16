@@ -64,7 +64,8 @@ extension SecretListView {
         searchPromptText: .module("Search"),
         isSearchFocused: $isSearchFocused,
         sortMenu: showsSort ? DVTitleBar.SortMenu(accessibilityLabel: .module("Sort")) { AnyView(sortMenuContent) } : nil,
-        trailingAction: emptyAction
+        trailingAction: emptyAction,
+        shareAction: shareAction
       )
       .padding(.horizontal, 12)
       .background {
@@ -74,7 +75,7 @@ extension SecretListView {
   }
 
   private var list: some View {
-    List(selection: selectedSecretIDBinding) {
+    List(selection: selectedSecretIDsBinding) {
       if isNoticeCollection {
         noticeSection(for: .critical)
         noticeSection(for: .upcoming)
@@ -284,12 +285,22 @@ extension SecretListView {
     }
   }
 
-  private var selectedSecretIDBinding: Binding<Secret.ID?> {
+  /// 휴지통 탭엔 내보낼 것이 없어(`canSelectForExport`) 보여주지 않는다.
+  private var shareAction: DVTitleBar.IconAction? {
+    guard store.canSelectForExport else { return nil }
+    return DVTitleBar.IconAction(
+      systemName: "square.and.arrow.up",
+      accessibilityLabel: .module("Export Selected"),
+      isEnabled: !store.selectedSecretIDs.isEmpty
+    ) { store.send(.didTapExportSelected) }
+  }
+
+  private var selectedSecretIDsBinding: Binding<Set<Secret.ID>> {
     Binding(
-      get: { store.selectedSecretID },
+      get: { store.selectedSecretIDs },
       set: {
         isSearchFocused = false
-        store.send(.didSelectSecret(id: $0))
+        store.send(.didChangeSelection($0))
       }
     )
   }
