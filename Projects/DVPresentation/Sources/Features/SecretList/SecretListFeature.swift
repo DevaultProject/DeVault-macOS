@@ -19,7 +19,8 @@ public struct SecretListFeature {
     /// 이름을 함께 넘겨준다.
     public internal(set) var projectName: String?
     public internal(set) var secretsState: LoadingState<IdentifiedArrayOf<Secret>, SecretUseCaseError> = .idle
-    public internal(set) var selectedSecretID: Secret.ID?
+    /// Finder처럼 cmd/shift-클릭으로 여러 개를 고를 수 있다 — `List(selection:)`가 직접 바인딩하는 1차 저장소.
+    public internal(set) var selectedSecretIDs: Set<Secret.ID> = []
     public internal(set) var searchText = ""
     public internal(set) var sort: SecretQuery.Sort = .recentlyAdded
     /// 검색과 무관한 컬렉션 전체 개수(정리 버튼 활성 판단용).
@@ -41,7 +42,19 @@ public struct SecretListFeature {
         return
       }
       if let projectName { self.projectName = projectName }
-      selectedSecretID = nil
+      selectedSecretIDs = []
+    }
+
+    /// 정확히 하나만 골랐을 때만 값이 있는 파생 값 — 상세 열기 등 기존 호출부 호환용.
+    public var selectedSecretID: Secret.ID? {
+      get { selectedSecretIDs.count == 1 ? selectedSecretIDs.first : nil }
+      set { selectedSecretIDs = newValue.map { [$0] } ?? [] }
+    }
+
+    /// 휴지통 항목은 내보내기 대상이 아니다.
+    public var canSelectForExport: Bool {
+      if case .deleted = collection { return false }
+      return true
     }
 
     var query: SecretQuery {
@@ -74,7 +87,8 @@ public struct SecretListFeature {
     // MARK: - View
 
     case task
-    case didSelectSecret(id: Secret.ID?)
+    case didChangeSelection(Set<Secret.ID>)
+    case didTapExportSelected
     case didChangeSearchText(String)
     case didSelectSort(SecretQuery.Sort)
     case didTapDelete(id: Secret.ID)
@@ -114,6 +128,8 @@ public struct SecretListFeature {
       case secretSelected(Secret.ID?)
       /// 부모가 사이드바 개수를 다시 세는 근거가 된다.
       case secretsChanged
+      /// Export 멀티선택 완료. 휴지통이 제외된 id만 담긴다(`canSelectForExport`).
+      case exportRequested(ids: [Secret.ID])
     }
 
     public enum Alert: Equatable {
@@ -187,9 +203,18 @@ public struct SecretListFeature {
         state.secretsState = .failed(error)
         return .none
 
-      case .didSelectSecret(let id):
-        state.selectedSecretID = id
-        return .send(.delegate(.secretSelected(id)))
+      case .didChangeSelection(let ids):
+        state.selectedSecretIDs = ids
+        return .send(.delegate(.secretSelected(state.selectedSecretID)))
+
+      case .didTapExportSelected:
+        guard state.canSelectForExport, !state.selectedSecretIDs.isEmpty else { return .none }
+        let ids = Array(state.selectedSecretIDs)
+        state.selectedSecretIDs = []
+        return .concatenate(
+          .send(.delegate(.exportRequested(ids: ids))),
+          .send(.delegate(.secretSelected(nil)))
+        )
 
       case .didTapDelete(let id):
         return mutationEffect(id: id) { try await secretClient.softDelete(id) }
@@ -248,13 +273,13 @@ public struct SecretListFeature {
         return .send(.delegate(.secretSelected(newID)))
 
       // `.loaded`가 아니면(재조회 실패) 목록이 비었는지 알 수 없다. 일시적인 오류에 상세가 닫히지 않도록 그냥 둔다.
+      // 멀티선택 전체를 대조한다 — 하나만 보면 나머지 선택이 원격에서 지워져도 걸러지지 않는다.
       case .revalidateSelection:
-        guard let id = state.selectedSecretID,
-              case .loaded(let secrets) = state.secretsState,
-              secrets[id: id] == nil
-        else { return .none }
-        state.selectedSecretID = nil
-        return .send(.delegate(.secretSelected(nil)))
+        guard case .loaded(let secrets) = state.secretsState else { return .none }
+        let stillValidIDs = state.selectedSecretIDs.filter { secrets[id: $0] != nil }
+        guard stillValidIDs != state.selectedSecretIDs else { return .none }
+        state.selectedSecretIDs = stillValidIDs
+        return .send(.delegate(.secretSelected(state.selectedSecretID)))
 
       case .mutationResponse(.failure):
         state.alert = mutationFailureAlert()
