@@ -7,10 +7,22 @@ import Foundation
 /// 레이아웃(고정 45바이트): magic(7) + version(2, big-endian) + expiresAt(8, unix seconds·big-endian·0=영구) + salt(16) + nonce(12).
 public enum DevaultContainerFileCodec {
 
+    /// 헤더와 ciphertext를 이어붙여 `.dvt` 파일 바이트를 만든다.
+    /// - Parameters:
+    ///   - header: 파일 앞부분에 쓸 헤더
+    ///   - ciphertext: 헤더 뒤에 이어붙일 암호문
+    /// - Returns: 완성된 `.dvt` 파일 바이트
     public static func encode(header: DevaultContainerHeader, ciphertext: Data) -> Data {
         encodeHeader(header) + ciphertext
     }
 
+    /// `.dvt` 파일 바이트에서 헤더를 해석하고 암호문을 분리한다.
+    /// - Parameters:
+    ///   - data: `.dvt` 파일 전체 바이트
+    ///   - now: 만료 판정에 쓸 현재 시각
+    /// - Returns: 해석된 헤더와 분리된 암호문
+    /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`,
+    ///   이미 만료됐으면 `.expired`
     public static func decode(_ data: Data, now: Date = Date()) throws -> DevaultContainerFile {
         guard data.count >= DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
@@ -26,8 +38,17 @@ public enum DevaultContainerFileCodec {
         encodeHeaderPrefix(version: header.version, expiresAt: header.expiresAt, salt: header.salt) + header.nonce
     }
 
-    /// nonce 확정 전에 AAD로 써야 해서 헤더에서 nonce만 뺀 33바이트.
+    /// nonce 확정 전에 AAD로 써야 해서 헤더에서 nonce만 뺀 바이트를 만든다.
+    /// - Parameters:
+    ///   - version: 포맷 버전
+    ///   - expiresAt: 만료 시각(nil이면 영구)
+    ///   - salt: KDF salt — 항상 `DevaultContainerHeader.saltByteCount`바이트여야 한다
+    /// - Returns: `DevaultContainerHeader.byteCount - DevaultContainerHeader.nonceByteCount`바이트
     public static func encodeHeaderPrefix(version: UInt16, expiresAt: Date?, salt: Data) -> Data {
+        precondition(
+            salt.count == DevaultContainerHeader.saltByteCount,
+            "salt는 항상 \(DevaultContainerHeader.saltByteCount)바이트여야 한다"
+        )
         var bytes = Data()
         bytes.append(contentsOf: DevaultContainerHeader.magic)
         bytes.append(contentsOf: bigEndianBytes(version))
@@ -37,6 +58,10 @@ public enum DevaultContainerFileCodec {
     }
 
     private static func decodeHeader(_ bytes: [UInt8], now: Date) throws -> DevaultContainerHeader {
+        guard bytes.count == DevaultContainerHeader.byteCount else {
+            throw DevaultImportError.corrupted
+        }
+
         var cursor = 0
 
         let magicCount = DevaultContainerHeader.magic.count
@@ -45,13 +70,13 @@ public enum DevaultContainerFileCodec {
         }
         cursor += magicCount
 
-        let version = uint16(fromBigEndianBytes: bytes[cursor..<cursor + 2])
+        let version: UInt16 = value(fromBigEndianBytes: bytes[cursor..<cursor + 2])
         guard version == DevaultContainerHeader.currentVersion else {
             throw DevaultImportError.versionMismatch
         }
         cursor += 2
 
-        let expiresAtSeconds = uint64(fromBigEndianBytes: bytes[cursor..<cursor + 8])
+        let expiresAtSeconds: UInt64 = value(fromBigEndianBytes: bytes[cursor..<cursor + 8])
         let expiresAt = date(fromUnixSeconds: expiresAtSeconds)
         cursor += 8
 
@@ -80,19 +105,11 @@ public enum DevaultContainerFileCodec {
         seconds == 0 ? nil : Date(timeIntervalSince1970: TimeInterval(seconds))
     }
 
-    private static func bigEndianBytes(_ value: UInt16) -> [UInt8] {
-        withUnsafeBytes(of: value.bigEndian) { Array($0) }
+    private static func bigEndianBytes<T: FixedWidthInteger>(_ value: T) -> [UInt8] {
+        withUnsafeBytes(of: value.bigEndian, Array.init)
     }
 
-    private static func bigEndianBytes(_ value: UInt64) -> [UInt8] {
-        withUnsafeBytes(of: value.bigEndian) { Array($0) }
-    }
-
-    private static func uint16(fromBigEndianBytes bytes: ArraySlice<UInt8>) -> UInt16 {
-        bytes.reduce(0) { ($0 << 8) | UInt16($1) }
-    }
-
-    private static func uint64(fromBigEndianBytes bytes: ArraySlice<UInt8>) -> UInt64 {
-        bytes.reduce(0) { ($0 << 8) | UInt64($1) }
+    private static func value<T: FixedWidthInteger>(fromBigEndianBytes bytes: ArraySlice<UInt8>) -> T {
+        bytes.reduce(0) { ($0 << 8) | T($1) }
     }
 }
