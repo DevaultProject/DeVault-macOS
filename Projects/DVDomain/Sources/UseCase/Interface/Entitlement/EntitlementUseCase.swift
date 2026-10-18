@@ -23,6 +23,13 @@ public protocol EntitlementUseCase: Sendable {
     /// - Returns: 생성 가능 여부
     func canCreateProject() async throws -> Bool
 
+    /// `count`개의 Secret을 한 번에 들여올 수 있는지 판정한다. 저장소 개수를 세므로 비용이 있다.
+    ///
+    /// 건별 판정(``canCreateSecret()``)으로는 벌크 Import의 부분 성공을 못 막아 총량으로 사전 판정한다.
+    /// - Parameter count: 새로 생성될 Secret 수(음수 불가) — 덮어쓰기·건너뛰기는 세지 않으므로 `0`일 수 있고, 그때는 항상 허용된다
+    /// - Returns: 전량 수용 가능 여부
+    func canImportSecrets(count: Int) async throws -> Bool
+
     /// Secret 수정 모드에 들어갈 수 있는지 판정한다.
     ///
     /// 보유 수가 한도를 **넘긴** 경우에만 false다(한도와 같으면 허용). 무료 사용자는 생성이 이미 막히므로 이 상태에 자연히 도달하지 않고, **Pro → 무료 다운그레이드에서만** 발생한다.

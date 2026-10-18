@@ -50,6 +50,14 @@ public struct EntitlementUseCaseImpl: EntitlementUseCase {
         return log("canCreateProject", allowed: count < EntitlementLimits.maxProjects, detail: "보유: \(count)/\(EntitlementLimits.maxProjects)")
     }
 
+    public func canImportSecrets(count: Int) async throws -> Bool {
+        // 생성이 없는 import(전부 덮어쓰기·건너뛰기)는 보유 수를 늘리지 않으므로 이 게이트의 관심사가 아니다. 한도 초과 보유 상태에서도 통과시켜 `canEditSecrets()`가 제 판정을 내리게 둔다 — 여기서 막으면 `limitReached`("더 만들 수 없다")가 나가는데 실제 필요한 안내는 `editLocked`다.
+        guard count > 0 else { return log("canImportSecrets", allowed: true, detail: "생성 없음") }
+        guard current() == .free else { return log("canImportSecrets", allowed: true) }
+        let existing = try await secretRepository.totalCountExcludingTrash()
+        return log("canImportSecrets", allowed: existing + count <= EntitlementLimits.maxSecrets, detail: "보유: \(existing)/\(EntitlementLimits.maxSecrets), 요청: \(count)")
+    }
+
     public func canEditSecrets() async throws -> Bool {
         guard current() == .free else { return log("canEditSecrets", allowed: true) }
         // 한도와 **같으면** 허용한다. `canCreateSecret`의 `<`와 달리 여기가 `<=`인 이유는, 정확히 한도만큼 보유한 사용자는 잠기면 안 되기 때문이다. 잠금은 초과부터다.
