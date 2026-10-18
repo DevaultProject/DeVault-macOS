@@ -11,20 +11,26 @@ public final class StubEntitlementUseCase: EntitlementUseCase, @unchecked Sendab
     public var canCreateSecretValue: Bool
     public var canCreateProjectValue: Bool
     public var canEditSecretsValue: Bool
+    public var canImportSecretsValue: Bool
 
     /// 판정 호출 횟수. 허용된 변경이 개수를 세지 않고 지나가는지 확인할 때 쓴다.
     public private(set) var canEditSecretsCallCount = 0
+
+    /// 마지막 Import 판정에 넘어온 개수. 호출부가 생성 수가 아닌 전체 항목 수를 넘기는 실수를 잡는다.
+    public private(set) var lastImportCount: Int?
 
     public init(
         entitlement: Entitlement = .pro,
         canCreateSecret: Bool = true,
         canCreateProject: Bool = true,
-        canEditSecrets: Bool = true
+        canEditSecrets: Bool = true,
+        canImportSecrets: Bool = true
     ) {
         self.entitlementValue = entitlement
         self.canCreateSecretValue = canCreateSecret
         self.canCreateProjectValue = canCreateProject
         self.canEditSecretsValue = canEditSecrets
+        self.canImportSecretsValue = canImportSecrets
     }
 
     public func current() -> Entitlement { entitlementValue }
@@ -38,6 +44,10 @@ public final class StubEntitlementUseCase: EntitlementUseCase, @unchecked Sendab
 
     public func canCreateSecret() async throws -> Bool { canCreateSecretValue }
     public func canCreateProject() async throws -> Bool { canCreateProjectValue }
+    public func canImportSecrets(count: Int) async throws -> Bool {
+        lastImportCount = count
+        return canImportSecretsValue
+    }
 
     public func canEditSecrets() async throws -> Bool {
         canEditSecretsCallCount += 1
