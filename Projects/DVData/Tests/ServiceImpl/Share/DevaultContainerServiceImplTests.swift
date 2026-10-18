@@ -12,8 +12,7 @@ struct DevaultContainerServiceImplTests {
     private let service = DevaultContainerServiceImpl(
         passwordKeyDerivationService: PasswordKeyDerivationServiceImpl(
             memoryCostKiB: 8 * 1024, timeCost: 1, parallelism: 1
-        ),
-        cryptoService: DevaultCryptoServiceImpl()
+        )
     )
 
     private let payload = DevaultContainerPayload(
