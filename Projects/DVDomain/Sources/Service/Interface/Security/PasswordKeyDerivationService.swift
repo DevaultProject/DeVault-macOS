@@ -14,5 +14,5 @@ public protocol PasswordKeyDerivationService: Sendable {
         password: String,
         salt: Data,
         derivedKeyByteCount: Int
-    ) throws -> Data
+    ) async throws -> Data
 }

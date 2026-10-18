@@ -22,9 +22,9 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         payload: DevaultContainerPayload,
         password: String,
         expiresAt: Date?
-    ) throws -> Data {
+    ) async throws -> Data {
         let salt = Data((0..<DevaultContainerHeader.saltByteCount).map { _ in UInt8.random(in: .min ... .max) })
-        var key = try passwordKeyDerivationService.deriveKey(
+        var key = try await passwordKeyDerivationService.deriveKey(
             password: password,
             salt: salt,
             derivedKeyByteCount: Self.derivedKeyByteCount
@@ -47,7 +47,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         return aad + combined
     }
 
-    public func `import`(data: Data, password: String) throws -> DevaultContainerPayload {
+    public func `import`(data: Data, password: String) async throws -> DevaultContainerPayload {
         let file = try DevaultContainerFileCodec.decode(data)
 
         // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.
@@ -57,7 +57,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
 
         var key: Data
         do {
-            key = try passwordKeyDerivationService.deriveKey(
+            key = try await passwordKeyDerivationService.deriveKey(
                 password: password,
                 salt: file.header.salt,
                 derivedKeyByteCount: Self.derivedKeyByteCount
