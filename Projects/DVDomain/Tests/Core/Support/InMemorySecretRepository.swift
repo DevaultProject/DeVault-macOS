@@ -106,6 +106,18 @@ public final class InMemorySecretRepository: SecretRepository, @unchecked Sendab
         }
     }
 
+    public func fetchSecretIDs(
+        name: String,
+        secretType: SecretType
+    ) async throws -> [UUID] {
+        containsSecretCount += 1
+        lastContainsSecretName = name
+        if let error = errorOnContainsSecret { throw error }
+        return secrets.values
+            .filter { $0.deletedAt == nil && $0.secretType == secretType && $0.name == name }
+            .map(\.id)
+    }
+
     public func patch(id: UUID, with patch: SecretPatch) async throws -> Secret {
         patchCount += 1
         lastPatch = patch
