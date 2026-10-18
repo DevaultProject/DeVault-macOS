@@ -22,7 +22,7 @@ struct DevaultSecretMetadataBoxTests {
         ]
     }
 
-    @Test("7종 metadata 전부 JSON 인코딩/디코딩 라운드트립된다")
+    @Test("9종 metadata 전부 JSON 인코딩/디코딩 라운드트립된다")
     func roundTripsThroughJSON() throws {
         for box in allCases {
             let data = try JSONEncoder().encode(box)
