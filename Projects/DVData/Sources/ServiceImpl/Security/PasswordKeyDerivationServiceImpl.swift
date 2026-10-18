@@ -29,7 +29,7 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
         password: String,
         salt: Data,
         derivedKeyByteCount: Int
-    ) throws -> Data {
+    ) async throws -> Data {
         guard !password.isEmpty,
               salt.count >= Self.minimumSaltByteCount,
               derivedKeyByteCount >= 4
