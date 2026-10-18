@@ -9,11 +9,10 @@ public struct DevaultContainerPayload: Equatable, Sendable, Codable {
     public var secrets: [DevaultSecretExport]
 
     public init(
-        schemaVersion: Int = DevaultContainerPayload.currentSchemaVersion,
         projectName: String? = nil,
         secrets: [DevaultSecretExport]
     ) {
-        self.schemaVersion = schemaVersion
+        self.schemaVersion = Self.currentSchemaVersion
         self.projectName = projectName
         self.secrets = secrets
     }
