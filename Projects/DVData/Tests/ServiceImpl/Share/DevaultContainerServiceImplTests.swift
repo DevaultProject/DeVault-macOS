@@ -21,7 +21,7 @@ struct DevaultContainerServiceImplTests {
         secrets: [
             DevaultSecretExport(
                 name: "My Secret",
-                payload: .custom(CustomPayload(value: "hello world")),
+                content: .custom(CustomPayload(value: "hello world")),
                 payloadSchemaVersion: CustomPayload.schemaVersion
             )
         ]
@@ -34,33 +34,53 @@ struct DevaultContainerServiceImplTests {
         #expect(imported == payload)
     }
 
-    @Test("틀린 비밀번호로 Import하면 wrongPassword를 던진다")
-    func failsWithWrongPassword() throws {
+    @Test("틀린 비밀번호로 Import하면 invalidPassword를 던진다")
+    func failsWithInvalidPassword() throws {
         let data = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
 
-        #expect(throws: DevaultImportError.wrongPassword) {
+        #expect(throws: DevaultImportError.invalidPassword) {
             try service.import(data: data, password: "battery staple")
         }
     }
 
-    @Test("ciphertext가 변조되면 wrongPassword를 던진다")
+    @Test("ciphertext가 변조되면 invalidPassword를 던진다")
     func failsWhenCiphertextTampered() throws {
         var data = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
         data[data.index(before: data.endIndex)] ^= 0xFF
 
-        #expect(throws: DevaultImportError.wrongPassword) {
+        #expect(throws: DevaultImportError.invalidPassword) {
             try service.import(data: data, password: "correct horse")
         }
     }
 
-    @Test("헤더(AAD 영역)가 변조되면 wrongPassword를 던진다 — G7 검증")
-    func failsWhenHeaderTampered() throws {
+    @Test("salt가 변조되면 유도되는 키가 달라져 invalidPassword를 던진다")
+    func failsWhenSaltTampered() throws {
         var data = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
-        data[data.startIndex + 17] ^= 0xFF // salt 영역 첫 바이트 — AAD엔 포함되지만 codec이 내용까진 검증 안 하는 지점
+        data[data.startIndex + 17] ^= 0xFF // salt 영역 첫 바이트 — Argon2 입력이라 키 자체가 달라진다
 
-        #expect(throws: DevaultImportError.wrongPassword) {
+        #expect(throws: DevaultImportError.invalidPassword) {
             try service.import(data: data, password: "correct horse")
         }
+    }
+
+    @Test("헤더(AAD 전용 영역)가 변조되면 invalidPassword를 던진다 — G7 검증")
+    func failsWhenAADOnlyRegionTampered() throws {
+        var data = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
+        data[data.startIndex + 9] ^= 0x7F // expiresAt 상위 바이트 — AAD에만 있고 키에는 영향 없음
+
+        #expect(throws: DevaultImportError.invalidPassword) {
+            try service.import(data: data, password: "correct horse")
+        }
+    }
+
+    @Test("export마다 salt가 다르다")
+    func generatesFreshSaltEachExport() throws {
+        let a = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
+        let b = try service.export(payload: payload, password: "correct horse", expiresAt: nil)
+        let saltRangeA = (a.startIndex + 17)..<(a.startIndex + 33)
+        let saltRangeB = (b.startIndex + 17)..<(b.startIndex + 33)
+
+        #expect(a[saltRangeA] != b[saltRangeB])
     }
 
     @Test("만료된 파일은 Import 시 expired를 던진다")

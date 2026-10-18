@@ -1,5 +1,6 @@
 // Copyright © 2026 Devault. All rights reserved
 
+import CryptoKit
 import DVDomain
 import Foundation
 
@@ -51,11 +52,16 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
     public func `import`(data: Data, password: String) throws -> DevaultContainerPayload {
         let file = try DevaultContainerFileCodec.decode(data)
 
-        var key = try passwordKeyDerivationService.deriveKey(
-            password: password,
-            salt: file.header.salt,
-            derivedKeyByteCount: Self.derivedKeyByteCount
-        )
+        var key: Data
+        do {
+            key = try passwordKeyDerivationService.deriveKey(
+                password: password,
+                salt: file.header.salt,
+                derivedKeyByteCount: Self.derivedKeyByteCount
+            )
+        } catch {
+            throw DevaultImportError.invalidPassword
+        }
         defer { Self.wipe(&key) }
 
         let aad = DevaultContainerFileCodec.encodeHeaderPrefix(
@@ -72,8 +78,10 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
                 nonce: file.header.nonce,
                 aad: aad
             )
+        } catch CryptoKitError.authenticationFailure {
+            throw DevaultImportError.invalidPassword
         } catch {
-            throw DevaultImportError.wrongPassword
+            throw DevaultImportError.corrupted
         }
         defer { Self.wipe(&plaintext) }
 
