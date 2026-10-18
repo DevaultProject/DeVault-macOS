@@ -16,19 +16,16 @@ public enum DevaultContainerFileCodec {
         encodeHeader(header) + ciphertext
     }
 
-    /// `.dvt` 파일 바이트에서 헤더를 해석하고 암호문을 분리한다.
-    /// - Parameters:
-    ///   - data: `.dvt` 파일 전체 바이트
-    ///   - now: 만료 판정에 쓸 현재 시각
+    /// `.dvt` 파일 바이트에서 헤더를 해석하고 암호문을 분리한다 — 만료 판단은 호출부 책임이다.
+    /// - Parameter data: `.dvt` 파일 전체 바이트
     /// - Returns: 해석된 헤더와 분리된 암호문
-    /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`,
-    ///   이미 만료됐으면 `.expired`
-    public static func decode(_ data: Data, now: Date = Date()) throws -> DevaultContainerFile {
+    /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`
+    public static func decode(_ data: Data) throws -> DevaultContainerFile {
         guard data.count >= DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
         }
 
-        let header = try decodeHeader(Array(data.prefix(DevaultContainerHeader.byteCount)), now: now)
+        let header = try decodeHeader(Array(data.prefix(DevaultContainerHeader.byteCount)))
         let ciphertext = Data(data.dropFirst(DevaultContainerHeader.byteCount))
 
         return (header: header, ciphertext: ciphertext)
@@ -57,7 +54,7 @@ public enum DevaultContainerFileCodec {
         return bytes
     }
 
-    private static func decodeHeader(_ bytes: [UInt8], now: Date) throws -> DevaultContainerHeader {
+    private static func decodeHeader(_ bytes: [UInt8]) throws -> DevaultContainerHeader {
         guard bytes.count == DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
         }
@@ -79,10 +76,6 @@ public enum DevaultContainerFileCodec {
         let expiresAtSeconds: UInt64 = value(fromBigEndianBytes: bytes[cursor..<cursor + 8])
         let expiresAt = date(fromUnixSeconds: expiresAtSeconds)
         cursor += 8
-
-        if let expiresAt, expiresAt < now {
-            throw DevaultImportError.expired
-        }
 
         let salt = Data(bytes[cursor..<cursor + DevaultContainerHeader.saltByteCount])
         cursor += DevaultContainerHeader.saltByteCount
