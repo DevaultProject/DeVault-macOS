@@ -7,12 +7,12 @@ import Foundation
 public struct DevaultContainerServiceImpl: DevaultContainerService {
     private static let derivedKeyByteCount = 32 // AES-256
 
-    private let passwordKeyDerivationService: PasswordKeyDerivationService
-    private let cryptoService: DevaultCryptoService
+    private let passwordKeyDerivationService: any PasswordKeyDerivationService
+    private let cryptoService: any DevaultCryptoService
 
     public init(
-        passwordKeyDerivationService: PasswordKeyDerivationService,
-        cryptoService: DevaultCryptoService
+        passwordKeyDerivationService: any PasswordKeyDerivationService,
+        cryptoService: any DevaultCryptoService
     ) {
         self.passwordKeyDerivationService = passwordKeyDerivationService
         self.cryptoService = cryptoService
@@ -64,11 +64,8 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         }
         defer { Self.wipe(&key) }
 
-        let aad = DevaultContainerFileCodec.encodeHeaderPrefix(
-            version: file.header.version,
-            expiresAt: file.header.expiresAt,
-            salt: file.header.salt
-        )
+        // AAD는 재인코딩 대신 파일 원본 바이트를 그대로 쓴다.
+        let aad = data.prefix(DevaultContainerHeader.byteCount - DevaultContainerHeader.nonceByteCount)
 
         var plaintext: Data
         do {
@@ -92,6 +89,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         }
     }
 
+    /// best-effort — `data`가 공유 중이면 CoW로 원본이 안 지워질 수 있다.
     private static func wipe(_ data: inout Data) {
         data.withUnsafeMutableBytes { pointer in
             _ = memset_s(pointer.baseAddress, pointer.count, 0, pointer.count)
