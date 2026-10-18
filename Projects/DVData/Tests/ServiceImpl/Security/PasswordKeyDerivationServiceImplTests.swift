@@ -3,7 +3,6 @@
 import DVDomain
 import Foundation
 import Testing
-import argon2
 
 @testable import DVData
 
@@ -59,52 +58,33 @@ struct PasswordKeyDerivationServiceImplTests {
         }
     }
 
-    @Test("커스텀 m/t/p 파라미터로 초기화해도 정상 동작하고 기본값과 다른 키가 나온다")
+    @Test("커스텀 m/t/p 파라미터로 초기화하면 고정 벡터를 재현한다")
     func worksWithCustomCostParameters() throws {
         let customService = PasswordKeyDerivationServiceImpl(memoryCostKiB: 8 * 1024, timeCost: 2, parallelism: 1)
         let customKey = try customService.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
-        let defaultKey = try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
-        #expect(customKey.count == 32)
-        #expect(customKey != defaultKey)
+        #expect(customKey.hexEncoded == "c723f1a4373b9540eaad1d6c0507d8eaafd14f5e4b2f83563946ae477fa7a830")
     }
 
-    @Test("공식 RFC 9106 Argon2id KAT 벡터와 일치한다")
-    func matchesOfficialRFC9106Vector() {
-        var passwordBytes = [UInt8](repeating: 0x01, count: 32)
-        var saltBytes = [UInt8](repeating: 0x02, count: 16)
-        var secretBytes = [UInt8](repeating: 0x03, count: 8)
-        var adBytes = [UInt8](repeating: 0x04, count: 12)
-        var outputBytes = [UInt8](repeating: 0, count: 32)
+    @Test("deriveKey가 고정 벡터를 재현한다 — 알고리즘·파라미터·인코딩이 바뀌면 깨진다")
+    func matchesPinnedVector() throws {
+        let key = try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
+        #expect(key.hexEncoded == "5beffef9639dd7e5b490ffb982dc22fa8cb3fe9a99f556ec72f20bc9566c88c5")
+    }
 
-        let result = passwordBytes.withUnsafeMutableBufferPointer { pwdBuf in
-            saltBytes.withUnsafeMutableBufferPointer { saltBuf in
-                secretBytes.withUnsafeMutableBufferPointer { secretBuf in
-                    adBytes.withUnsafeMutableBufferPointer { adBuf in
-                        outputBytes.withUnsafeMutableBufferPointer { outBuf -> Int32 in
-                            var context = argon2_context(
-                                out: outBuf.baseAddress, outlen: UInt32(outBuf.count),
-                                pwd: pwdBuf.baseAddress, pwdlen: UInt32(pwdBuf.count),
-                                salt: saltBuf.baseAddress, saltlen: UInt32(saltBuf.count),
-                                secret: secretBuf.baseAddress, secretlen: UInt32(secretBuf.count),
-                                ad: adBuf.baseAddress, adlen: UInt32(adBuf.count),
-                                t_cost: 3, m_cost: 32, lanes: 4, threads: 4,
-                                version: 0x13,
-                                allocate_cbk: nil, free_cbk: nil,
-                                flags: 0
-                            )
-                            return argon2id_ctx(&context)
-                        }
-                    }
-                }
-            }
-        }
+    @Test("NFC·NFD로 다르게 인코딩된 같은 비밀번호도 같은 키를 유도한다")
+    func normalizesUnicodeBeforeDeriving() throws {
+        let nfc = "테스트".precomposedStringWithCanonicalMapping
+        let nfd = "테스트".decomposedStringWithCanonicalMapping
+        #expect(Array(nfc.utf8) != Array(nfd.utf8))
 
-        #expect(result == 0)
-        #expect(Data(outputBytes) == Data([
-            0x0d, 0x64, 0x0d, 0xf5, 0x8d, 0x78, 0x76, 0x6c,
-            0x08, 0xc0, 0x37, 0xa3, 0x4a, 0x8b, 0x53, 0xc9,
-            0xd0, 0x1e, 0xf0, 0x45, 0x2d, 0x75, 0xb6, 0x5e,
-            0xb5, 0x25, 0x20, 0xe9, 0x6b, 0x01, 0xe6, 0x59
-        ]))
+        let keyFromNFC = try service.deriveKey(password: nfc, salt: salt, derivedKeyByteCount: 32)
+        let keyFromNFD = try service.deriveKey(password: nfd, salt: salt, derivedKeyByteCount: 32)
+        #expect(keyFromNFC == keyFromNFD)
+    }
+}
+
+extension Data {
+    fileprivate var hexEncoded: String {
+        map { String(format: "%02x", $0) }.joined()
     }
 }
