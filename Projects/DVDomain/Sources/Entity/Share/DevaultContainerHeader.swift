@@ -22,6 +22,8 @@ public struct DevaultContainerHeader: Equatable, Sendable {
         salt: Data,
         nonce: Data
     ) {
+        precondition(salt.count == Self.saltByteCount, "salt는 항상 \(Self.saltByteCount)바이트여야 한다")
+        precondition(nonce.count == Self.nonceByteCount, "nonce는 항상 \(Self.nonceByteCount)바이트여야 한다")
         self.version = version
         self.expiresAt = expiresAt
         self.salt = salt

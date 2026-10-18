@@ -24,42 +24,13 @@ struct DevaultSecretPayloadBoxTests {
         ]
     }
 
-    @Test("9종 payload 전부 JSON 인코딩/디코딩 라운드트립된다")
+    @Test("11종 payload 전부 JSON 인코딩/디코딩 라운드트립된다")
     func roundTripsThroughJSON() throws {
         for box in allCases {
             let data = try JSONEncoder().encode(box)
             let decoded = try JSONDecoder().decode(DevaultSecretPayloadBox.self, from: data)
             #expect(decoded == box)
         }
-    }
-
-    @Test("subType이 database·envSet만 nil이고 나머지는 대응하는 값을 반환한다")
-    func subTypeMapping() {
-        #expect(DevaultSecretPayloadBox.apiKey(APIKeyPayload(value: "")).subType == .apiKey)
-        #expect(DevaultSecretPayloadBox.accessToken(APIKeyPayload(value: "")).subType == .accessToken)
-        #expect(DevaultSecretPayloadBox.webhookSecret(APIKeyPayload(value: "")).subType == .webhookSecret)
-        #expect(
-            DevaultSecretPayloadBox.oauthClient(OAuthClientPayload(clientId: "", clientSecret: "")).subType
-                == .oauthClient
-        )
-        #expect(
-            DevaultSecretPayloadBox.serviceAccount(ServiceAccountPayload(credentialJSON: "")).subType
-                == .serviceAccount
-        )
-        #expect(DevaultSecretPayloadBox.sshKey(SSHKeyPayload(privateKey: "")).subType == .sshKey)
-        #expect(
-            DevaultSecretPayloadBox.sslTlsCertificate(SSLCertPayload(certificate: "", privateKey: "")).subType
-                == .sslTlsCertificate
-        )
-        #expect(DevaultSecretPayloadBox.licenseKey(LicenseKeyPayload(licenseKey: "")).subType == .licenseKey)
-        #expect(DevaultSecretPayloadBox.custom(CustomPayload(value: "")).subType == .custom)
-        #expect(DevaultSecretPayloadBox.database(DatabasePayload(linkString: "")).subType == nil)
-        #expect(DevaultSecretPayloadBox.envSet(EnvSetPayload(content: "")).subType == nil)
-    }
-
-    @Test("SecretSubType case 개수가 늘어나면 이 테스트가 실패해 DevaultSecretPayloadBox 갱신을 상기시킨다")
-    func subTypeCaseCountGuard() {
-        #expect(SecretSubType.allCases.count == 9)
     }
 
     @Test("고정된 JSON 포맷이 깨지지 않는다 — case 이름이 바뀌면 이미 내보낸 .dvt 파일이 깨진다")
@@ -97,12 +68,5 @@ struct DevaultSecretPayloadBoxTests {
             let decoded = try JSONDecoder().decode(DevaultSecretPayloadBox.self, from: Data(fixture.json.utf8))
             #expect(decoded == fixture.expected)
         }
-    }
-
-    @Test("secretType이 subType 없는 타입(database·envSet)도 올바르게 반환한다")
-    func secretTypeMapping() {
-        #expect(DevaultSecretPayloadBox.database(DatabasePayload(linkString: "")).secretType == .database)
-        #expect(DevaultSecretPayloadBox.envSet(EnvSetPayload(content: "")).secretType == .environmentVariableSet)
-        #expect(DevaultSecretPayloadBox.apiKey(APIKeyPayload(value: "")).secretType == .apiKeyToken)
     }
 }

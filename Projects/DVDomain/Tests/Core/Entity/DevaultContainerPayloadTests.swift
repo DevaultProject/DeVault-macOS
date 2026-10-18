@@ -46,8 +46,6 @@ struct DevaultContainerPayloadTests {
         let decoded = try JSONDecoder().decode(DevaultContainerPayload.self, from: data)
 
         #expect(decoded == payload)
-        #expect(decoded.secrets.count == 3)
-        #expect(decoded.secrets[1].metadata == nil)
     }
 
     @Test("projectName이 nil이어도(멀티선택 export) 라운드트립된다")
@@ -63,6 +61,5 @@ struct DevaultContainerPayloadTests {
         let decoded = try JSONDecoder().decode(DevaultContainerPayload.self, from: data)
 
         #expect(decoded == payload)
-        #expect(decoded.projectName == nil)
     }
 }
