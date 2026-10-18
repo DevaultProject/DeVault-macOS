@@ -11,7 +11,7 @@ public protocol PasswordKeyDerivationService: Sendable {
     ///   - derivedKeyByteCount: 유도할 키의 바이트 길이 (AES-256은 32)
     /// - Returns: 유도된 키 원료
     func deriveKey(
-        password: String,
+        password: SensitiveString,
         salt: Data,
         derivedKeyByteCount: Int
     ) async throws -> Data

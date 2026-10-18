@@ -20,7 +20,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
 
     public func export(
         payload: DevaultContainerPayload,
-        password: String,
+        password: SensitiveString,
         expiresAt: Date?
     ) async throws -> Data {
         let salt = Data((0..<DevaultContainerHeader.saltByteCount).map { _ in UInt8.random(in: .min ... .max) })
@@ -47,7 +47,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         return aad + combined
     }
 
-    public func `import`(data: Data, password: String) async throws -> DevaultContainerPayload {
+    public func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
         let file = try DevaultContainerFileCodec.decode(data)
 
         // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.

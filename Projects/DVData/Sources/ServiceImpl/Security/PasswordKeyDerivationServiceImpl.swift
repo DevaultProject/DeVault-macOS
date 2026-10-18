@@ -26,18 +26,20 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
     }
 
     public func deriveKey(
-        password: String,
+        password: SensitiveString,
         salt: Data,
         derivedKeyByteCount: Int
     ) async throws -> Data {
-        guard !password.isEmpty,
+        guard password.byteCount > 0,
               salt.count >= Self.minimumSaltByteCount,
               derivedKeyByteCount >= 4
         else {
             throw PasswordKeyDerivationError.invalidParameters
         }
 
-        var passwordBytes = Array(password.precomposedStringWithCanonicalMapping.utf8)
+        var passwordBytes = password.withUnsafeAccess { raw in
+            Array(raw.precomposedStringWithCanonicalMapping.utf8)
+        }
         defer {
             passwordBytes.withUnsafeMutableBytes { buffer in
                 _ = memset_s(buffer.baseAddress, buffer.count, 0, buffer.count)
