@@ -9,7 +9,9 @@ import Testing
 @Suite("PasswordKeyDerivationServiceImpl")
 struct PasswordKeyDerivationServiceImplTests {
 
-    private let service = PasswordKeyDerivationServiceImpl()
+    // 비용 파라미터와 무관한 단언(결정성·민감도·길이)은 싼 파라미터로 — 프로덕션 기본값은 matchesPinnedVector에서만 쓴다.
+    private let service = PasswordKeyDerivationServiceImpl(memoryCostKiB: 8 * 1024, timeCost: 1, parallelism: 1)
+    private let productionService = PasswordKeyDerivationServiceImpl()
     private let salt = Data(repeating: 0xAB, count: 16)
 
     @Test("같은 비밀번호·salt·길이면 항상 같은 키가 나온다")
@@ -51,6 +53,9 @@ struct PasswordKeyDerivationServiceImplTests {
             try service.deriveKey(password: "correct horse", salt: Data(repeating: 0xAB, count: 4), derivedKeyByteCount: 32)
         }
         #expect(throws: PasswordKeyDerivationError.invalidParameters) {
+            try service.deriveKey(password: "correct horse", salt: Data(repeating: 0xAB, count: 15), derivedKeyByteCount: 32)
+        }
+        #expect(throws: PasswordKeyDerivationError.invalidParameters) {
             try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 0)
         }
         #expect(throws: PasswordKeyDerivationError.invalidParameters) {
@@ -67,7 +72,7 @@ struct PasswordKeyDerivationServiceImplTests {
 
     @Test("deriveKey가 고정 벡터를 재현한다 — 알고리즘·파라미터·인코딩이 바뀌면 깨진다")
     func matchesPinnedVector() throws {
-        let key = try service.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
+        let key = try productionService.deriveKey(password: "correct horse", salt: salt, derivedKeyByteCount: 32)
         #expect(key.hexEncoded == "5beffef9639dd7e5b490ffb982dc22fa8cb3fe9a99f556ec72f20bc9566c88c5")
     }
 
