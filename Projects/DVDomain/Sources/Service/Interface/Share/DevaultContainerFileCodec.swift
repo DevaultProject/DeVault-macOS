@@ -19,7 +19,7 @@ public enum DevaultContainerFileCodec {
         let header = try decodeHeader(Array(data.prefix(DevaultContainerHeader.byteCount)), now: now)
         let ciphertext = Data(data.dropFirst(DevaultContainerHeader.byteCount))
 
-        return DevaultContainerFile(header: header, ciphertext: ciphertext)
+        return (header: header, ciphertext: ciphertext)
     }
 
     public static func encodeHeader(_ header: DevaultContainerHeader) -> Data {
