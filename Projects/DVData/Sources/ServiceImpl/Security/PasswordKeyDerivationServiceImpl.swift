@@ -17,6 +17,9 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
         timeCost: UInt32 = 3,
         parallelism: UInt32 = 4
     ) {
+        precondition(memoryCostKiB >= 8, "memoryCostKiB는 argon2 최소치(8KiB) 이상이어야 한다 — MiB 단위로 착각하지 않았는지 확인")
+        precondition(timeCost >= 1, "timeCost는 1 이상이어야 한다")
+        precondition(parallelism >= 1, "parallelism은 1 이상이어야 한다")
         self.memoryCostKiB = memoryCostKiB
         self.timeCost = timeCost
         self.parallelism = parallelism
@@ -50,8 +53,7 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
             &output, output.count
         )
 
-        // ARGON2_OK == 0으로 문서화 존재 — 브리징된 enum 이름에 기대지 않고 원시 코드로 비교.
-        guard result == 0 else {
+        guard result == ARGON2_OK.rawValue else {
             throw PasswordKeyDerivationError.derivationFailed(code: result)
         }
 
