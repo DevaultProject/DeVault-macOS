@@ -34,6 +34,21 @@ struct DevaultDateComponentsTests {
         #expect(DevaultDateComponents(date: seoulDate, calendar: seoul) == components)
     }
 
+    @Test("같은 순간이라도 캘린더 체계가 다르면 연도 성분이 달라진다 — 그래서 기본값을 그레고리력에 고정해야 한다")
+    func calendarSystemAffectsYearComponent() {
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = TimeZone(identifier: "UTC")!
+        var buddhist = Calendar(identifier: .buddhist)
+        buddhist.timeZone = TimeZone(identifier: "UTC")!
+
+        let instant = gregorian.date(from: DateComponents(year: 2026, month: 12, day: 31))!
+
+        let gregorianComponents = DevaultDateComponents(date: instant, calendar: gregorian)
+        let buddhistComponents = DevaultDateComponents(date: instant, calendar: buddhist)
+
+        #expect(buddhistComponents.year - gregorianComponents.year == 543)
+    }
+
     @Test("endOfDay는 그 날짜의 23:59:59를 복원한다")
     func endOfDayReconstructsLastSecondOfDay() {
         var utc = Calendar(identifier: .gregorian)
