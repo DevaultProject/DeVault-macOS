@@ -8,9 +8,14 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
     private static let derivedKeyByteCount = 32 // AES-256
 
     private let passwordKeyDerivationService: any PasswordKeyDerivationService
+    private let dateProvider: @Sendable () -> Date
 
-    public init(passwordKeyDerivationService: any PasswordKeyDerivationService) {
+    public init(
+        passwordKeyDerivationService: any PasswordKeyDerivationService,
+        dateProvider: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.passwordKeyDerivationService = passwordKeyDerivationService
+        self.dateProvider = dateProvider
     }
 
     public func export(
@@ -44,6 +49,11 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
 
     public func `import`(data: Data, password: String) throws -> DevaultContainerPayload {
         let file = try DevaultContainerFileCodec.decode(data)
+
+        // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.
+        if let expiresAt = file.header.expiresAt, expiresAt < dateProvider() {
+            throw DevaultImportError.expired
+        }
 
         var key: Data
         do {

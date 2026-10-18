@@ -29,7 +29,7 @@ struct DevaultContainerFileCodecTests {
         let header = DevaultContainerHeader(version: 1, expiresAt: expiresAt, salt: salt, nonce: nonce)
         let encoded = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
 
-        let decoded = try DevaultContainerFileCodec.decode(encoded, now: Date(timeIntervalSince1970: 1_000_000_000))
+        let decoded = try DevaultContainerFileCodec.decode(encoded)
 
         #expect(decoded.header == header)
     }
@@ -63,17 +63,6 @@ struct DevaultContainerFileCodecTests {
         }
     }
 
-    @Test("now가 expiresAt보다 미래면 expired를 던진다")
-    func rejectsExpiredHeader() {
-        let expiresAt = Date(timeIntervalSince1970: 1_000_000_000)
-        let header = DevaultContainerHeader(version: 1, expiresAt: expiresAt, salt: salt, nonce: nonce)
-        let encoded = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
-
-        #expect(throws: DevaultImportError.expired) {
-            try DevaultContainerFileCodec.decode(encoded, now: Date(timeIntervalSince1970: 2_000_000_000))
-        }
-    }
-
     @Test("encodeHeader 결과는 encode(header:ciphertext:) 앞 45바이트와 같다 — AAD 재사용 정합성")
     func encodeHeaderMatchesFilePrefix() {
         let header = DevaultContainerHeader(version: 1, expiresAt: nil, salt: salt, nonce: nonce)
@@ -99,8 +88,7 @@ struct DevaultContainerFileCodecTests {
         let header = DevaultContainerHeader(version: 1, expiresAt: nearEpoch, salt: salt, nonce: nonce)
         let encoded = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
 
-        // now를 epoch 이전으로 둬서 expired 분기를 피하고, 디코딩된 expiresAt이 nil로 뭉개지지 않았는지만 확인한다.
-        let decoded = try DevaultContainerFileCodec.decode(encoded, now: Date(timeIntervalSince1970: 0))
+        let decoded = try DevaultContainerFileCodec.decode(encoded)
 
         #expect(decoded.header.expiresAt != nil)
     }
