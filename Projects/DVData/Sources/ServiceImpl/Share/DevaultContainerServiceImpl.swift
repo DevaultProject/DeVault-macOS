@@ -8,14 +8,9 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
     private static let derivedKeyByteCount = 32 // AES-256
 
     private let passwordKeyDerivationService: any PasswordKeyDerivationService
-    private let cryptoService: any DevaultCryptoService
 
-    public init(
-        passwordKeyDerivationService: any PasswordKeyDerivationService,
-        cryptoService: any DevaultCryptoService
-    ) {
+    public init(passwordKeyDerivationService: any PasswordKeyDerivationService) {
         self.passwordKeyDerivationService = passwordKeyDerivationService
-        self.cryptoService = cryptoService
     }
 
     public func export(
@@ -33,20 +28,18 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
 
         var plaintext = try JSONEncoder().encode(payload)
         defer { Self.wipe(&plaintext) }
+
         let aad = DevaultContainerFileCodec.encodeHeaderPrefix(
             version: DevaultContainerHeader.currentVersion,
             expiresAt: expiresAt,
             salt: salt
         )
-        let (nonce, sealedData) = try cryptoService.seal(plaintext: plaintext, key: key, aad: aad)
+        let sealedBox = try AES.GCM.seal(plaintext, using: SymmetricKey(data: key), authenticating: aad)
+        guard let combined = sealedBox.combined else {
+            preconditionFailure("AES.GCM.seal의 nonce는 항상 12바이트라 combined가 nil일 수 없다")
+        }
 
-        let header = DevaultContainerHeader(
-            version: DevaultContainerHeader.currentVersion,
-            expiresAt: expiresAt,
-            salt: salt,
-            nonce: nonce
-        )
-        return DevaultContainerFileCodec.encode(header: header, ciphertext: sealedData)
+        return aad + combined
     }
 
     public func `import`(data: Data, password: String) throws -> DevaultContainerPayload {
@@ -65,16 +58,14 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         defer { Self.wipe(&key) }
 
         // AAD는 재인코딩 대신 파일 원본 바이트를 그대로 쓴다.
-        let aad = data.prefix(DevaultContainerHeader.byteCount - DevaultContainerHeader.nonceByteCount)
+        let aadLength = DevaultContainerHeader.byteCount - DevaultContainerHeader.nonceByteCount
+        let aad = data.prefix(aadLength)
+        let combined = data.dropFirst(aadLength) // nonce + ciphertext + tag
 
         var plaintext: Data
         do {
-            plaintext = try cryptoService.open(
-                sealedData: file.ciphertext,
-                key: key,
-                nonce: file.header.nonce,
-                aad: aad
-            )
+            let sealedBox = try AES.GCM.SealedBox(combined: combined)
+            plaintext = try AES.GCM.open(sealedBox, using: SymmetricKey(data: key), authenticating: aad)
         } catch CryptoKitError.authenticationFailure {
             throw DevaultImportError.invalidPassword
         } catch {
