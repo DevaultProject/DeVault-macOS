@@ -36,6 +36,10 @@ struct LiveSecretRepository: SecretRepository {
     )
   }
 
+  func fetchSecretIDs(name: String, secretType: SecretType) async throws -> [UUID] {
+    try await storage.secretRepository().fetchSecretIDs(name: name, secretType: secretType)
+  }
+
   func patch(id: UUID, with patch: SecretPatch) async throws -> Secret {
     try await storage.secretRepository().patch(id: id, with: patch)
   }
