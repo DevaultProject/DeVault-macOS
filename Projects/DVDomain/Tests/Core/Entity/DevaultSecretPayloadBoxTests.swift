@@ -62,6 +62,43 @@ struct DevaultSecretPayloadBoxTests {
         #expect(SecretSubType.allCases.count == 9)
     }
 
+    @Test("고정된 JSON 포맷이 깨지지 않는다 — case 이름이 바뀌면 이미 내보낸 .dvt 파일이 깨진다")
+    func pinnedJSONFormatDoesNotBreak() throws {
+        let fixtures: [(json: String, expected: DevaultSecretPayloadBox)] = [
+            (#"{"apiKey":{"_0":{"value":"a"}}}"#, .apiKey(APIKeyPayload(value: "a"))),
+            (#"{"accessToken":{"_0":{"value":"b"}}}"#, .accessToken(APIKeyPayload(value: "b"))),
+            (#"{"webhookSecret":{"_0":{"value":"c"}}}"#, .webhookSecret(APIKeyPayload(value: "c"))),
+            (
+                #"{"oauthClient":{"_0":{"clientId":"id","clientSecret":"secret"}}}"#,
+                .oauthClient(OAuthClientPayload(clientId: "id", clientSecret: "secret"))
+            ),
+            (
+                #"{"serviceAccount":{"_0":{"credentialJSON":"{}"}}}"#,
+                .serviceAccount(ServiceAccountPayload(credentialJSON: "{}"))
+            ),
+            (
+                #"{"sshKey":{"_0":{"privateKey":"key","passphrase":"pass"}}}"#,
+                .sshKey(SSHKeyPayload(privateKey: "key", passphrase: "pass"))
+            ),
+            (
+                #"{"sslTlsCertificate":{"_0":{"certificate":"cert","privateKey":"key"}}}"#,
+                .sslTlsCertificate(SSLCertPayload(certificate: "cert", privateKey: "key"))
+            ),
+            (#"{"licenseKey":{"_0":{"licenseKey":"XXXX-YYYY"}}}"#, .licenseKey(LicenseKeyPayload(licenseKey: "XXXX-YYYY"))),
+            (#"{"custom":{"_0":{"value":"custom"}}}"#, .custom(CustomPayload(value: "custom"))),
+            (
+                #"{"database":{"_0":{"linkString":"postgres://localhost"}}}"#,
+                .database(DatabasePayload(linkString: "postgres://localhost"))
+            ),
+            (#"{"envSet":{"_0":{"content":"KEY=VALUE"}}}"#, .envSet(EnvSetPayload(content: "KEY=VALUE"))),
+        ]
+
+        for fixture in fixtures {
+            let decoded = try JSONDecoder().decode(DevaultSecretPayloadBox.self, from: Data(fixture.json.utf8))
+            #expect(decoded == fixture.expected)
+        }
+    }
+
     @Test("secretType이 subType 없는 타입(database·envSet)도 올바르게 반환한다")
     func secretTypeMapping() {
         #expect(DevaultSecretPayloadBox.database(DatabasePayload(linkString: "")).secretType == .database)
