@@ -17,24 +17,23 @@ struct DevaultContainerPayloadTests {
             expiresAt: DevaultDateComponents(year: 2026, month: 12, day: 31),
             memo: "메모",
             liked: true,
-            payload: .apiKey(APIKeyPayload(value: "ghp_1234")),
+            content: .apiKey(APIKeyPayload(value: "ghp_1234"), APIKeyMetadata(scope: "repo:read")),
             payloadSchemaVersion: APIKeyPayload.schemaVersion,
-            metadata: .apiKey(APIKeyMetadata(scope: "repo:read")),
             metadataSchemaVersion: APIKeyMetadata.schemaVersion
         )
 
         let databaseSecret = DevaultSecretExport(
             name: "Prod DB",
-            payload: .database(DatabasePayload(linkString: "postgres://localhost")),
-            payloadSchemaVersion: DatabasePayload.schemaVersion
             // metadata 없음 — database도 metadata 타입은 있지만 이 시크릿엔 안 붙었다고 가정
+            content: .database(DatabasePayload(linkString: "postgres://localhost"), nil),
+            payloadSchemaVersion: DatabasePayload.schemaVersion
         )
 
         let customSecret = DevaultSecretExport(
             name: "Custom Note",
-            payload: .custom(CustomPayload(value: "free text")),
-            payloadSchemaVersion: CustomPayload.schemaVersion
             // custom은 애초에 metadata 타입 자체가 없음
+            content: .custom(CustomPayload(value: "free text")),
+            payloadSchemaVersion: CustomPayload.schemaVersion
         )
 
         let payload = DevaultContainerPayload(
@@ -52,7 +51,7 @@ struct DevaultContainerPayloadTests {
     func roundTripsWithoutProjectName() throws {
         let secret = DevaultSecretExport(
             name: "Env",
-            payload: .envSet(EnvSetPayload(content: "KEY=1")),
+            content: .envSet(EnvSetPayload(content: "KEY=1")),
             payloadSchemaVersion: EnvSetPayload.schemaVersion
         )
         let payload = DevaultContainerPayload(projectName: nil, secrets: [secret])

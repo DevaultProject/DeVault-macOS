@@ -7,9 +7,8 @@ public struct DevaultSecretExport: Equatable, Sendable, Codable {
     public var expiresAt: DevaultDateComponents?
     public var memo: String?
     public var liked: Bool
-    public var payload: DevaultSecretPayloadBox
+    public var content: DevaultSecretContentBox
     public var payloadSchemaVersion: Int
-    public var metadata: DevaultSecretMetadataBox?
     public var metadataSchemaVersion: Int?
 
     public init(
@@ -19,9 +18,8 @@ public struct DevaultSecretExport: Equatable, Sendable, Codable {
         expiresAt: DevaultDateComponents? = nil,
         memo: String? = nil,
         liked: Bool = false,
-        payload: DevaultSecretPayloadBox,
+        content: DevaultSecretContentBox,
         payloadSchemaVersion: Int,
-        metadata: DevaultSecretMetadataBox? = nil,
         metadataSchemaVersion: Int? = nil
     ) {
         self.name = name
@@ -30,9 +28,8 @@ public struct DevaultSecretExport: Equatable, Sendable, Codable {
         self.expiresAt = expiresAt
         self.memo = memo
         self.liked = liked
-        self.payload = payload
+        self.content = content
         self.payloadSchemaVersion = payloadSchemaVersion
-        self.metadata = metadata
         self.metadataSchemaVersion = metadataSchemaVersion
     }
 }
