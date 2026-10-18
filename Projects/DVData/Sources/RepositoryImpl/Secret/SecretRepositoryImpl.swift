@@ -148,6 +148,27 @@ public actor SecretRepositoryImpl: SecretRepository {
         }
     }
 
+    public func fetchSecretIDs(
+        name: String,
+        secretType: DVDomain.SecretType
+    ) async throws -> [UUID] {
+        do {
+            // 중복 판정과 같은 descriptor를 쓴다 — 규칙이 갈리면 "검사는 통과인데 덮어쓸 대상은 못 찾는" 틈이 생긴다.
+            let descriptor = SecretFetchDescriptorBuilder.makeDuplicateNameDescriptor(
+                name: name,
+                secretType: secretType,
+                excludingID: nil
+            )
+            return try modelContext.fetch(descriptor).map(\.id)
+        } catch {
+            Log.error(
+                "[SecretRepository] fetchSecretIDs 실패 — secretType: \(secretType), error: \(error)",
+                category: .data
+            )
+            throw SecretRepositoryError.persistenceFailed
+        }
+    }
+
     /// SecretPatch 적용하여 update
     public func patch(id: UUID, with patch: SecretPatch) async throws -> DVDomain.Secret {
         do {

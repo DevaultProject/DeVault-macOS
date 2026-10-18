@@ -40,6 +40,15 @@ public protocol SecretRepository: Sendable {
     ///   - excludingID: 비교에서 뺄 Secret의 ID. 수정 화면에서 자기 자신을 뺄 때 쓴다
     func containsSecret(name: String, secretType: SecretType, excludingID: UUID?) async throws -> Bool
 
+    /// 같은 타입에 같은 이름을 가진 Secret의 ID를 모두 찾는다. 비교 규칙은 ``containsSecret(name:secretType:excludingID:)``과 같다.
+    ///
+    /// 둘 이상이 나올 수 있다 — 유니크 제약이 없고 iCloud 동기화가 같은 이름을 양쪽에서 만들 수 있다. **어느 것을 쓸지 고르는 것은 호출부 정책**이며, 이 조회는 사실만 돌려준다.
+    /// - Parameters:
+    ///   - name: 비교할 이름. 정규화는 호출부 책임이다
+    ///   - secretType: 비교 범위가 되는 타입
+    /// - Returns: 일치하는 Secret의 ID 목록. 없으면 빈 배열
+    func fetchSecretIDs(name: String, secretType: SecretType) async throws -> [UUID]
+
     /// Secret의 지정 필드를 수정한다.
     /// - Parameters:
     ///   - id: 수정할 Secret의 ID
