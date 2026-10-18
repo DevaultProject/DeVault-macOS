@@ -82,14 +82,36 @@ struct DevaultContainerServiceImplTests {
         #expect(a[saltRangeA] != b[saltRangeB])
     }
 
-    @Test("만료된 파일은 Import 시 expired를 던진다")
-    func failsWhenExpired() throws {
-        let data = try service.export(
-            payload: payload, password: "correct horse", expiresAt: Date(timeIntervalSinceNow: -60)
+    @Test("주입한 현재 시각이 만료 시각보다 미래면 expired를 던진다")
+    func failsWhenExpiredAtInjectedTime() throws {
+        let expiresAt = Date(timeIntervalSince1970: 1_000_000_000)
+        let data = try service.export(payload: payload, password: "correct horse", expiresAt: expiresAt)
+
+        let laterService = DevaultContainerServiceImpl(
+            passwordKeyDerivationService: PasswordKeyDerivationServiceImpl(
+                memoryCostKiB: 8 * 1024, timeCost: 1, parallelism: 1
+            ),
+            dateProvider: { Date(timeIntervalSince1970: 2_000_000_000) }
         )
 
         #expect(throws: DevaultImportError.expired) {
-            try service.import(data: data, password: "correct horse")
+            try laterService.import(data: data, password: "correct horse")
         }
+    }
+
+    @Test("주입한 현재 시각이 만료 시각보다 과거면 expired를 던지지 않는다")
+    func doesNotThrowExpiredBeforeInjectedTime() throws {
+        let expiresAt = Date(timeIntervalSince1970: 2_000_000_000)
+        let data = try service.export(payload: payload, password: "correct horse", expiresAt: expiresAt)
+
+        let earlierService = DevaultContainerServiceImpl(
+            passwordKeyDerivationService: PasswordKeyDerivationServiceImpl(
+                memoryCostKiB: 8 * 1024, timeCost: 1, parallelism: 1
+            ),
+            dateProvider: { Date(timeIntervalSince1970: 1_000_000_000) }
+        )
+
+        let imported = try earlierService.import(data: data, password: "correct horse")
+        #expect(imported == payload)
     }
 }
