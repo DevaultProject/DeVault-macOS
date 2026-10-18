@@ -5,17 +5,17 @@ import Foundation
 import argon2
 
 public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
-    private static let minimumSaltByteCount = 8  // RFC 9106 권장 최소 salt 길이
+    private static let minimumSaltByteCount = 16  // RFC 9106 권장 최소 salt 길이
 
     private let memoryCostKiB: UInt32
     private let timeCost: UInt32
     private let parallelism: UInt32
 
-    /// m=64MiB·t=3·p=1은 잠정값 — 지원 최저 사양 기기 실측(m=192~256MiB) 후 교체 예정.
+    /// m=64MiB·t=3·p=4는 잠정값 — 지원 최저 사양 기기 실측(m=192~256MiB) 후 교체 예정.
     public init(
         memoryCostKiB: UInt32 = 64 * 1024,
         timeCost: UInt32 = 3,
-        parallelism: UInt32 = 1
+        parallelism: UInt32 = 4
     ) {
         self.memoryCostKiB = memoryCostKiB
         self.timeCost = timeCost
@@ -29,12 +29,12 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
     ) throws -> Data {
         guard !password.isEmpty,
               salt.count >= Self.minimumSaltByteCount,
-              derivedKeyByteCount > 0
+              derivedKeyByteCount >= 4
         else {
             throw PasswordKeyDerivationError.invalidParameters
         }
 
-        var passwordBytes = Array(password.utf8)
+        var passwordBytes = Array(password.precomposedStringWithCanonicalMapping.utf8)
         defer {
             for index in passwordBytes.indices {
                 passwordBytes[index] = 0
