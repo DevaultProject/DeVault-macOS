@@ -24,7 +24,8 @@ extension SecretClient: @retroactive DependencyKey {
             authenticateUseCase: authenticateUseCase
         )
         let deleteSecretUseCase: any DeleteSecretUseCase = DeleteSecretUseCaseImpl(
-            repository: secretRepo
+            repository: secretRepo,
+            entitlementUseCase: LiveUseCases.entitlement
         )
         let relationUseCase: any SecretProjectRelationUseCase = SecretProjectRelationUseCaseImpl(
             repository: secretRepo
