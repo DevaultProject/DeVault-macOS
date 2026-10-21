@@ -200,6 +200,7 @@ public struct MainFeature {
       // `case .settings:` catch-all보다 **앞에** 있어야 한다. 뒤에 두면 잡히지 않아 설정 게이트가 조용히 무시된다 — 토글만 되돌아가고 페이월이 뜨지 않는다.
       case .settings(.delegate(.paywallRequired)),
            .secretDetail(.delegate(.paywallRequired)),
+           .secretList(.delegate(.paywallRequired)),
            .createSecret(.delegate(.paywallRequired)):
         state.paywall = DevaultProPaywallFeature.State()
         return .none

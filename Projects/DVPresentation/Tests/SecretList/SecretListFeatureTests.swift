@@ -291,13 +291,52 @@ struct SecretListFeatureTests {
         } withDependencies: {
             $0.secretClient.restore = { _ in secret }
             $0.secretClient.fetchByQuery = { _ in [] }
+            $0.entitlementClient.canCreateSecret = { true }
         }
 
         await store.send(.didTapRecover(id: secret.id))
+        await store.receive(.canRecoverResponse(.success(true), id: secret.id))
         await store.receive(.mutationResponse(.success(secret.id)))
         await store.receive(.delegate(.secretsChanged))
         await store.receive(.secretsResponse(.success([]))) {
             $0.secretsState = .loaded([])
+        }
+    }
+
+    @Test("한도가 차 있으면 복구를 시도하지 않고 페이월을 올린다")
+    func recoverRequestsPaywallWhenLimitReached() async {
+        let secretID = UUID()
+        let store = TestStore(initialState: SecretListFeature.State(collection: .deleted)) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.entitlementClient.canCreateSecret = { false }
+            // restore는 채우지 않는다 — 호출되면 미구현 의존으로 테스트가 깨진다.
+        }
+
+        await store.send(.didTapRecover(id: secretID))
+        await store.receive(.canRecoverResponse(.success(false), id: secretID))
+        await store.receive(.delegate(.paywallRequired))
+    }
+
+    @Test("판정이 실패하면 페이월 대신 일반 오류로 끝난다 — 결제로 해결되지 않는다")
+    func recoverJudgementFailureDoesNotPaywall() async {
+        let secretID = UUID()
+        let store = TestStore(initialState: SecretListFeature.State(collection: .deleted)) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.entitlementClient.canCreateSecret = { throw SecretRepositoryError.persistenceFailed }
+        }
+
+        await store.send(.didTapRecover(id: secretID))
+        await store.receive(.canRecoverResponse(.failure(.repositoryFailure(.persistenceFailed)), id: secretID))
+        await store.receive(.mutationResponse(.failure(.repositoryFailure(.persistenceFailed)))) {
+            $0.alert = AlertState {
+                TextState(verbatim: String.module("Couldn't complete the action."))
+            } actions: {
+                ButtonState(role: .cancel) { TextState(verbatim: String.module("OK")) }
+            } message: {
+                TextState(verbatim: String.module("Please try again in a moment."))
+            }
         }
     }
 

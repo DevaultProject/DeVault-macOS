@@ -93,6 +93,8 @@ public struct SecretListFeature {
     case didSelectSort(SecretQuery.Sort)
     case didTapDelete(id: Secret.ID)
     case didTapRecover(id: Secret.ID)
+    /// 복구가 자리를 차지할 수 있는지 물은 결과. 복구는 보유 수를 늘리므로 생성과 같은 판정을 쓴다.
+    case canRecoverResponse(Result<Bool, SecretUseCaseError>, id: Secret.ID)
     case didTapDeleteForever(id: Secret.ID)
     /// Expired/Deleted 탭의 "모두 삭제"/"비우기" — 컬렉션 전체 정리.
     case didTapEmptyCollection
@@ -130,6 +132,8 @@ public struct SecretListFeature {
       case secretsChanged
       /// Export 멀티선택 완료. 휴지통이 제외된 id만 담긴다(`canSelectForExport`).
       case exportRequested(ids: [Secret.ID])
+      /// 무료 한도가 차서 복구할 자리가 없다. 페이월은 부모가 소유하므로 올려보낸다.
+      case paywallRequired
     }
 
     public enum Alert: Equatable {
@@ -141,6 +145,7 @@ public struct SecretListFeature {
   // MARK: - Dependencies
 
   @Dependency(\.secretClient) var secretClient
+  @Dependency(\.entitlementClient) var entitlementClient
   @Dependency(\.continuousClock) var clock
 
   private enum CancelID {
@@ -219,8 +224,24 @@ public struct SecretListFeature {
       case .didTapDelete(let id):
         return mutationEffect(id: id) { try await secretClient.softDelete(id) }
 
+      // 복구를 시도하기 전에 먼저 묻는다. UseCase 쪽 게이트는 2차 방어선이라, 그쪽에 맡기면 사용자는 재시도해도 절대 풀리지 않는 일반 오류 알림을 받는다.
       case .didTapRecover(let id):
+        return .run { send in
+          await send(.canRecoverResponse(
+            Result { try await entitlementClient.canCreateSecret() }.mapError(SecretUseCaseError.map),
+            id: id
+          ))
+        }
+
+      case .canRecoverResponse(.success(true), let id):
         return mutationEffect(id: id) { try await secretClient.restore(id) }
+
+      case .canRecoverResponse(.success(false), _):
+        return .send(.delegate(.paywallRequired))
+
+      case .canRecoverResponse(.failure(let error), _):
+        // 판정 실패는 저장소가 깨진 것이다. 페이월을 띄우면 결제해도 해결되지 않으므로 일반 오류로 다룬다.
+        return .send(.mutationResponse(.failure(error)))
 
       case .didTapDeleteForever(let id):
         state.alert = deleteForeverConfirmationAlert(id: id)
