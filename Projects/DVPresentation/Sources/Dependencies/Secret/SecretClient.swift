@@ -12,11 +12,15 @@ public struct SecretClient: Sendable {
 
   // MARK: - Secret
 
+  /// 쿼리 조건에 맞는 Secret 목록을 조회한다.
   public var fetchByQuery: @Sendable (_ query: SecretQuery) async throws -> [Secret]
   /// 무료 한도(15개) 사용량 표시에 쓴다.
   public var totalCountExcludingTrash: @Sendable () async throws -> Int
+  /// Secret을 휴지통으로 이동한다.
   public var softDelete: @Sendable (_ id: Secret.ID) async throws -> Secret
+  /// 휴지통에서 복구한다.
   public var restore: @Sendable (_ id: Secret.ID) async throws -> Secret
+  /// Secret을 영구 삭제한다.
   public var permanentlyDelete: @Sendable (_ id: Secret.ID) async throws -> Void
   /// 컬렉션 전체를 소프트 삭제한다(예: Expired 목록을 '삭제됨'으로 이동).
   public var softDeleteAll: @Sendable (_ collection: SecretQuery.Collection) async throws -> Void
@@ -72,8 +76,11 @@ public struct SecretClient: Sendable {
 
   // MARK: - Project
 
+  /// 전체 Project 목록을 조회한다.
   public var fetchProjects: @Sendable () async throws -> [Project]
+  /// 새 Project를 만든다.
   public var createProject: @Sendable (_ name: String) async throws -> Project
+  /// Secret을 Project에 연결한다.
   public var linkProject: @Sendable (_ secretID: Secret.ID, _ projectID: Project.ID) async throws -> Void
 }
 

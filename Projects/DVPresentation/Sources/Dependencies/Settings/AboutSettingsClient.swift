@@ -4,6 +4,7 @@ import ComposableArchitecture
 
 @DependencyClient
 public struct AboutSettingsClient: Sendable {
+  /// 앱 버전 문자열.
   public var appVersion: @Sendable () -> String = { "-" }
 }
 
