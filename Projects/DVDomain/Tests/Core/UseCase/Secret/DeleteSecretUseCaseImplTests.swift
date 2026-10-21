@@ -13,7 +13,7 @@ struct DeleteSecretUseCaseImplTests {
         let secret = SecretFixture.make()
         repo.seed(secret)
         let fixedNow = Date(timeIntervalSince1970: 1_950_000_000)
-        let sut = DeleteSecretUseCaseImpl(repository: repo, dateProvider: { fixedNow })
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase(), dateProvider: { fixedNow })
 
         _ = try await sut.softDelete(id: secret.id)
 
@@ -27,7 +27,7 @@ struct DeleteSecretUseCaseImplTests {
         let secret = SecretFixture.make()
         repo.seed(secret)
         let fixedNow = Date(timeIntervalSince1970: 1_950_000_000)
-        let sut = DeleteSecretUseCaseImpl(repository: repo, dateProvider: { fixedNow })
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase(), dateProvider: { fixedNow })
 
         _ = try await sut.restore(id: secret.id)
 
@@ -40,7 +40,7 @@ struct DeleteSecretUseCaseImplTests {
         let repo = InMemorySecretRepository()
         let secret = SecretFixture.make()
         repo.seed(secret)
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         try await sut.permanentlyDelete(id: secret.id)
 
@@ -52,7 +52,7 @@ struct DeleteSecretUseCaseImplTests {
     func softDeleteMapsSecretNotFound() async {
         let repo = InMemorySecretRepository()
         let missingID = UUID()
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         await #expect(throws: SecretUseCaseError.secretNotFound(id: missingID)) {
             _ = try await sut.softDelete(id: missingID)
@@ -63,7 +63,7 @@ struct DeleteSecretUseCaseImplTests {
     func permanentlyDeleteMapsSecretNotFound() async {
         let repo = InMemorySecretRepository()
         let missingID = UUID()
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         await #expect(throws: SecretUseCaseError.secretNotFound(id: missingID)) {
             try await sut.permanentlyDelete(id: missingID)
@@ -87,7 +87,7 @@ struct DeleteSecretUseCaseImplTests {
         repo.seed(expiredB)
         repo.seed(active)
         let now = Date(timeIntervalSince1970: 1_950_000_000)
-        let sut = DeleteSecretUseCaseImpl(repository: repo, dateProvider: { now })
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase(), dateProvider: { now })
 
         try await sut.softDeleteAll(in: .expired(referenceDate: refDate))
 
@@ -110,7 +110,7 @@ struct DeleteSecretUseCaseImplTests {
         repo.seed(trashedA)
         repo.seed(trashedB)
         repo.seed(live)
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         try await sut.permanentlyDeleteAll(in: .deleted)
 
@@ -125,7 +125,7 @@ struct DeleteSecretUseCaseImplTests {
         let repo = InMemorySecretRepository()
         let live = SecretFixture.make(id: UUID())
         repo.seed(live)
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         try await sut.permanentlyDeleteAll(in: .deleted)
         try await sut.softDeleteAll(in: .expired(referenceDate: Date(timeIntervalSince1970: 1)))
@@ -141,7 +141,7 @@ struct DeleteSecretUseCaseImplTests {
         let repo = InMemorySecretRepository()
         repo.errorOnDeleteAll = .persistenceFailed
 
-        let sut = DeleteSecretUseCaseImpl(repository: repo)
+        let sut = DeleteSecretUseCaseImpl(repository: repo, entitlementUseCase: StubEntitlementUseCase())
 
         await #expect(throws: SecretUseCaseError.repositoryFailure(.persistenceFailed)) {
             try await sut.permanentlyDeleteAll(in: .deleted)

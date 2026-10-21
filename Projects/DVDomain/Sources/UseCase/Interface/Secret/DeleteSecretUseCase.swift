@@ -9,6 +9,8 @@ public protocol DeleteSecretUseCase: Sendable {
     func softDelete(id: UUID) async throws -> Secret
 
     /// 소프트 삭제된 Secret을 복구한다. deletedAt을 nil로 되돌린다.
+    ///
+    /// 보유 수를 늘리므로 생성과 같은 무료 티어 한도 게이트를 지난다 — 자리가 없으면 `EntitlementError.limitReached`를 던진다.
     /// - Parameter id: 복구할 Secret의 ID
     /// - Returns: 복구된 Secret
     func restore(id: UUID) async throws -> Secret
