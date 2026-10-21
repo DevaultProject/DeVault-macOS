@@ -61,4 +61,62 @@ extension DevaultSecretContentBox {
             throw SecretUseCaseError.unexpected
         }
     }
+
+    /// 들여온 content를 저장 가능한 형태로 되돌린다 — 타입 쌍을 복원하고 payload를 다시 암호화한다.
+    /// - Parameter cryptoService: payload 암호화·metadata 인코딩
+    /// - Returns: 저장에 필요한 네 가지
+    func materialize(
+        cryptoService: any SecretCryptoService
+    ) async throws -> (secretType: SecretType, subType: SecretSubType?, payload: SecretPayload, metadata: SecretMetadata?) {
+        func encode<P: SecretPayloadData, M: SecretMetadataContent>(
+            _ payload: P,
+            _ metadata: M?,
+            _ secretType: SecretType,
+            _ subType: SecretSubType?
+        ) async throws -> (SecretType, SecretSubType?, SecretPayload, SecretMetadata?) {
+            (
+                secretType,
+                subType,
+                try await cryptoService.encryptPayload(payload),
+                try metadata.map { try cryptoService.encodeMetadata($0) }
+            )
+        }
+
+        switch self {
+        case let .apiKey(payload, metadata):
+            return try await encode(payload, metadata, .apiKeyToken, .apiKey)
+        case let .accessToken(payload, metadata):
+            return try await encode(payload, metadata, .apiKeyToken, .accessToken)
+        case let .webhookSecret(payload, metadata):
+            return try await encode(payload, metadata, .apiKeyToken, .webhookSecret)
+        case let .oauthClient(payload, metadata):
+            return try await encode(payload, metadata, .oauth, .oauthClient)
+        case let .serviceAccount(payload, metadata):
+            return try await encode(payload, metadata, .oauth, .serviceAccount)
+        case let .sshKey(payload, metadata):
+            return try await encode(payload, metadata, .sshAndCredentials, .sshKey)
+        case let .sslTlsCertificate(payload, metadata):
+            return try await encode(payload, metadata, .sshAndCredentials, .sslTlsCertificate)
+        case let .licenseKey(payload, metadata):
+            return try await encode(payload, metadata, .etc, .licenseKey)
+        case let .custom(payload):
+            return (.etc, .custom, try await cryptoService.encryptPayload(payload), nil)
+        case let .database(payload, metadata):
+            return try await encode(payload, metadata, .database, nil)
+        case let .envSet(payload):
+            return (.environmentVariableSet, nil, try await cryptoService.encryptPayload(payload), nil)
+        }
+    }
+
+    /// 중복 판정의 타입 축 — `(이름, 타입)` 쌍에서 타입에 해당한다.
+    var secretType: SecretType {
+        switch self {
+        case .apiKey, .accessToken, .webhookSecret: return .apiKeyToken
+        case .oauthClient, .serviceAccount: return .oauth
+        case .sshKey, .sslTlsCertificate: return .sshAndCredentials
+        case .licenseKey, .custom: return .etc
+        case .database: return .database
+        case .envSet: return .environmentVariableSet
+        }
+    }
 }
