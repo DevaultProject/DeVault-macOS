@@ -52,4 +52,23 @@ enum LiveUseCases {
         expiryNotificationScheduler: expirySchedule,
         entitlementUseCase: entitlement
     )
+
+    /// `.dvt` 봉인·개봉. Export/Import 양쪽이 같은 인스턴스를 써야 AAD 계산이 한 곳에서만 일어난다.
+    private static let devaultContainer: any DevaultContainerService = DevaultContainerServiceImpl(
+        passwordKeyDerivationService: PasswordKeyDerivationServiceImpl()
+    )
+
+    static let exportSecrets: any ExportSecretsUseCase = ExportSecretsUseCaseImpl(
+        repository: LiveRepositories.secret,
+        cryptoService: SecretCryptoServiceImpl(),
+        containerService: devaultContainer
+    )
+
+    static let importSecrets: any ImportSecretsUseCase = ImportSecretsUseCaseImpl(
+        secretRepository: LiveRepositories.secret,
+        projectRepository: LiveRepositories.project,
+        cryptoService: SecretCryptoServiceImpl(),
+        containerService: devaultContainer,
+        entitlementUseCase: entitlement
+    )
 }
