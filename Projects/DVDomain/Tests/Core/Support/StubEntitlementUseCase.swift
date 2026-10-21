@@ -19,6 +19,12 @@ public final class StubEntitlementUseCase: EntitlementUseCase, @unchecked Sendab
     /// 마지막 Import 판정에 넘어온 개수. 호출부가 생성 수가 아닌 전체 항목 수를 넘기는 실수를 잡는다.
     public private(set) var lastImportCount: Int?
 
+    /// 생성 판정 호출 횟수. 개수를 줄이는 동작이 판정을 거치지 않는지 확인할 때 쓴다.
+    public private(set) var canCreateSecretCallCount = 0
+
+    /// 판정이 저장소 오류로 실패하는 상황을 만든다. 게이트 차단(`EntitlementError`)과 판정 실패가 갈라지는지 보는 데 쓴다.
+    public var judgementError: (any Error)?
+
     public init(
         entitlement: Entitlement = .pro,
         canCreateSecret: Bool = true,
@@ -42,15 +48,26 @@ public final class StubEntitlementUseCase: EntitlementUseCase, @unchecked Sendab
         }
     }
 
-    public func canCreateSecret() async throws -> Bool { canCreateSecretValue }
-    public func canCreateProject() async throws -> Bool { canCreateProjectValue }
+    public func canCreateSecret() async throws -> Bool {
+        canCreateSecretCallCount += 1
+        if let judgementError { throw judgementError }
+        return canCreateSecretValue
+    }
+
+    public func canCreateProject() async throws -> Bool {
+        if let judgementError { throw judgementError }
+        return canCreateProjectValue
+    }
+
     public func canImportSecrets(count: Int) async throws -> Bool {
         lastImportCount = count
+        if let judgementError { throw judgementError }
         return canImportSecretsValue
     }
 
     public func canEditSecrets() async throws -> Bool {
         canEditSecretsCallCount += 1
+        if let judgementError { throw judgementError }
         return canEditSecretsValue
     }
 
