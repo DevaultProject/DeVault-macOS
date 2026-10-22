@@ -8,6 +8,6 @@ public enum ImportProjectChoice: Equatable, Sendable {
     case none
     /// 이미 있는 Project에 연결한다.
     case existing(id: UUID)
-    /// 새 Project를 만들어 연결한다 — ``EntitlementUseCase/canCreateProject()`` 게이트를 지난다. Project 이름은 유니크하므로 같은 이름이 이미 있으면 생성이 거부된다. 화면이 ``existing(id:)``으로 바꿔 제안해야 사용자가 막히지 않는다.
+    /// 새 Project를 만들어 연결한다 — ``EntitlementUseCase/canCreateProject()`` 게이트를 지난다. 같은 이름이 이미 있으면 만들지 않고 **그 Project에 합류한다**: 이름이 유니크하므로 거절하면 사용자가 손쓸 방법 없이 막힌다.
     case create(name: String)
 }

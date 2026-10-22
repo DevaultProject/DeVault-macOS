@@ -45,15 +45,16 @@ struct ImportSecretsUseCaseImplTests {
 
     // MARK: - decrypt
 
-    @Test("컨테이너 오류는 그대로, 그 밖의 실패는 invalidPassword로 닫는다")
+    @Test("컨테이너 오류는 그대로, 그 밖의 실패는 corrupted로 닫는다")
     func closesErrorSurface() async throws {
         container.errorOnImport = DevaultImportError.expired
         await #expect(throws: DevaultImportError.expired) {
             try await makeSUT().decrypt(data: Data(), password: SensitiveString("pw"))
         }
 
+        // 컨테이너가 비밀번호 관련 실패를 이미 닫으므로 여기 오는 건 시스템 오류다 — invalidPassword로 보내면 무한 재입력을 유도한다.
         container.errorOnImport = SecretRepositoryError.persistenceFailed
-        await #expect(throws: DevaultImportError.invalidPassword) {
+        await #expect(throws: DevaultImportError.corrupted) {
             try await makeSUT().decrypt(data: Data(), password: SensitiveString("pw"))
         }
     }
@@ -148,7 +149,8 @@ struct ImportSecretsUseCaseImplTests {
         await #expect(throws: (any Error).self) {
             try await makeSUT().execute(payload: payload, resolutions: [:], project: .none)
         }
-        #expect(secretRepository.createCount == 0)
+        // 시드한 1건만 남아야 한다 — 들여온 것이 없다.
+        #expect(secretRepository.secrets.count == 1)
     }
 
     @Test("overwrite는 기존 시크릿을 교체하고 새 자리를 쓰지 않는다")
@@ -160,7 +162,8 @@ struct ImportSecretsUseCaseImplTests {
 
         #expect(imported.count == 1)
         #expect(imported.first?.id == existing.id)
-        #expect(secretRepository.createCount == 0)
+        // 교체이므로 개수가 늘지 않는다.
+        #expect(secretRepository.secrets.count == 1)
         #expect(entitlement.lastImportCount == 0)
     }
 
@@ -183,7 +186,7 @@ struct ImportSecretsUseCaseImplTests {
         await #expect(throws: EntitlementError.limitReached) {
             try await makeSUT().execute(payload: payload, resolutions: [:], project: .none)
         }
-        #expect(secretRepository.createCount == 0)
+        #expect(secretRepository.secrets.isEmpty)
     }
 
     @Test("중도 실패하면 이미 만든 것을 지우고 전량 되돌린다")
@@ -196,6 +199,68 @@ struct ImportSecretsUseCaseImplTests {
             try await makeSUT().execute(payload: payload, resolutions: [:], project: .none)
         }
         #expect(secretRepository.secrets.isEmpty, "보상 삭제가 돌지 않아 부분 성공이 남았다")
+    }
+
+    @Test("덮어쓰기 뒤 실패하면 기존 시크릿을 원래 값으로 되돌린다")
+    func rollsBackOverwriteOnLaterFailure() async throws {
+        let existing = seedVaultSecret(name: "GitHub")
+        secretRepository.failCreateAfter = 0
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub"), export(name: "Backup")])
+
+        await #expect(throws: (any Error).self) {
+            try await makeSUT().execute(payload: payload, resolutions: [0: .overwrite], project: .none)
+        }
+
+        // 복원하지 않으면 사용자가 갖고 있던 payload가 import 실패 때문에 영구히 사라진다.
+        let restored = try #require(secretRepository.secrets[existing.id])
+        #expect(restored.payload == existing.payload)
+        #expect(restored.updatedAt == existing.updatedAt)
+    }
+
+    @Test("덮어쓰기는 기존 프로젝트 연결을 끊지 않는다")
+    func overwritePreservesProjectLinks() async throws {
+        let project = ProjectFixture.make(id: UUID(), name: "Work")
+        secretRepository.seedProject(project)
+        let existing = seedVaultSecret(name: "GitHub")
+        secretRepository.projectLinks[existing.id] = [project.id]
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub")])
+
+        _ = try await makeSUT().execute(payload: payload, resolutions: [0: .overwrite], project: .none)
+
+        // patch(id:with:projectIDs:)는 넘기지 않은 연결을 끊는다 — 그냥 넘기면 사용자의 분류가 사라진다.
+        #expect(secretRepository.lastProjectIDs?.contains(project.id) == true)
+    }
+
+    @Test("덮어쓸 대상이 없는 overwrite는 거부한다 — 조용히 중복을 만들지 않는다")
+    func rejectsOverwriteWithoutVaultTarget() async throws {
+        // 두 번째 "Dup"은 파일 내부 충돌이라 덮어쓸 금고 행이 없다.
+        let payload = DevaultContainerPayload(secrets: [export(name: "Dup"), export(name: "Dup")])
+
+        await #expect(throws: (any Error).self) {
+            try await makeSUT().execute(payload: payload, resolutions: [1: .overwrite], project: .none)
+        }
+        #expect(secretRepository.secrets.isEmpty)
+    }
+
+    @Test("충돌 항목의 부제(subType)를 content에서 파생해 채운다")
+    func carriesSubTypeOnConflict() async throws {
+        _ = seedVaultSecret(name: "GitHub")
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub")])
+
+        let judgement = try await makeSUT().judgeDuplicates(payload: payload, resolutions: [:])
+
+        #expect(judgement.conflicts.first?.subType == .apiKey)
+    }
+
+    @Test("수정이 잠겨 있으면 덮어쓰기를 거부한다")
+    func rejectsOverwriteWhenEditLocked() async throws {
+        entitlement.canEditSecretsValue = false
+        _ = seedVaultSecret(name: "GitHub")
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub")])
+
+        await #expect(throws: EntitlementError.editLocked) {
+            try await makeSUT().execute(payload: payload, resolutions: [0: .overwrite], project: .none)
+        }
     }
 
     @Test("만료일은 받는 쪽 기준 그 날 23:59:59로 복원한다")
@@ -229,7 +294,7 @@ struct ImportSecretsUseCaseImplTests {
         await #expect(throws: EntitlementError.limitReached) {
             try await makeSUT().execute(payload: payload, resolutions: [:], project: .create(name: "New"))
         }
-        #expect(secretRepository.createCount == 0)
+        #expect(secretRepository.secrets.isEmpty)
     }
 }
 

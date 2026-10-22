@@ -90,6 +90,8 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
     }
 
     /// 임시 디렉터리에 `.dvt`로 쓴다. **삭제는 호출부 책임이다** — 시크릿 전체가 담긴 파일이라 공유·저장이 끝나면 지워야 한다.
+    /// - Parameter data: 봉인된 컨테이너 바이트
+    /// - Returns: 쓰인 파일 URL
     public static func writeToTemporaryFile(_ data: Data) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

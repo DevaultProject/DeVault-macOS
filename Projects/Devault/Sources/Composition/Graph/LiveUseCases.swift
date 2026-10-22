@@ -53,7 +53,7 @@ enum LiveUseCases {
         entitlementUseCase: entitlement
     )
 
-    /// `.dvt` 봉인·개봉. Export/Import 양쪽이 같은 인스턴스를 써야 AAD 계산이 한 곳에서만 일어난다.
+    /// `.dvt` 봉인·개봉. 무상태 struct지만 Export/Import가 같은 비용 파라미터(KDF)를 쓰도록 조립을 한 곳에 둔다.
     private static let devaultContainer: any DevaultContainerService = DevaultContainerServiceImpl(
         passwordKeyDerivationService: PasswordKeyDerivationServiceImpl()
     )
