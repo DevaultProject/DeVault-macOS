@@ -35,18 +35,16 @@ struct ExportedFileActionsView: View {
         .foregroundStyle(Color.dv(.gray600))
 
       HStack(spacing: 10) {
+        Spacer()
+
         ShareLink(item: file.url) {
           Text(.module("Share…"))
         }
+        // Share는 완료 콜백이 없어 탭한 시점에 바로 닫는다 — Save As처럼 결과를 기다리지 않는다.
+        .simultaneousGesture(TapGesture().onEnded { onDone() })
 
         DVButton(titleText: .module("Save As…"), style: .secondary) {
           isSavePanelPresented = true
-        }
-
-        Spacer()
-
-        DVButton(titleText: .module("Done"), style: .secondaryProminent) {
-          onDone()
         }
       }
     }

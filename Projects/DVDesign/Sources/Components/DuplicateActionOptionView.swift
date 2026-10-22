@@ -2,10 +2,9 @@
 
 import SwiftUI
 
-/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — `DVRadioButton`의
-/// 커스텀 라벨로 제목+설명 두 줄을 얹는다. 인디케이터는 `DVRadioButton` 내부
-/// HStack이 두 줄 전체 높이에 가운데 정렬한다(제목 줄에 맞춰 위쪽 정렬이
-/// 아님) — mockup과 완전히 같진 않지만 새로 만들기보다 재사용을 택했다.
+/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — 제목+설명 두 줄 라벨에
+/// 인디케이터를 제목 줄에 맞춰 위쪽 정렬한다. `DVRadioButton`은 라벨 전체 높이에 인디케이터를
+/// 가운데 정렬해 이 레이아웃엔 안 맞아, 같은 인디케이터 스타일·인터랙션을 직접 구현했다.
 public struct DuplicateActionOptionView: View {
 
     // MARK: - Properties
@@ -32,7 +31,8 @@ public struct DuplicateActionOptionView: View {
     // MARK: - Body
 
     public var body: some View {
-        DVRadioButton(isSelected: isSelected, action: action) {
+        HStack(alignment: .top, spacing: 3) {
+            indicator
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .dvFont(.bodyLG)
@@ -42,6 +42,33 @@ public struct DuplicateActionOptionView: View {
                     .foregroundStyle(Color.dv(.gray600))
             }
         }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .focusable(true)
+        .focusEffectDisabled()
+        .onKeyPress(.space) {
+            action()
+            return .handled
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// 제목 줄 높이(`.bodyLG`)에 맞춰 수직 중앙 정렬 — `DVRadioButton`과 같은 16pt 원·5pt 점 스타일.
+    private var indicator: some View {
+        ZStack {
+            Circle()
+                .fill(isSelected ? Color.dv(.vaultGreen) : Color.dv(.gray300))
+                .frame(width: 16, height: 16)
+            if isSelected {
+                Circle()
+                    .fill(Color.dv(.white))
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .frame(height: DVFont.bodyLG.lineHeight)
     }
 }
 
