@@ -10,14 +10,13 @@ struct ExportSecretsUseCaseImplTests {
 
     private let repository = InMemorySecretRepository()
     private let crypto = FakeSecretCryptoService()
-    private let container = SpyDevaultContainerService()
+    private let container = FakeDevaultContainerService()
 
     private func makeSUT() -> ExportSecretsUseCaseImpl {
         ExportSecretsUseCaseImpl(
             repository: repository,
             cryptoService: crypto,
-            containerService: container,
-            fileWriter: { _ in URL(fileURLWithPath: "/tmp/test.dvt") }
+            containerService: container
         )
     }
 
@@ -178,18 +177,3 @@ struct ExportSecretsUseCaseImplTests {
     }
 }
 
-/// 봉인 입력을 들여다보기 위한 스파이. 실제 암복호는 `DevaultContainerServiceImpl` 테스트가 본다.
-private final class SpyDevaultContainerService: DevaultContainerService, @unchecked Sendable {
-    private(set) var lastPayload: DevaultContainerPayload?
-    private(set) var exportCount = 0
-
-    func export(payload: DevaultContainerPayload, password: SensitiveString, expiresAt: Date?) async throws -> Data {
-        exportCount += 1
-        lastPayload = payload
-        return Data("sealed".utf8)
-    }
-
-    func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
-        DevaultContainerPayload(secrets: [])
-    }
-}

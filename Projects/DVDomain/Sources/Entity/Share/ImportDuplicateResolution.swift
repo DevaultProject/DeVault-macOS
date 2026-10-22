@@ -16,4 +16,10 @@ public enum ImportDuplicateResolution: Equatable, Sendable {
         if case .rename = self { return true }
         return false
     }
+
+    /// 이름을 바꾸기로 했다면 그 새 이름. 그 외에는 nil이라 호출부가 원래 이름을 쓴다.
+    public var renamedName: String? {
+        if case .rename(let name) = self { return name }
+        return nil
+    }
 }

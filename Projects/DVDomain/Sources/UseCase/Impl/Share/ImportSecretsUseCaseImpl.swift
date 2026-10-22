@@ -8,6 +8,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
     private let cryptoService: any SecretCryptoService
     private let containerService: any DevaultContainerService
     private let entitlementUseCase: any EntitlementUseCase
+    private let createProjectUseCase: any CreateProjectUseCase
     private let idGenerator: @Sendable () -> UUID
     private let dateProvider: @Sendable () -> Date
 
@@ -17,7 +18,8 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
     ///   - cryptoService: payload 재암호화·metadata 인코딩
     ///   - containerService: `.dvt` 개봉
     ///   - entitlementUseCase: 무료 티어 한도 판정. **기본값을 두지 않는다** — 빠뜨리면 가드가 조용히 사라진다
-    ///   - idGenerator: 새 Secret·Project의 ID
+    ///   - createProjectUseCase: 새 Project 생성. 게이트·정규화·한도를 생성 화면과 같은 규칙으로 처리한다
+    ///   - idGenerator: 새 Secret의 ID
     ///   - dateProvider: 생성·수정 시각
     public init(
         secretRepository: any SecretRepository,
@@ -25,6 +27,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         cryptoService: any SecretCryptoService,
         containerService: any DevaultContainerService,
         entitlementUseCase: any EntitlementUseCase,
+        createProjectUseCase: any CreateProjectUseCase,
         idGenerator: @escaping @Sendable () -> UUID = { UUID() },
         dateProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
@@ -33,6 +36,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         self.cryptoService = cryptoService
         self.containerService = containerService
         self.entitlementUseCase = entitlementUseCase
+        self.createProjectUseCase = createProjectUseCase
         self.idGenerator = idGenerator
         self.dateProvider = dateProvider
     }
@@ -64,7 +68,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             let resolution = resolutions[index]
             if case .skip = resolution { continue }
 
-            let effectiveName = resolution.renamedName ?? export.name
+            let effectiveName = resolution?.renamedName ?? export.name
             guard let comparable = SecretUseCaseHelper.comparableName(effectiveName) else { continue }
             let key = NameKey(name: comparable, secretType: export.content.secretType)
 
@@ -94,14 +98,11 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         let ids = try await secretRepository.fetchSecretIDs(name: name, secretType: secretType)
         guard !ids.isEmpty else { return nil }
 
-        var oldest: (id: UUID, createdAt: Date)?
+        var candidates: [Secret] = []
         for id in ids {
-            guard let secret = try await secretRepository.fetch(id: id) else { continue }
-            if oldest == nil || secret.createdAt < oldest!.createdAt {
-                oldest = (secret.id, secret.createdAt)
-            }
+            if let secret = try await secretRepository.fetch(id: id) { candidates.append(secret) }
         }
-        return oldest?.id
+        return candidates.min { $0.createdAt < $1.createdAt }?.id
     }
 
     private func makeConflict(
@@ -129,7 +130,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         let judgement = try await judgeDuplicates(payload: payload, resolutions: resolutions)
         // 선택하지 않은 충돌이 남아 있으면 진행할 수 없다 — 덮어쓸지 건너뛸지를 추측하면 사용자 데이터가 조용히 사라진다.
         guard judgement.conflicts.allSatisfy({ resolutions[$0.index] != nil }) else {
-            throw SecretUseCaseError.unexpected
+            throw ShareUseCaseError.unresolvedConflict
         }
 
         try await ensureImportable(count: judgement.slotsConsumed(by: resolutions))
@@ -153,13 +154,13 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
                 if case .overwrite = resolution {
                     // 덮어쓸 대상이 없는 overwrite는 거부한다. 그냥 만들면 판정이 보여준 것과 다른 일이 벌어지고, 생성·수정 경로가 막아 둔 (이름, 타입) 중복이 import로만 뚫린다.
                     guard let targetID = overwriteTargets[index] else {
-                        throw SecretUseCaseError.unexpected
+                        throw ShareUseCaseError.overwriteTargetMissing
                     }
                     let (backup, secret) = try await overwrite(id: targetID, with: export, addingProjectIDs: projectIDs)
                     replaced.append(backup)
                     imported.append(secret)
                 } else {
-                    let name = resolution.renamedName ?? export.name
+                    let name = resolution?.renamedName ?? export.name
                     let secret = try await create(export, name: name, projectIDs: projectIDs)
                     created.append(secret)
                     imported.append(secret)
@@ -205,7 +206,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
     }
 
     private func create(_ export: DevaultSecretExport, name: String, projectIDs: [UUID]) async throws -> Secret {
-        let name = try SecretUseCaseHelper.comparableName(name) ?? { throw SecretUseCaseError.invalidName }()
+        let name = try SecretUseCaseHelper.normalizedName(name)
         let (secretType, subType, payload, metadata) = try await export.content.materialize(cryptoService: cryptoService)
         let now = dateProvider()
         let secret = Secret(
@@ -275,24 +276,20 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         case .none:
             return []
         case .existing(let id):
-            guard try await projectRepository.fetch(id: id) != nil else { return [] }
+            // 고른 연결이 사라졌으면 조용히 버리지 않는다 — 사용자가 지정한 분류가 말없이 없어지면 안 된다.
+            guard try await projectRepository.fetch(id: id) != nil else {
+                throw ShareUseCaseError.projectNotFound
+            }
             return [id]
         case .create(let rawName):
             guard let name = SecretUseCaseHelper.comparableName(rawName) else {
                 throw SecretUseCaseError.invalidName
             }
-            // 이름이 유니크하므로 같은 이름이 이미 있으면 만들지 않고 합류한다 — 거절하면 사용자가 막힌다.
+            // 이름이 유니크하므로 같은 이름이 이미 있으면 만들지 않고 합류한다 — 거절하면 사용자가 손쓸 방법 없이 막힌다.
             if let existing = try await projectRepository.fetchAll().first(where: { $0.name == name }) {
                 return [existing.id]
             }
-            guard try await entitlementUseCase.canCreateProject() else { throw EntitlementError.limitReached }
-            let limit = entitlementUseCase.current() == .free ? EntitlementLimits.maxProjects : Int.max
-            let now = dateProvider()
-            let project = Project(id: idGenerator(), name: name, createdAt: now, updatedAt: now)
-            guard let created = try await projectRepository.create(project, withinTotalLimit: limit) else {
-                throw EntitlementError.limitReached
-            }
-            return [created.id]
+            return [try await createProjectUseCase.execute(name: name).id]
         }
     }
 }
@@ -324,13 +321,5 @@ private struct OverwriteBackup {
             metadata: .set(secret.metadata),
             updatedAt: .set(secret.updatedAt)
         )
-    }
-}
-
-extension Optional where Wrapped == ImportDuplicateResolution {
-    /// 이름을 바꾸기로 한 경우의 새 이름. 그 외에는 nil이라 원래 이름을 쓴다.
-    var renamedName: String? {
-        if case .rename(let name) = self { return name }
-        return nil
     }
 }

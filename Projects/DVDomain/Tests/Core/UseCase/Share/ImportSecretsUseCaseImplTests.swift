@@ -11,7 +11,7 @@ struct ImportSecretsUseCaseImplTests {
     private let secretRepository = InMemorySecretRepository()
     private let projectRepository = InMemoryProjectRepository()
     private let crypto = FakeSecretCryptoService()
-    private let container = StubDevaultContainerService()
+    private let container = FakeDevaultContainerService()
     private let entitlement = StubEntitlementUseCase()
 
     private func makeSUT() -> ImportSecretsUseCaseImpl {
@@ -20,7 +20,11 @@ struct ImportSecretsUseCaseImplTests {
             projectRepository: projectRepository,
             cryptoService: crypto,
             containerService: container,
-            entitlementUseCase: entitlement
+            entitlementUseCase: entitlement,
+            createProjectUseCase: CreateProjectUseCaseImpl(
+                repository: projectRepository,
+                entitlementUseCase: entitlement
+            )
         )
     }
 
@@ -298,16 +302,3 @@ struct ImportSecretsUseCaseImplTests {
     }
 }
 
-/// 개봉 결과를 고정으로 돌려주는 스텁. 실제 암복호는 `DevaultContainerServiceImpl` 테스트가 본다.
-private final class StubDevaultContainerService: DevaultContainerService, @unchecked Sendable {
-    var errorOnImport: (any Error)?
-
-    func export(payload: DevaultContainerPayload, password: SensitiveString, expiresAt: Date?) async throws -> Data {
-        Data()
-    }
-
-    func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
-        if let errorOnImport { throw errorOnImport }
-        return DevaultContainerPayload(secrets: [])
-    }
-}
