@@ -6,27 +6,23 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
     private let repository: any SecretRepository
     private let cryptoService: any SecretCryptoService
     private let containerService: any DevaultContainerService
-    private let fileWriter: @Sendable (Data) throws -> URL
 
     /// - Parameters:
     ///   - repository: 내보낼 Secret 조회
     ///   - cryptoService: 저장된 payload 복호화·metadata 디코딩
     ///   - containerService: `.dvt` 봉인
-    ///   - fileWriter: 봉인된 바이트를 파일로 쓰고 URL을 돌려준다. 테스트가 디스크를 건드리지 않게 주입받는다
     public init(
         repository: any SecretRepository,
         cryptoService: any SecretCryptoService,
-        containerService: any DevaultContainerService,
-        fileWriter: @escaping @Sendable (Data) throws -> URL = ExportSecretsUseCaseImpl.writeToTemporaryFile
+        containerService: any DevaultContainerService
     ) {
         self.repository = repository
         self.cryptoService = cryptoService
         self.containerService = containerService
-        self.fileWriter = fileWriter
     }
 
     public func execute(secretIDs: [UUID], password: SensitiveString, expiresAt: Date?) async throws -> URL {
-        guard !secretIDs.isEmpty else { throw SecretUseCaseError.unexpected }
+        guard !secretIDs.isEmpty else { throw ShareUseCaseError.emptySelection }
 
         let secrets = try await fetchExportable(secretIDs)
         let projectName = try await sharedProjectName(of: secrets)
@@ -38,7 +34,7 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
 
         let payload = DevaultContainerPayload(projectName: projectName, secrets: exports)
         let sealed = try await containerService.export(payload: payload, password: password, expiresAt: expiresAt)
-        return try fileWriter(sealed)
+        return try Self.writeToTemporaryFile(sealed)
     }
 
     /// 요청한 id를 전부 찾고, 휴지통 항목이 섞이면 거부한다.
@@ -50,7 +46,7 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
             guard let secret = try await repository.fetch(id: id) else {
                 throw SecretUseCaseError.secretNotFound(id: id)
             }
-            guard secret.deletedAt == nil else { throw SecretUseCaseError.unexpected }
+            guard secret.deletedAt == nil else { throw ShareUseCaseError.trashedSecretIncluded }
             secrets.append(secret)
         }
         return secrets
@@ -63,11 +59,9 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
         var shared: Set<String>?
         for secret in secrets {
             let names = Set(try await repository.fetchProjects(secretID: secret.id).map(\.name))
-            shared = shared.map { $0.intersection(names) } ?? names
-            if shared?.isEmpty == true { return nil }
+            shared = shared?.intersection(names) ?? names
         }
-        guard let shared, shared.count == 1 else { return nil }
-        return shared.first
+        return shared?.count == 1 ? shared?.first : nil
     }
 
     private func makeExport(from secret: Secret) async throws -> DevaultSecretExport {

@@ -32,7 +32,7 @@ enum SecretUseCaseHelper {
     }
 
     /// 생성·수정이 공유하는 이름 규칙. 앞뒤 공백을 제거하고, 남는 것이 없으면 거부합니다.
-    private static func normalizedName(_ rawName: String) throws -> String {
+    static func normalizedName(_ rawName: String) throws -> String {
         guard let name = comparableName(rawName) else { throw SecretUseCaseError.invalidName }
         return name
     }
