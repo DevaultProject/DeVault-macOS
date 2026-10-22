@@ -25,6 +25,8 @@ public final class InMemorySecretRepository: SecretRepository, @unchecked Sendab
     public var errorOnLinkProject: SecretRepositoryError?
     public var errorOnUnlinkProject: SecretRepositoryError?
     public var errorOnCreateWithProjects: SecretRepositoryError?
+    /// 이 횟수만큼 저장한 뒤부터 실패시킨다. 벌크 저장이 중간에 깨지는 상황(= 보상 삭제가 필요한 경우)을 만든다.
+    public var failCreateAfter: Int?
     public var errorOnPatchWithProjects: SecretRepositoryError?
     public var errorOnPatchAll: SecretRepositoryError?
     public var errorOnDeleteAll: SecretRepositoryError?
@@ -173,6 +175,9 @@ public final class InMemorySecretRepository: SecretRepository, @unchecked Sendab
         projectIDs: [UUID],
         withinTotalLimit limit: Int
     ) async throws -> Secret? {
+        if let failCreateAfter, createWithProjectsCount >= failCreateAfter {
+            throw SecretRepositoryError.persistenceFailed
+        }
         let held = secrets.values.count { $0.deletedAt == nil }
         guard held < limit else { return nil }
         return try await create(secret, projectIDs: projectIDs)

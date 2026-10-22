@@ -52,4 +52,27 @@ enum LiveUseCases {
         expiryNotificationScheduler: expirySchedule,
         entitlementUseCase: entitlement
     )
+
+    /// `.dvt` 봉인·개봉. 무상태 struct지만 Export/Import가 같은 비용 파라미터(KDF)를 쓰도록 조립을 한 곳에 둔다.
+    private static let devaultContainer: any DevaultContainerService = DevaultContainerServiceImpl(
+        passwordKeyDerivationService: PasswordKeyDerivationServiceImpl()
+    )
+
+    static let exportSecrets: any ExportSecretsUseCase = ExportSecretsUseCaseImpl(
+        repository: LiveRepositories.secret,
+        cryptoService: SecretCryptoServiceImpl(),
+        containerService: devaultContainer
+    )
+
+    static let importSecrets: any ImportSecretsUseCase = ImportSecretsUseCaseImpl(
+        secretRepository: LiveRepositories.secret,
+        projectRepository: LiveRepositories.project,
+        cryptoService: SecretCryptoServiceImpl(),
+        containerService: devaultContainer,
+        entitlementUseCase: entitlement,
+        createProjectUseCase: CreateProjectUseCaseImpl(
+            repository: LiveRepositories.project,
+            entitlementUseCase: entitlement
+        )
+    )
 }
