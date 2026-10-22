@@ -31,16 +31,20 @@ public struct DuplicateActionOptionView: View {
     // MARK: - Body
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 3) {
-            indicator
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
+            // 인디케이터를 제목과 같은 HStack에 둬 자연히 정렬시킨다 — `dvFont`가 줄마다 세로
+            // 패딩을 더해서 높이를 직접 계산해 맞추는 쪽은 신뢰할 수 없었다.
+            HStack(spacing: 8) {
+                indicator
                 Text(title)
                     .dvFont(.bodyLG)
+                    .fontWeight(.semibold)
                     .foregroundStyle(Color.dv(.gray900))
-                Text(description)
-                    .dvFont(.bodyMD)
-                    .foregroundStyle(Color.dv(.gray600))
             }
+            Text(description)
+                .dvFont(.bodyMD)
+                .foregroundStyle(Color.dv(.gray600))
+                .padding(.leading, 16 + 8)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 2)
@@ -56,7 +60,7 @@ public struct DuplicateActionOptionView: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// 제목 줄 높이(`.bodyLG`)에 맞춰 수직 중앙 정렬 — `DVRadioButton`과 같은 16pt 원·5pt 점 스타일.
+    /// `DVRadioButton`과 같은 16pt 원·5pt 점 스타일.
     private var indicator: some View {
         ZStack {
             Circle()
@@ -68,7 +72,6 @@ public struct DuplicateActionOptionView: View {
                     .frame(width: 5, height: 5)
             }
         }
-        .frame(height: DVFont.bodyLG.lineHeight)
     }
 }
 
