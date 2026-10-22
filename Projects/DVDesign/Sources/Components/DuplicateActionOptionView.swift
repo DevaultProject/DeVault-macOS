@@ -2,9 +2,7 @@
 
 import SwiftUI
 
-/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — 제목+설명 두 줄 라벨에
-/// 인디케이터를 제목 줄에 맞춰 위쪽 정렬한다. `DVRadioButton`은 라벨 전체 높이에 인디케이터를
-/// 가운데 정렬해 이 레이아웃엔 안 맞아, 같은 인디케이터 스타일·인터랙션을 직접 구현했다.
+/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — 제목+설명 두 줄 라벨
 public struct DuplicateActionOptionView: View {
 
     // MARK: - Properties
@@ -32,17 +30,15 @@ public struct DuplicateActionOptionView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // 인디케이터를 제목과 같은 HStack에 둬 자연히 정렬시킨다 — `dvFont`가 줄마다 세로
-            // 패딩을 더해서 높이를 직접 계산해 맞추는 쪽은 신뢰할 수 없었다.
             HStack(spacing: 8) {
                 indicator
                 Text(title)
-                    .dvFont(.bodyLG)
+                    .dvFont(.bodyMD)
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.dv(.gray900))
             }
             Text(description)
-                .dvFont(.bodyMD)
+                .dvFont(.captionMDRegular)
                 .foregroundStyle(Color.dv(.gray600))
                 .padding(.leading, 16 + 8)
         }
