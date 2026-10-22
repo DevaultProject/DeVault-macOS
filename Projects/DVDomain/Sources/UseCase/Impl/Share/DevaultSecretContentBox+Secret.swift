@@ -109,14 +109,24 @@ extension DevaultSecretContentBox {
     }
 
     /// 중복 판정의 타입 축 — `(이름, 타입)` 쌍에서 타입에 해당한다.
-    var secretType: SecretType {
+    var secretType: SecretType { typePair.secretType }
+
+    /// Review Duplicates 행의 부제로 쓰인다. database·envSet 계열은 부제가 없어 nil이다.
+    var subType: SecretSubType? { typePair.subType }
+
+    private var typePair: (secretType: SecretType, subType: SecretSubType?) {
         switch self {
-        case .apiKey, .accessToken, .webhookSecret: return .apiKeyToken
-        case .oauthClient, .serviceAccount: return .oauth
-        case .sshKey, .sslTlsCertificate: return .sshAndCredentials
-        case .licenseKey, .custom: return .etc
-        case .database: return .database
-        case .envSet: return .environmentVariableSet
+        case .apiKey: return (.apiKeyToken, .apiKey)
+        case .accessToken: return (.apiKeyToken, .accessToken)
+        case .webhookSecret: return (.apiKeyToken, .webhookSecret)
+        case .oauthClient: return (.oauth, .oauthClient)
+        case .serviceAccount: return (.oauth, .serviceAccount)
+        case .sshKey: return (.sshAndCredentials, .sshKey)
+        case .sslTlsCertificate: return (.sshAndCredentials, .sslTlsCertificate)
+        case .licenseKey: return (.etc, .licenseKey)
+        case .custom: return (.etc, .custom)
+        case .database: return (.database, nil)
+        case .envSet: return (.environmentVariableSet, nil)
         }
     }
 }

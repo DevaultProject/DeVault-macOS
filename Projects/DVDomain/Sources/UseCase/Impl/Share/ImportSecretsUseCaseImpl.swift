@@ -45,8 +45,8 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         } catch let error as DevaultImportError {
             throw error
         } catch {
-            // 키 유도 실패 등 컨테이너 밖에서 온 오류도 이 네 가지 안으로 닫는다 — 호출부가 분기할 것이 더 늘면 안 된다.
-            throw DevaultImportError.invalidPassword
+            // 컨테이너가 키 유도·복호화·역직렬화 실패를 이미 전부 닫으므로 여기는 비밀번호와 무관한 시스템 오류다. `invalidPassword`로 보내면 사용자를 무한 재입력으로 몬다.
+            throw DevaultImportError.corrupted
         }
     }
 
@@ -86,6 +86,10 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
     /// 덮어쓸 대상 하나를 고른다.
     ///
     /// 동명·동타입이 여럿일 수 있다(유니크 제약 없음 + iCloud 동기화). **가장 먼저 만들어진 것을 고른다** — 저장소가 돌려주는 순서에 기대면 실행마다 대상이 달라져 사용자가 무엇을 덮어썼는지 알 수 없다.
+    /// - Parameters:
+    ///   - name: 정규화된 비교 이름
+    ///   - secretType: 비교 범위가 되는 타입
+    /// - Returns: 덮어쓸 Secret의 ID. 일치하는 것이 없으면 nil
     private func existingSecretID(name: String, secretType: SecretType) async throws -> UUID? {
         let ids = try await secretRepository.fetchSecretIDs(name: name, secretType: secretType)
         guard !ids.isEmpty else { return nil }
@@ -110,7 +114,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             index: index,
             name: name,
             secretType: export.content.secretType,
-            subType: nil,
+            subType: export.content.subType,
             target: target
         )
     }
@@ -139,14 +143,21 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         )
 
         var created: [Secret] = []
+        var replaced: [OverwriteBackup] = []
         var imported: [Secret] = []
         do {
             for (index, export) in payload.secrets.enumerated() {
                 let resolution = resolutions[index]
                 if case .skip = resolution { continue }
 
-                if case .overwrite = resolution, let targetID = overwriteTargets[index] {
-                    imported.append(try await overwrite(id: targetID, with: export, projectIDs: projectIDs))
+                if case .overwrite = resolution {
+                    // 덮어쓸 대상이 없는 overwrite는 거부한다. 그냥 만들면 판정이 보여준 것과 다른 일이 벌어지고, 생성·수정 경로가 막아 둔 (이름, 타입) 중복이 import로만 뚫린다.
+                    guard let targetID = overwriteTargets[index] else {
+                        throw SecretUseCaseError.unexpected
+                    }
+                    let (backup, secret) = try await overwrite(id: targetID, with: export, addingProjectIDs: projectIDs)
+                    replaced.append(backup)
+                    imported.append(secret)
                 } else {
                     let name = resolution.renamedName ?? export.name
                     let secret = try await create(export, name: name, projectIDs: projectIDs)
@@ -155,7 +166,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
                 }
             }
         } catch {
-            await rollback(created)
+            await rollback(created: created, replaced: replaced)
             throw error
         }
         return imported
@@ -172,12 +183,24 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         guard allowed else { throw EntitlementError.limitReached }
     }
 
-    /// 중도 실패 시 이미 만든 것을 지운다.
+    /// 중도 실패 시 만든 것을 지우고 덮어쓴 것을 되돌린다.
     ///
-    /// 벌크 생성 API가 없어 N건이 N트랜잭션으로 나뉘므로 보상 삭제 없이는 부분 성공이 남는다. **소프트 삭제가 아니라 영구 삭제다** — 사용자가 만든 적 없는 시크릿을 휴지통에 남기지 않는다. 보상 자체가 실패하면 삼키고 원래 오류를 올린다: 호출부가 알아야 할 것은 import가 실패했다는 사실이다.
-    private func rollback(_ secrets: [Secret]) async {
-        for secret in secrets {
+    /// 벌크 API가 없어 N건이 N트랜잭션으로 나뉘므로 보상 없이는 부분 성공이 남는다. 생성분은 **소프트 삭제가 아니라 영구 삭제다** — 사용자가 만든 적 없는 시크릿을 휴지통에 남기지 않는다. 덮어쓴 것은 원본 값과 프로젝트 연결을 그대로 되돌린다: 복원하지 않으면 사용자가 갖고 있던 시크릿이 실패한 import 때문에 영구히 사라진다.
+    ///
+    /// 보상 자체가 실패하면 삼키고 원래 오류를 올린다 — 호출부가 알아야 할 것은 import가 실패했다는 사실이다.
+    /// - Parameters:
+    ///   - created: 이번 실행에서 새로 만든 Secret
+    ///   - replaced: 덮어쓰기 전에 떠 둔 원본
+    private func rollback(created: [Secret], replaced: [OverwriteBackup]) async {
+        for secret in created {
             try? await secretRepository.delete(id: secret.id)
+        }
+        for backup in replaced {
+            try? await secretRepository.patch(
+                id: backup.secret.id,
+                with: backup.restoringPatch,
+                projectIDs: backup.projectIDs
+            )
         }
     }
 
@@ -210,8 +233,23 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
     }
 
     /// 기존 시크릿을 들여온 내용으로 교체한다. 자리를 늘리지 않으므로 생성 한도가 아니라 수정 잠금(``EntitlementUseCase/canEditSecrets()``)을 본다.
-    private func overwrite(id: UUID, with export: DevaultSecretExport, projectIDs: [UUID]) async throws -> Secret {
+    ///
+    /// 기존 프로젝트 연결은 **보존하고** 고른 프로젝트를 더한다 — `patch(id:with:projectIDs:)`가 넘기지 않은 연결을 끊으므로, 그냥 넘기면 덮어쓰기가 사용자의 분류를 말없이 날린다.
+    /// - Parameters:
+    ///   - id: 덮어쓸 기존 Secret
+    ///   - export: 들여온 내용
+    ///   - addingProjectIDs: 추가로 연결할 Project
+    /// - Returns: 되돌리기용 원본 백업과 교체된 Secret
+    private func overwrite(
+        id: UUID,
+        with export: DevaultSecretExport,
+        addingProjectIDs: [UUID]
+    ) async throws -> (backup: OverwriteBackup, secret: Secret) {
         guard try await entitlementUseCase.canEditSecrets() else { throw EntitlementError.editLocked }
+        guard let original = try await secretRepository.fetch(id: id) else {
+            throw SecretUseCaseError.secretNotFound(id: id)
+        }
+        let originalProjectIDs = try await secretRepository.fetchProjects(secretID: id).map(\.id)
 
         let (secretType, subType, payload, metadata) = try await export.content.materialize(cryptoService: cryptoService)
         let patch = SecretPatch(
@@ -226,7 +264,9 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             metadata: .set(metadata),
             updatedAt: .set(dateProvider())
         )
-        return try await secretRepository.patch(id: id, with: patch, projectIDs: projectIDs)
+        let merged = Array(Set(originalProjectIDs).union(addingProjectIDs))
+        let secret = try await secretRepository.patch(id: id, with: patch, projectIDs: merged)
+        return (OverwriteBackup(secret: original, projectIDs: originalProjectIDs), secret)
     }
 
     /// 연결할 프로젝트를 정한다. 새로 만드는 경우만 생성 한도를 본다.
@@ -263,6 +303,28 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
 private struct NameKey: Hashable {
     let name: String
     let secretType: SecretType
+}
+
+/// 덮어쓰기 직전의 원본. 중도 실패 시 이 값으로 되돌린다.
+private struct OverwriteBackup {
+    let secret: Secret
+    let projectIDs: [UUID]
+
+    /// 원본 값을 그대로 다시 쓰는 패치 — 덮어쓸 때 `.set`한 필드를 전부 되돌린다.
+    var restoringPatch: SecretPatch {
+        SecretPatch(
+            secretType: .set(secret.secretType),
+            subType: .set(secret.subType),
+            service: .set(secret.service),
+            environment: .set(secret.environment),
+            expiresAt: .set(secret.expiresAt),
+            memo: .set(secret.memo),
+            liked: .set(secret.liked),
+            payload: .set(secret.payload),
+            metadata: .set(secret.metadata),
+            updatedAt: .set(secret.updatedAt)
+        )
+    }
 }
 
 extension Optional where Wrapped == ImportDuplicateResolution {

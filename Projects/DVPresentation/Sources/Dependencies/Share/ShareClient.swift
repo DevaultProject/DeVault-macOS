@@ -21,7 +21,7 @@ public struct ShareClient: Sendable {
     _ expiresAt: Date?
   ) async throws -> URL
 
-  /// `.dvt` 바이트를 열어 내용을 복원한다. 실패는 `DevaultImportError` 4종으로 닫혀 온다.
+  /// `.dvt` 바이트를 열어 내용을 복원한다. 실패는 ``DevaultImportError`` 4종으로 닫혀 온다.
   public var decryptContainer: @Sendable (
     _ data: Data,
     _ password: String
@@ -33,7 +33,7 @@ public struct ShareClient: Sendable {
     _ resolutions: [Int: ImportDuplicateResolution]
   ) async throws -> ImportDuplicateJudgement
 
-  /// 선택을 반영해 실제로 들여온다. 전량-아니면-전무이며, 한도를 넘기면 `EntitlementError`가 올라온다.
+  /// 선택을 반영해 실제로 들여온다. 전량-아니면-전무이며, 한도를 넘기면 ``EntitlementError``가 올라온다.
   public var importSecrets: @Sendable (
     _ payload: DevaultContainerPayload,
     _ resolutions: [Int: ImportDuplicateResolution],
