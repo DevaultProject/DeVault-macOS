@@ -71,10 +71,14 @@ struct ExportedFileActionsView: View {
     } message: {
       Text(.module("Please try again in a moment."))
     }
-    // 저장은 이미 사용자가 고른 위치에 복사됐고, 공유도 시스템이 이 임시 파일을 읽어 넘긴 뒤다 —
-    // 화면이 닫히는 시점엔 더 필요 없는 임시 파일이라 지운다.
+    // Share는 탭한 즉시 시트를 닫지만, NSSharingServicePicker가 파일을 실제로 읽는 건 그 뒤다
     .onDisappear {
       try? FileManager.default.removeItem(at: file.url)
+      let url = file.url
+      Task {
+        try? await Task.sleep(for: .seconds(10))
+        try? FileManager.default.removeItem(at: url)
+      }
     }
   }
 }
