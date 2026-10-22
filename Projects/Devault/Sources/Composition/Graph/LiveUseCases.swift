@@ -69,6 +69,10 @@ enum LiveUseCases {
         projectRepository: LiveRepositories.project,
         cryptoService: SecretCryptoServiceImpl(),
         containerService: devaultContainer,
-        entitlementUseCase: entitlement
+        entitlementUseCase: entitlement,
+        createProjectUseCase: CreateProjectUseCaseImpl(
+            repository: LiveRepositories.project,
+            entitlementUseCase: entitlement
+        )
     )
 }
