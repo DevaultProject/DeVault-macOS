@@ -2,10 +2,7 @@
 
 import SwiftUI
 
-/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — `DVRadioButton`의
-/// 커스텀 라벨로 제목+설명 두 줄을 얹는다. 인디케이터는 `DVRadioButton` 내부
-/// HStack이 두 줄 전체 높이에 가운데 정렬한다(제목 줄에 맞춰 위쪽 정렬이
-/// 아님) — mockup과 완전히 같진 않지만 새로 만들기보다 재사용을 택했다.
+/// Review Duplicates 화면의 "Overwrite/Rename/Skip" 선택지 — 제목+설명 두 줄 라벨
 public struct DuplicateActionOptionView: View {
 
     // MARK: - Properties
@@ -32,14 +29,43 @@ public struct DuplicateActionOptionView: View {
     // MARK: - Body
 
     public var body: some View {
-        DVRadioButton(isSelected: isSelected, action: action) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                indicator
                 Text(title)
-                    .dvFont(.bodyLG)
-                    .foregroundStyle(Color.dv(.gray900))
-                Text(description)
                     .dvFont(.bodyMD)
-                    .foregroundStyle(Color.dv(.gray600))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.dv(.gray900))
+            }
+            Text(description)
+                .dvFont(.captionMDRegular)
+                .foregroundStyle(Color.dv(.gray600))
+                .padding(.leading, 16 + 8)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .focusable(true)
+        .focusEffectDisabled()
+        .onKeyPress(.space) {
+            action()
+            return .handled
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// `DVRadioButton`과 같은 16pt 원·5pt 점 스타일.
+    private var indicator: some View {
+        ZStack {
+            Circle()
+                .fill(isSelected ? Color.dv(.vaultGreen) : Color.dv(.gray300))
+                .frame(width: 16, height: 16)
+            if isSelected {
+                Circle()
+                    .fill(Color.dv(.white))
+                    .frame(width: 5, height: 5)
             }
         }
     }
