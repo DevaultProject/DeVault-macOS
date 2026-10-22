@@ -36,19 +36,17 @@ struct ExportSecretSheetFeatureTests {
     }
   }
 
-  @Test("didTapExport는 성공하면 Touch ID 인증 후 delegate로 알리고 dismiss한다")
-  func exportSucceedsAndDismisses() async {
+  @Test("didTapExport는 성공하면 Touch ID 인증 후 delegate로 알린다 — dismiss는 부모가 한다")
+  func exportSucceedsNotifiesDelegate() async {
     let secretID = UUID()
     let fileURL = URL(fileURLWithPath: "/tmp/preview.dvt")
     var authenticatedReason: AuthenticationReason?
-    var didDismiss = false
 
     let store = TestStore(initialState: ExportSecretSheetFeature.State(secretIDs: [secretID])) {
       ExportSecretSheetFeature()
     } withDependencies: {
       $0.shareClient.authenticate = { reason in authenticatedReason = reason }
       $0.shareClient.exportSecrets = { _, _, _ in fileURL }
-      $0.dismiss = DismissEffect { didDismiss = true }
     }
 
     await store.send(.didChangePassword("passphrase")) { $0.password = "passphrase" }
@@ -57,7 +55,6 @@ struct ExportSecretSheetFeatureTests {
     await store.receive(.delegate(.exportSucceeded(fileURL)))
 
     #expect(authenticatedReason == .exportSecrets)
-    #expect(didDismiss)
   }
 
   @Test("Touch ID 인증이 실패하면 export 실패 alert를 띄운다")

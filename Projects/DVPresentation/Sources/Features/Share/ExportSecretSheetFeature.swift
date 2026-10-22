@@ -101,13 +101,9 @@ public struct ExportSecretSheetFeature {
         }
 
       case .exportSucceeded(let url):
+        // dismiss()를 여기서 부르면 이 effect 자체가 취소돼 delegate가 안 나간다 — 부모가 닫는다.
         state.isExporting = false
-        // dismiss를 먼저 끝내야 한다 — delegate가 부모에서 다른 시트(Export Complete)를 여는데,
-        // 이 시트가 아직 닫히기 전에 열리면 두 .sheet(item:)가 겹쳐 뜨는 경합이 생긴다.
-        return .run { send in
-          await dismiss()
-          await send(.delegate(.exportSucceeded(url)))
-        }
+        return .send(.delegate(.exportSucceeded(url)))
 
       case .exportFailed:
         state.isExporting = false
