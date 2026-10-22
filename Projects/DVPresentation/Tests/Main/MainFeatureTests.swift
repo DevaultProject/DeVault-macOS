@@ -1350,6 +1350,25 @@ struct MainFeatureTests {
     }
   }
 
+  /// child가 dismiss()를 부르면 그 effect가 취소돼 delegate가 증발한다 — 부모가 원자적으로 처리해야 한다.
+  @Test("exportSucceeded는 exportSecret을 닫고 exportedFile을 같은 리듀서에서 연다")
+  func exportSucceededClosesExportSheetAndOpensExportedFile() async {
+    let secretID = UUID()
+    let fileURL = URL(fileURLWithPath: "/tmp/test.dvt")
+
+    var initial = MainFeature.State()
+    initial.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secretID])
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    }
+
+    await store.send(.exportSecret(.presented(.delegate(.exportSucceeded(fileURL))))) {
+      $0.exportSecret = nil
+      $0.exportedFile = ExportedFile(url: fileURL)
+    }
+  }
+
   /// 사이드바를 기준으로 삼으면 생성 중의 "돌아갈 곳"과 목록이 어긋난 사이에
   /// A의 목록에 B의 이름이 붙는다.
   @Test("projectRenamed는 목록이 그 프로젝트를 보고 있지 않으면 타이틀을 건드리지 않는다")

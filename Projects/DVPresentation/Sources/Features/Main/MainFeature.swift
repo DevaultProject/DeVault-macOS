@@ -242,7 +242,9 @@ public struct MainFeature {
         return .none
 
       case .exportSecret(let presentationAction):
+        // child의 dismiss() 대신 여기서 시트 닫기+다음 시트 열기를 원자적으로 처리한다.
         if case .presented(.delegate(.exportSucceeded(let url))) = presentationAction {
+          state.exportSecret = nil
           state.exportedFile = ExportedFile(url: url)
         }
         return .none
