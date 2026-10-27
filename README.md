@@ -22,7 +22,9 @@
 
 ## ✨ 주요 기능
 
-### 다양한 시크릿 지원
+<br>
+
+### 1. 다양한 시크릿 지원
 
 API 키와 액세스 토큰, 웹훅 시크릿, OAuth 정보, 데이터베이스 접속 정보, SSH 키, SSL/TLS 인증서, 환경 변수 세트, 라이선스 키 등을 유형별 입력 폼으로 관리합니다.
 
@@ -30,7 +32,9 @@ API 키와 액세스 토큰, 웹훅 시크릿, OAuth 정보, 데이터베이스 
 |:---:|:---:|
 | <img src="docs/images/secret-registration.gif" alt="시크릿 등록" width="420"> | <img src="docs/images/secret-view-edit.gif" alt="시크릿 열람 및 수정" width="420"> |
 
-### 프로젝트·환경별 시크릿 관리
+<br>
+
+### 2. 프로젝트·환경별 시크릿 관리
 
 시크릿을 프로젝트에 연결하고 개발·스테이징·프로덕션 환경을 지정해 관리합니다. 즐겨찾기와 검색·필터·정렬 기능으로 필요한 시크릿을 빠르게 찾을 수 있습니다.
 
@@ -38,7 +42,9 @@ API 키와 액세스 토큰, 웹훅 시크릿, OAuth 정보, 데이터베이스 
 |:---:|:---:|
 | <img src="docs/images/secret-search.gif" alt="시크릿 검색" width="420"> | <img src="docs/images/quick-find-menu.gif" alt="빠른 찾기 메뉴" width="420"> |
 
-### 보안 정책
+<br>
+
+### 3. 보안 정책
 
 시크릿 열람과 복사, 수정 등 민감한 작업에 Touch ID 또는 Mac 사용자 인증을 사용하고, 일정 시간 사용하지 않으면 앱을 자동으로 잠급니다. 복사한 값은 설정한 시간이 지나면 클립보드에서 삭제하며, 화면 캡처 보호와 반복 인증 실패·복사 감지 알림을 제공합니다.
 
@@ -48,25 +54,31 @@ API 키와 액세스 토큰, 웹훅 시크릿, OAuth 정보, 데이터베이스 
 
 | 화면 캡처 보호 |
 |:---:|
-| <img src="docs/images/screen-capture-protection.png" alt="화면 캡처 보호" width="800"> |
+| <img src="docs/images/screen-capture-protection.png" alt="화면 캡처 보호" width="650"> |
 
-### 만료 관리와 알림
+<br>
+
+### 4. 만료 관리와 알림
 
 시크릿별 만료일을 설정하고 만료 30일·7일·3일 전 또는 만료 당일에 알림을 받도록 설정할 수 있습니다.
 
 | 만료 및 보안 알림 설정 |
 |:---:|
-| <img src="docs/images/notification-settings.png" alt="만료 및 보안 알림 설정" width="800"> |
+| <img src="docs/images/notification-settings.png" alt="만료 및 보안 알림 설정" width="650"> |
 
-### iCloud 동기화
+<br>
+
+### 5. iCloud 동기화
 
 암호화된 시크릿 데이터를 iCloud를 통해 동기화해 사용하는 Mac에서 이어서 관리할 수 있습니다.
 
 | iCloud 동기화 설정 |
 |:---:|
-| <img src="docs/images/icloud-sync.png" alt="iCloud 동기화 설정" width="800"> |
+| <img src="docs/images/icloud-sync.png" alt="iCloud 동기화 설정" width="650"> |
 
-### 테마와 DeVault Pro
+<br>
+
+### 6. 테마와 DeVault Pro
 
 시스템 설정에 맞추거나 라이트·다크 모드를 선택할 수 있습니다. DeVault Pro 구독으로 시크릿과 프로젝트를 제한 없이 관리하고, 여러 만료 알림 시점을 사용할 수 있습니다.
 
