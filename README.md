@@ -9,7 +9,7 @@
 
 > 개발자를 위한 macOS 시크릿 관리 애플리케이션
 
-<a href="https://apps.apple.com/kr/app/devault-secure-dev-secrets/id6802093482?mt=12"><img src="docs/images/app-store-badge.svg" alt="Download on the App Store" width="260"></a>
+<a href="https://apps.apple.com/kr/app/devault-secure-dev-secrets/id6802093482?mt=12"><img src="docs/images/app-store-badge.svg" alt="Download on the App Store" width="230"></a>
 
 ![DeVault on MacBook](docs/images/devault-hero.png)
 
@@ -205,8 +205,13 @@ Projects/
 
 ## 👥 팀원 소개
 
-| [김도연](https://github.com/doyeonk429) | [이예성](https://github.com/yeseonglee) | [이현주](https://github.com/dlguszoo) |
-|:---:|:---:|:---:|
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/doyeonk429"><img src="https://github.com/doyeonk429.png?size=200" width="120" alt="김도연 GitHub 프로필 사진"><br>김도연</a></td>
+    <td align="center"><a href="https://github.com/yeseonglee"><img src="https://github.com/yeseonglee.png?size=200" width="120" alt="이예성 GitHub 프로필 사진"><br>이예성</a></td>
+    <td align="center"><a href="https://github.com/dlguszoo"><img src="https://github.com/dlguszoo.png?size=200" width="120" alt="이현주 GitHub 프로필 사진"><br>이현주</a></td>
+  </tr>
+</table>
 
 ---
 
