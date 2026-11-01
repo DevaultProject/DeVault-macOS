@@ -75,6 +75,8 @@ reviews:
 
   auto_review:
     enabled: true
+    base_branches:
+      - "develop"
     auto_incremental_review: true
     labels: []
     drafts: false
