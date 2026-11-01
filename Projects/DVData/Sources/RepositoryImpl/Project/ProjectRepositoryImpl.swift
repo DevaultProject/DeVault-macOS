@@ -153,17 +153,13 @@ extension ProjectRepositoryImpl {
         _ name: String,
         excluding excludedID: UUID?
     ) throws -> Bool {
-        let nameKey = projectNameKey(name)
+        guard let nameKey = ProjectNameRule.comparisonKey(name) else { return false }
         let descriptor = FetchDescriptor<SwiftDataModel.Project>()
         let projects = try modelContext.fetch(descriptor)
 
         return projects.contains { project in
             let isExcluded = excludedID.map { project.id == $0 } ?? false // 자기 자신 제외
-            return !isExcluded && projectNameKey(project.name) == nameKey
+            return !isExcluded && ProjectNameRule.comparisonKey(project.name) == nameKey
         }
-    }
-
-    private func projectNameKey(_ name: String) -> String {
-        name.lowercased()
     }
 }
