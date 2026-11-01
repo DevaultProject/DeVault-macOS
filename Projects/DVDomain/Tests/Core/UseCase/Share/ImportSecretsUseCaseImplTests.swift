@@ -290,6 +290,19 @@ struct ImportSecretsUseCaseImplTests {
         #expect(projectRepository.projects.count == 1)
     }
 
+    @Test("대소문자만 다른 프로젝트 이름도 같은 프로젝트로 보고 합류한다")
+    func joinsExistingProjectIgnoringCase() async throws {
+        let existing = ProjectFixture.make(id: UUID(), name: "DrinkiG")
+        projectRepository.seed(existing)
+        let payload = DevaultContainerPayload(secrets: [export(name: "A")])
+
+        let imported = try await makeSUT().execute(payload: payload, resolutions: [:], project: .create(name: "drinkig"))
+
+        let links = secretRepository.projectLinks[try #require(imported.first?.id)]
+        #expect(links == [existing.id])
+        #expect(projectRepository.projects.count == 1)
+    }
+
     @Test("프로젝트 한도에 걸리면 거부하고 시크릿도 만들지 않는다")
     func rejectsWhenProjectLimitReached() async throws {
         entitlement.canCreateProjectValue = false
