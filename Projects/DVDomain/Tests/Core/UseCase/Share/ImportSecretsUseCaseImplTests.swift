@@ -303,6 +303,17 @@ struct ImportSecretsUseCaseImplTests {
         #expect(projectRepository.projects.count == 1)
     }
 
+    @Test("빈 프로젝트 이름이면 거부하고 시크릿도 만들지 않는다")
+    func rejectsBlankProjectName() async throws {
+        let payload = DevaultContainerPayload(secrets: [export(name: "A")])
+
+        await #expect(throws: ProjectUseCaseError.invalidName) {
+            try await makeSUT().execute(payload: payload, resolutions: [:], project: .create(name: "  "))
+        }
+        #expect(secretRepository.secrets.isEmpty)
+        #expect(projectRepository.projects.isEmpty)
+    }
+
     @Test("프로젝트 한도에 걸리면 거부하고 시크릿도 만들지 않는다")
     func rejectsWhenProjectLimitReached() async throws {
         entitlement.canCreateProjectValue = false
