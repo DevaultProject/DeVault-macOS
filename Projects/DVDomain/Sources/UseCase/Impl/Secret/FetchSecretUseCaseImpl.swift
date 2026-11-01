@@ -46,7 +46,7 @@ public struct FetchSecretUseCaseImpl: FetchSecretUseCase {
         secretType: SecretType,
         excludingID: UUID?
     ) async throws -> Bool {
-        guard let name = SecretUseCaseHelper.comparableName(name) else { return false }
+        guard let name = SecretNameRule.comparisonKey(name) else { return false }
 
         do {
             return try await repository.containsSecret(
