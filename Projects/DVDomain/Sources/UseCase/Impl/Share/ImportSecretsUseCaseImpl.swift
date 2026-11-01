@@ -69,7 +69,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             if case .skip = resolution { continue }
 
             let effectiveName = resolution?.renamedName ?? export.name
-            guard let comparable = SecretUseCaseHelper.comparableName(effectiveName) else { continue }
+            guard let comparable = SecretNameRule.comparisonKey(effectiveName) else { continue }
             let key = NameKey(name: comparable, secretType: export.content.secretType)
 
             // 파일 내부 충돌을 먼저 본다 — 앞선 항목이 어떻게 처리될지 모르는 채로 금고 덮어쓰기를 제안할 수 없다.
@@ -282,11 +282,11 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             }
             return [id]
         case .create(let rawName):
-            guard let name = SecretUseCaseHelper.comparableName(rawName) else {
-                throw SecretUseCaseError.invalidName
+            guard let name = ProjectNameRule.normalized(rawName), let key = ProjectNameRule.comparisonKey(name) else {
+                throw ProjectUseCaseError.invalidName
             }
             // 이름이 유니크하므로 같은 이름이 이미 있으면 만들지 않고 합류한다 — 거절하면 사용자가 손쓸 방법 없이 막힌다.
-            if let existing = try await projectRepository.fetchAll().first(where: { $0.name == name }) {
+            if let existing = try await projectRepository.fetchAll().first(where: { ProjectNameRule.comparisonKey($0.name) == key }) {
                 return [existing.id]
             }
             return [try await createProjectUseCase.execute(name: name).id]

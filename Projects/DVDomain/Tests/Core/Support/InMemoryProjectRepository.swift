@@ -90,7 +90,7 @@ public final class InMemoryProjectRepository: ProjectRepository, @unchecked Send
 
     /// 실제 저장소처럼 대소문자를 무시한다.
     private func containsName(_ name: String, excluding id: UUID?) -> Bool {
-        let key = name.lowercased()
-        return projects.values.contains { $0.id != id && $0.name.lowercased() == key }
+        let key = ProjectNameRule.comparisonKey(name)
+        return projects.values.contains { $0.id != id && ProjectNameRule.comparisonKey($0.name) == key }
     }
 }

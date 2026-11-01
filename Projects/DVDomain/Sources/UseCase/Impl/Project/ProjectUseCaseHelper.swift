@@ -5,8 +5,7 @@ import Foundation
 enum ProjectUseCaseHelper {
     /// Project 이름의 앞뒤 공백을 제거하고 기본 필수값을 검증합니다.
     static func normalizedName(_ name: String) throws -> String {
-        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedName.isEmpty else {
+        guard let normalizedName = ProjectNameRule.normalized(name) else {
             throw ProjectUseCaseError.invalidName
         }
         return normalizedName
