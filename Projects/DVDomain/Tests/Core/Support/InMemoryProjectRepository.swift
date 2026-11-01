@@ -42,6 +42,9 @@ public final class InMemoryProjectRepository: ProjectRepository, @unchecked Send
         guard projects[project.id] == nil else {
             throw ProjectRepositoryError.duplicateID(id: project.id)
         }
+        guard !containsName(project.name, excluding: nil) else {
+            throw ProjectRepositoryError.duplicateName(name: project.name)
+        }
         projects[project.id] = project
         return project
     }
@@ -65,7 +68,12 @@ public final class InMemoryProjectRepository: ProjectRepository, @unchecked Send
         guard var project = projects[id] else {
             throw ProjectRepositoryError.notFound(id: id)
         }
-        if case let .set(name) = patch.name { project.name = name }
+        if case let .set(name) = patch.name {
+            guard !containsName(name, excluding: id) else {
+                throw ProjectRepositoryError.duplicateName(name: name)
+            }
+            project.name = name
+        }
         if case let .set(updatedAt) = patch.updatedAt { project.updatedAt = updatedAt }
         projects[id] = project
         return project
@@ -78,5 +86,11 @@ public final class InMemoryProjectRepository: ProjectRepository, @unchecked Send
             throw ProjectRepositoryError.notFound(id: id)
         }
         projects.removeValue(forKey: id)
+    }
+
+    /// 실제 저장소처럼 대소문자를 무시한다.
+    private func containsName(_ name: String, excluding id: UUID?) -> Bool {
+        let key = name.lowercased()
+        return projects.values.contains { $0.id != id && $0.name.lowercased() == key }
     }
 }
