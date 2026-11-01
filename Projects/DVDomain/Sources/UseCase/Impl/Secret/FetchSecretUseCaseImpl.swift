@@ -46,6 +46,7 @@ public struct FetchSecretUseCaseImpl: FetchSecretUseCase {
         secretType: SecretType,
         excludingID: UUID?
     ) async throws -> Bool {
+        // 빈 이름은 비교할 대상이 없다 — 중복이 아니라 저장 단계의 invalidName이 거른다.
         guard let name = SecretNameRule.comparisonKey(name) else { return false }
 
         do {
