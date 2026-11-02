@@ -28,6 +28,11 @@ struct DevaultApp: App {
     NSWindow.allowsAutomaticWindowTabbing = false
     // 화면이 아니라 앱 수명에 묶는다. Feature effect로 띄우면 화면이 사라질 때 리스너가 죽는다.
     transactionObserver = LiveServices.purchase.observeTransactionUpdates()
+
+    let store = store
+    appDelegate.onFileOpened = { url in
+      store.send(.fileOpened(url))
+    }
   }
 
   var body: some Scene {
@@ -89,7 +94,16 @@ private struct DevaultRootView: View {
 
 /// 창을 닫아도 앱을 종료하지 않고 Dock에 유지한다(`Window` scene 기본 종료를 막는다).
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  /// Finder에서 `.dvt` 더블클릭·"다음으로 열기" 시 전달된다.
+  var onFileOpened: ((URL) -> Void)?
+
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     false
+  }
+
+  func application(_ application: NSApplication, open urls: [URL]) {
+    for url in urls where url.pathExtension.lowercased() == "dvt" {
+      onFileOpened?(url)
+    }
   }
 }
