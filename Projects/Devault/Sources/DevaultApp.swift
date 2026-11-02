@@ -70,6 +70,7 @@ extension DevaultApp {
 
 private struct DevaultRootView: View {
   let store: StoreOf<AppFeature>
+  @Environment(\.openWindow) private var openWindow
 
   var body: some View {
     AppView(store: store)
@@ -85,6 +86,9 @@ private struct DevaultRootView: View {
           isEnabled: store.isWindowCaptureBlockingEnabled
         )
       )
+      // AppDelegate/리듀서는 openWindow(SwiftUI Environment)를 직접 못 불러서, 창이 열려 있는 동안
+      // 매번 최신 액션을 WindowOpener에 넣어둔다 — 창이 닫힌 뒤에도 이 액션 자체는 유효하다.
+      .task { WindowOpener.shared.openMainWindow = { openWindow(id: DevaultWindowID.main) } }
       // nil이면 macOS 시스템 설정을 따르고, 그 외에는 앱 전체를 라이트/다크로 고정한다.
       .preferredColorScheme(store.appearance.colorScheme)
   }

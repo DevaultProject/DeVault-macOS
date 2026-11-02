@@ -81,6 +81,7 @@ public struct AppFeature {
   @Dependency(\.windowCaptureBlockerClient) var windowCaptureBlockerClient
   @Dependency(\.generalSettingsClient) var generalSettingsClient
   @Dependency(\.entitlementClient) var entitlementClient
+  @Dependency(\.windowClient) var windowClient
   @Dependency(\.continuousClock) var clock
   @Dependency(\.date.now) var now
 
@@ -135,9 +136,10 @@ public struct AppFeature {
         )
 
       case let .fileOpened(url):
-        // Import 화면(#186/#187)이 준비되기 전이라 상태에 보관만 해둔다 — 화면이 생기면 이 값을 읽고 지운다.
+        // Import 화면(#186/#187)이 준비되기 전이라 상태에 보관만 해둔다 — unlockCompleted/onboarding
+        // 완료 시점까지 pendingImportFileURL이 그대로 남아있으므로 재개 처리는 따로 필요 없다.
         state.pendingImportFileURL = url
-        return .none
+        return .run { _ in await windowClient.ensureMainWindowOpen() }
 
       case let .windowCaptureBlockingChanged(isEnabled):
         state.isWindowCaptureBlockingEnabled = isEnabled
