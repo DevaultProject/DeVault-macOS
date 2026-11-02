@@ -20,6 +20,9 @@ public struct AppFeature {
     public var isWindowCaptureBlockingEnabled = true
     public var appearance: AppAppearance = .system
 
+    /// Finder에서 연 `.dvt` 파일 — Import 화면이 준비될 때까지 잠금/온보딩 동안 보관한다.
+    public var pendingImportFileURL: URL?
+
     /// 지금 어느 화면인지. 전환 애니메이션이 이 값 하나를 본다.
     /// 셋을 다 비웠다가 하나를 세우는 구간이 있어(`task`) 옵셔널이다.
     var screen: Screen? {
@@ -46,6 +49,7 @@ public struct AppFeature {
 
     case task
     case inactivityTimeoutReached
+    case fileOpened(URL)
 
     // MARK: - Internal
 
@@ -129,6 +133,11 @@ public struct AppFeature {
           iCloudRemoteChangeWatchEffect(),
           entitlementWatchEffect()
         )
+
+      case let .fileOpened(url):
+        // Import 화면(#186/#187)이 준비되기 전이라 상태에 보관만 해둔다 — 화면이 생기면 이 값을 읽고 지운다.
+        state.pendingImportFileURL = url
+        return .none
 
       case let .windowCaptureBlockingChanged(isEnabled):
         state.isWindowCaptureBlockingEnabled = isEnabled
