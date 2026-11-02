@@ -28,6 +28,11 @@ public struct AppView: View {
       .windowBusyOverlay()
       // 잠금 전환 시 메인이 사라지며 남는 고아 시트·알럿을 창에서 직접 닫는다.
       .background(LockSheetDismisser(isLocked: store.locked != nil))
+      .dropDestination(for: URL.self) { urls, _ in
+        guard let url = urls.first(where: { $0.pathExtension.lowercased() == "dvt" }) else { return false }
+        store.send(.fileOpened(url))
+        return true
+      }
       .task { store.send(.task) }
   }
 }
