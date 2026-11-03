@@ -58,6 +58,12 @@ public struct EntitlementUseCaseImpl: EntitlementUseCase {
         return log("canImportSecrets", allowed: existing + count <= EntitlementLimits.maxSecrets, detail: "보유: \(existing)/\(EntitlementLimits.maxSecrets), 요청: \(count)")
     }
 
+    public func remainingSecretSlots() async throws -> Int? {
+        guard current() == .free else { return nil }
+        let count = try await secretRepository.totalCountExcludingTrash()
+        return max(0, EntitlementLimits.maxSecrets - count)
+    }
+
     public func canEditSecrets() async throws -> Bool {
         guard current() == .free else { return log("canEditSecrets", allowed: true) }
         // 한도와 **같으면** 허용한다. `canCreateSecret`의 `<`와 달리 여기가 `<=`인 이유는, 정확히 한도만큼 보유한 사용자는 잠기면 안 되기 때문이다. 잠금은 초과부터다.
