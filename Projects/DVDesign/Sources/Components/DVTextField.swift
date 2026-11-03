@@ -16,6 +16,8 @@ public struct DVTextField: View {
     @Binding private var text: String
     private let size: DVComponentSize
     private let isSecure: Bool
+    private let errorMessage: String?
+    private let reservesErrorSpace: Bool
     private let revealAccessibilityLabel: String
     private let hideAccessibilityLabel: String
 
@@ -29,6 +31,8 @@ public struct DVTextField: View {
     ///   - text: 입력 값 양방향 바인딩.
     ///   - size: 너비 변형. 기본 ``DVComponentSize/md``.
     ///   - isSecure: 민감 값 마스킹 여부. 기본 `false`.
+    ///   - errorMessage: 입력이 거절된 상태의 안내 문구(이미 번역된 값). 있으면 테두리를 ``DVColor/danger``로 그리고 필드 아래에 문구를 보여준다. 기본 `nil`.
+    ///   - reservesErrorSpace: 에러가 없을 때도 문구 자리를 비워 둔다. 문구가 생기고 사라질 때 아래 레이아웃이 밀리지 않아야 하는 곳(가운데 정렬 시트 등)에서 켠다. 기본 `false`.
     ///   - revealAccessibilityLabel: 마스킹 해제(표시) 눈 아이콘의 VoiceOver 라벨. 호출부가 번역해서 넘긴다.
     ///   - hideAccessibilityLabel: 마스킹(숨김) 눈 아이콘의 VoiceOver 라벨.
     public init(
@@ -36,6 +40,8 @@ public struct DVTextField: View {
         text: Binding<String>,
         size: DVComponentSize = .md,
         isSecure: Bool = false,
+        errorMessage: String? = nil,
+        reservesErrorSpace: Bool = false,
         revealAccessibilityLabel: String = "Show",
         hideAccessibilityLabel: String = "Hide"
     ) {
@@ -43,6 +49,8 @@ public struct DVTextField: View {
         self._text = text
         self.size = size
         self.isSecure = isSecure
+        self.errorMessage = errorMessage
+        self.reservesErrorSpace = reservesErrorSpace
         self.revealAccessibilityLabel = revealAccessibilityLabel
         self.hideAccessibilityLabel = hideAccessibilityLabel
     }
@@ -50,6 +58,22 @@ public struct DVTextField: View {
     // MARK: - Body
 
     public var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            field
+            if let errorMessage {
+                Text(errorMessage)
+                    .dvFont(.captionMDRegular)
+                    .foregroundStyle(Color.dv(.danger))
+                    .frame(maxWidth: size.width, alignment: .leading)
+            } else if reservesErrorSpace {
+                Text(verbatim: " ")
+                    .dvFont(.captionMDRegular)
+                    .hidden()
+            }
+        }
+    }
+
+    private var field: some View {
         HStack(spacing: 0) {
             inputField
                 .focused($isFocused)
@@ -62,7 +86,7 @@ public struct DVTextField: View {
         .dvComponentWidth(size, height: DVComponentSize.fieldHeight)
         .background {
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.dv(.gray300), lineWidth: 1)
+                .stroke(errorMessage == nil ? Color.dv(.gray300) : Color.dv(.danger), lineWidth: 1)
         }
     }
 }
@@ -145,6 +169,11 @@ extension DVTextField {
         .padding()
 }
 
+#Preview("Error") {
+    DVTextFieldErrorPreview()
+        .padding()
+}
+
 private struct DVTextFieldPlaceholderPreview: View {
     @State private var text = ""
     var body: some View {
@@ -172,6 +201,14 @@ private struct DVTextFieldSizesPreview: View {
             DVTextField("MD", text: $md, size: .md)
             DVTextField("LG", text: $lg, size: .lg)
         }
+    }
+}
+
+private struct DVTextFieldErrorPreview: View {
+    @State private var text = ""
+
+    var body: some View {
+        DVTextField("password", text: $text, size: .lg, isSecure: true, errorMessage: "Incorrect password. Please try again.")
     }
 }
 
