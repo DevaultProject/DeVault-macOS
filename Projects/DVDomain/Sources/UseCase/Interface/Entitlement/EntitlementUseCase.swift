@@ -30,6 +30,10 @@ public protocol EntitlementUseCase: Sendable {
     /// - Returns: 전량 수용 가능 여부
     func canImportSecrets(count: Int) async throws -> Bool
 
+    /// 지금 더 만들 수 있는 Secret 수. Pro는 한도가 없어 `nil`이다. 저장소 개수를 세므로 비용이 있다.
+    /// - Returns: 남은 슬롯 수(음수 불가, 이미 초과 보유 중이면 `0`). Pro는 `nil`
+    func remainingSecretSlots() async throws -> Int?
+
     /// Secret 수정 모드에 들어갈 수 있는지 판정한다.
     ///
     /// 보유 수가 한도를 **넘긴** 경우에만 false다(한도와 같으면 허용). 무료 사용자는 생성이 이미 막히므로 이 상태에 자연히 도달하지 않고, **Pro → 무료 다운그레이드에서만** 발생한다.
