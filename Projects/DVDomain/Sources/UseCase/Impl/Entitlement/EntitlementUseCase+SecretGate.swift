@@ -12,7 +12,8 @@ extension EntitlementUseCase {
         try await ensure { try await canImportSecrets(count: count) }
     }
 
-    /// 앞선 판정 뒤 암호화가 끼어 있어 동시 생성이 같은 개수를 보고 통과할 수 있으므로, 저장소가 세기와 넣기를 한 번에 처리하게 해 한도를 다시 지킨다.
+    /// 앞선 판정과 저장 사이에 암호화가 끼어 있어 동시 생성이 한도를 넘길 수 있다.
+    /// 저장소가 세기와 넣기를 한 번에 처리해 막는다.
     func createSecretWithinLimit(
         _ secret: Secret,
         projectIDs: [UUID],

@@ -37,7 +37,8 @@ public struct DeleteSecretUseCaseImpl: DeleteSecretUseCase {
     /// 저장소에 "세면서 되살리기"가 없어 판정과 저장 사이에 틈이 있다 — 동시에 시작한 복구 둘이 같은 개수를 보고 나란히 통과할 수 있다. 생성 경로(`withinTotalLimit`)와 달리 원자적이지 않다.
     // ponytail: 판정과 저장이 분리된 비원자적 게이트. 한도를 아는 patch API가 생기면 그쪽으로 옮긴다.
     public func restore(id: UUID) async throws -> Secret {
-        // 페이월은 화면이 먼저 물어 띄운다. 여기서 막히면 일반 오류로 끝난다.
+        // 복구도 보유 수를 늘려, 생성과 같은 한도를 적용한다.
+        // 페이월은 화면이 띄운다.
         try await entitlementUseCase.ensureCanCreateSecret()
 
         do {
