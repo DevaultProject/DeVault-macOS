@@ -73,11 +73,11 @@ struct ExportedFileActionsView: View {
     }
     // Share는 탭한 즉시 시트를 닫지만, NSSharingServicePicker가 파일을 실제로 읽는 건 그 뒤다
     .onDisappear {
-      try? FileManager.default.removeItem(at: file.url)
-      let url = file.url
+      file.removeFromDisk()
+      let file = file
       Task {
         try? await Task.sleep(for: .seconds(10))
-        try? FileManager.default.removeItem(at: url)
+        file.removeFromDisk()
       }
     }
   }
