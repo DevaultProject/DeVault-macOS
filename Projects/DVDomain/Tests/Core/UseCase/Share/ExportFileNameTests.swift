@@ -47,6 +47,11 @@ struct ExportFileNameTests {
         #expect(make(["A", "B"]) == "DeVault 2026-11-03 15.30.dvt")
     }
 
+    @Test("기본 달력은 그레고리력이다 — 불기·연호 달력을 쓰는 지역에서도 연도가 같다")
+    func defaultCalendarIsGregorian() {
+        #expect(ExportFileName.localGregorianCalendar.identifier == .gregorian)
+    }
+
     @Test("월·일·시·분이 한 자리여도 0으로 채운다")
     func padsTimestampParts() {
         #expect(make(["A", "B"], now: date(2026, 1, 5, 3, 7)) == "DeVault 2026-01-05 03.07.dvt")

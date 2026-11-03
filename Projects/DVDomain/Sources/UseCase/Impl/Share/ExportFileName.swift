@@ -16,7 +16,7 @@ enum ExportFileName {
         secretNames: [String],
         projectName: String?,
         now: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = ExportFileName.localGregorianCalendar
     ) -> String {
         let base: String
         if secretNames.count == 1 {
@@ -27,6 +27,13 @@ enum ExportFileName {
             base = "\(fallbackName) \(timestamp(now, calendar: calendar))"
         }
         return "\(base.isEmpty ? fallbackName : base).\(fileExtension)"
+    }
+
+    /// 사용자의 달력(불기·연호 등)과 무관하게 연도가 그레고리력으로 나오도록 고정하고, 시각은 기기의 시간대를 따른다.
+    static var localGregorianCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
     }
 
     private static func sanitized(_ name: String) -> String {
