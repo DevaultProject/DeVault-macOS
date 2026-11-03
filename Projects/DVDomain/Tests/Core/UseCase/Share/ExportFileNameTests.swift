@@ -69,12 +69,14 @@ struct ExportFileNameTests {
         #expect(make([". .hidden"]) == "hidden.dvt")
     }
 
-    @Test("정리하고 남는 것이 없으면 기본 이름을 쓴다")
-    func fallsBackWhenNothingRemains() {
-        #expect(make(["   "]) == "DeVault.dvt")
-        #expect(make(["..."]) == "DeVault.dvt")
-        #expect(make([". . ."]) == "DeVault.dvt")
-        #expect(make(["A", "B"], project: "  ") == "DeVault.dvt")
+    @Test("정리하고 남는 것이 없으면 복수 시크릿과 같은 기본 이름을 쓴다")
+    func fallsBackToTimestampedNameWhenNothingRemains() {
+        let expected = "DeVault 2026-11-03 15.30.dvt"
+
+        #expect(make(["   "]) == expected)
+        #expect(make(["..."]) == expected)
+        #expect(make([". . ."]) == expected)
+        #expect(make(["A", "B"], project: "  ") == expected)
     }
 
     @Test("긴 이름은 글자 중간에서 끊지 않고 200바이트 안으로 줄인다")
