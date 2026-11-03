@@ -33,7 +33,11 @@ struct ImportPasswordFeatureTests {
   @Test("성공하면 payload를 delegate로 알리고 비밀번호를 비운다 — dismiss는 부모가 한다")
   func unlockSucceedsNotifiesDelegate() async {
     let payload = DevaultContainerPayload(secrets: [])
-    let store = makeStore(decrypt: { _, _ in payload })
+    let received = LockIsolated<(data: Data, password: String)?>(nil)
+    let store = makeStore(decrypt: { data, password in
+      received.withValue { $0 = (data, password) }
+      return payload
+    })
 
     await store.send(.didChangePassword("passphrase")) { $0.password = "passphrase" }
     await store.send(.didTapUnlock) { $0.isDecrypting = true }
@@ -42,11 +46,18 @@ struct ImportPasswordFeatureTests {
       $0.password = ""
     }
     await store.receive(.delegate(.decrypted(payload)))
+
+    #expect(received.value?.data == Data("file".utf8))
+    #expect(received.value?.password == "passphrase")
   }
 
   @Test("틀린 비밀번호면 에러 상태로 두고 흔들며 입력은 그대로 둔다")
   func wrongPasswordShakesAndKeepsInput() async {
-    let store = makeStore(decrypt: { _, _ in throw DevaultImportError.invalidPassword })
+    let received = LockIsolated<(data: Data, password: String)?>(nil)
+    let store = makeStore(decrypt: { data, password in
+      received.withValue { $0 = (data, password) }
+      throw DevaultImportError.invalidPassword
+    })
 
     await store.send(.didChangePassword("wrong")) { $0.password = "wrong" }
     await store.send(.didTapUnlock) { $0.isDecrypting = true }
@@ -55,6 +66,9 @@ struct ImportPasswordFeatureTests {
       $0.isWrongPassword = true
       $0.shakeCount = 1
     }
+
+    #expect(received.value?.data == Data("file".utf8))
+    #expect(received.value?.password == "wrong")
   }
 
   @Test("틀린 뒤 입력을 바꾸면 에러가 사라진다")
@@ -129,6 +143,41 @@ struct ImportPasswordFeatureTests {
       $0.rejection = nil
     }
     await store.receive(.delegate(.rejected(.expired)))
+  }
+
+  @Test("DevaultImportError가 아닌 실패는 corrupted 알럿으로 닫는다")
+  func unexpectedErrorFallsBackToCorrupted() async {
+    struct Unexpected: Error {}
+    let store = makeStore(decrypt: { _, _ in throw Unexpected() })
+
+    await store.send(.didChangePassword("passphrase")) { $0.password = "passphrase" }
+    await store.send(.didTapUnlock) { $0.isDecrypting = true }
+    await store.receive(.decryptFailed(.corrupted)) {
+      $0.isDecrypting = false
+      $0.rejection = .corrupted
+      $0.alert = Self.expectedAlert(for: .corrupted)
+    }
+  }
+
+  @Test("복호화 중 Cancel은 진행 중인 복호화를 취소하고 시트를 닫는다")
+  func cancelStopsDecryptingAndDismisses() async {
+    let dismissCalls = LockIsolated(0)
+    let store = TestStore(initialState: ImportPasswordFeature.State(fileName: "AWS-Keys.devault", data: Data())) {
+      ImportPasswordFeature()
+    } withDependencies: {
+      $0.shareClient.decryptContainer = { _, _ in
+        try await Task.sleep(for: .seconds(60))
+        return DevaultContainerPayload(secrets: [])
+      }
+      $0.dismiss = DismissEffect { dismissCalls.withValue { $0 += 1 } }
+    }
+
+    await store.send(.didChangePassword("passphrase")) { $0.password = "passphrase" }
+    await store.send(.didTapUnlock) { $0.isDecrypting = true }
+    await store.send(.didTapCancel)
+    await store.finish()
+
+    #expect(dismissCalls.value == 1)
   }
 
   private static func expectedAlert(for error: DevaultImportError) -> AlertState<ImportPasswordFeature.Action.Alert> {
