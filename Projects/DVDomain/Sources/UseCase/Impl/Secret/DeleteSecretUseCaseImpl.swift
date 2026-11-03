@@ -37,7 +37,8 @@ public struct DeleteSecretUseCaseImpl: DeleteSecretUseCase {
     /// 저장소에 "세면서 되살리기"가 없어 판정과 저장 사이에 틈이 있다 — 동시에 시작한 복구 둘이 같은 개수를 보고 나란히 통과할 수 있다. 생성 경로(`withinTotalLimit`)와 달리 원자적이지 않다.
     // ponytail: 판정과 저장이 분리된 비원자적 게이트. 한도를 아는 patch API가 생기면 그쪽으로 옮긴다.
     public func restore(id: UUID) async throws -> Secret {
-        try await ensureRestorable()
+        // 페이월은 화면이 먼저 물어 띄운다. 여기서 막히면 일반 오류로 끝난다.
+        try await entitlementUseCase.ensureCanCreateSecret()
 
         do {
             let now = dateProvider()
@@ -49,19 +50,6 @@ public struct DeleteSecretUseCaseImpl: DeleteSecretUseCase {
         } catch {
             throw SecretUseCaseError.map(error)
         }
-    }
-
-    /// 생성과 같은 기준으로 묻는다 — 복구된 Secret이 차지할 자리가 있어야 한다.
-    ///
-    /// 판정 실패(저장소 오류)와 게이트 차단은 다른 것이다. 전자는 ``SecretUseCaseError``로 매핑하고, 후자만 ``EntitlementError``로 내보낸다. **화면은 이 게이트에 도달하기 전에 먼저 묻는다** — 여기까지 오면 일반 오류 알림으로 끝나므로, 페이월은 ``EntitlementClient``로 사전 질의한 화면이 띄운다.
-    private func ensureRestorable() async throws {
-        let allowed: Bool
-        do {
-            allowed = try await entitlementUseCase.canCreateSecret()
-        } catch {
-            throw SecretUseCaseError.map(error)
-        }
-        guard allowed else { throw EntitlementError.limitReached }
     }
 
     public func permanentlyDelete(id: UUID) async throws {
