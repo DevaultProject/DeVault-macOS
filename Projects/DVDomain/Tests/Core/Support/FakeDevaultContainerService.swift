@@ -16,7 +16,16 @@ public final class FakeDevaultContainerService: DevaultContainerService, @unchec
     /// 개봉 결과로 돌려줄 내용.
     public var importResult = DevaultContainerPayload(secrets: [])
 
+    /// 헤더 판별이 실패하는 상황을 만든다.
+    public var errorOnValidateHeader: (any Error)?
+    public private(set) var validateHeaderCount = 0
+
     public init() {}
+
+    public func validateHeader(data: Data) throws {
+        validateHeaderCount += 1
+        if let errorOnValidateHeader { throw errorOnValidateHeader }
+    }
 
     public func export(payload: DevaultContainerPayload, password: SensitiveString, expiresAt: Date?) async throws -> Data {
         exportCount += 1

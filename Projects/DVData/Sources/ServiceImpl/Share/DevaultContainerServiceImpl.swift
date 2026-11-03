@@ -47,13 +47,12 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         return aad + combined
     }
 
-    public func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
-        let file = try DevaultContainerFileCodec.decode(data)
+    public func validateHeader(data: Data) throws {
+        _ = try openableFile(data)
+    }
 
-        // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.
-        if let expiresAt = file.header.expiresAt, expiresAt < dateProvider() {
-            throw DevaultImportError.expired
-        }
+    public func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
+        let file = try openableFile(data)
 
         var key: Data
         do {
@@ -88,6 +87,16 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         } catch {
             throw DevaultImportError.corrupted
         }
+    }
+
+    private func openableFile(_ data: Data) throws -> DevaultContainerFile {
+        let file = try DevaultContainerFileCodec.decode(data)
+
+        // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.
+        if let expiresAt = file.header.expiresAt, expiresAt < dateProvider() {
+            throw DevaultImportError.expired
+        }
+        return file
     }
 
     /// best-effort — `data`가 공유 중이면 CoW로 원본이 안 지워질 수 있다.
