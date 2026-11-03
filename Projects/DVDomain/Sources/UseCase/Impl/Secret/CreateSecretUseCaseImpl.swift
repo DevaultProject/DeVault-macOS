@@ -29,25 +29,6 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
         self.dateProvider = dateProvider
     }
 
-    /// 한도를 지키며 저장한다. 앞선 판정 뒤 암호화가 끼어 있어, 동시 생성이 같은 개수를 보고 통과할 수 있으므로 다시 지킨다.
-    ///
-    /// 실제 판정은 저장소가 세기와 넣기를 한 번에 처리하며 내린다. 여기서는 Pro를 무한대로 바꿔 넘기는 것뿐이다.
-    /// - Parameters:
-    ///   - secret: 저장할 Secret
-    ///   - projectIDs: 연결할 Project ID 목록
-    /// - Returns: 저장된 Secret
-    private func persist(_ secret: Secret, projectIDs: [UUID]) async throws -> Secret {
-        let limit = entitlementUseCase.current() == .free ? EntitlementLimits.maxSecrets : Int.max
-        guard let created = try await repository.create(
-            secret,
-            projectIDs: projectIDs,
-            withinTotalLimit: limit
-        ) else {
-            throw EntitlementError.limitReached
-        }
-        return created
-    }
-
     public func execute<Payload: SecretPayloadData>(
         draft: SecretDraft,
         payload: Payload,
@@ -74,7 +55,7 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
                 updatedAt: now,
                 payload: encryptedPayload
             )
-            return try await persist(secret, projectIDs: projectIDs)
+            return try await entitlementUseCase.createSecretWithinLimit(secret, projectIDs: projectIDs, in: repository)
         } catch let error as EntitlementError {
             // 게이트 차단은 도메인 오류로 접지 않는다 — 접으면 호출부가 페이월을 띄울 근거를 잃는다.
             throw error
@@ -111,7 +92,7 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
                 payload: encryptedPayload,
                 metadata: encodedMetadata
             )
-            return try await persist(secret, projectIDs: projectIDs)
+            return try await entitlementUseCase.createSecretWithinLimit(secret, projectIDs: projectIDs, in: repository)
         } catch let error as EntitlementError {
             // 게이트 차단은 도메인 오류로 접지 않는다 — 접으면 호출부가 페이월을 띄울 근거를 잃는다.
             throw error

@@ -226,11 +226,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             metadata: metadata
         )
 
-        let limit = entitlementUseCase.current() == .free ? EntitlementLimits.maxSecrets : Int.max
-        guard let saved = try await secretRepository.create(secret, projectIDs: projectIDs, withinTotalLimit: limit) else {
-            throw EntitlementError.limitReached
-        }
-        return saved
+        return try await entitlementUseCase.createSecretWithinLimit(secret, projectIDs: projectIDs, in: secretRepository)
     }
 
     /// 기존 시크릿을 들여온 내용으로 교체한다. 자리를 늘리지 않으므로 생성 한도가 아니라 수정 잠금(``EntitlementUseCase/canEditSecrets()``)을 본다.
