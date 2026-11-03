@@ -13,6 +13,7 @@ extension EntitlementClient: @retroactive DependencyKey {
             canCreateSecret: { try await useCase.canCreateSecret() },
             canCreateProject: { try await useCase.canCreateProject() },
             canImportSecrets: { try await useCase.canImportSecrets(count: $0) },
+            remainingSecretSlots: { try await useCase.remainingSecretSlots() },
             canEditSecrets: { try await useCase.canEditSecrets() },
             canEnableICloudSync: { useCase.canEnableICloudSync() },
             canUseMultipleExpiryAlertDays: { useCase.canUseMultipleExpiryAlertDays() }

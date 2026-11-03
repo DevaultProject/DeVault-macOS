@@ -26,6 +26,9 @@ public struct EntitlementClient: Sendable {
     /// `count`개를 한 번에 들여올 수 있는지. 저장소 개수를 세므로 비용이 있다. 새로 생성될 수만 넘긴다 — 덮어쓰기·건너뛰기는 세지 않는다.
     public var canImportSecrets: @Sendable (_ count: Int) async throws -> Bool
 
+    /// 지금 더 만들 수 있는 Secret 수. Pro는 `nil`(무제한). 저장소 개수를 세므로 비용이 있다.
+    public var remainingSecretSlots: @Sendable () async throws -> Int?
+
     /// Secret 수정 모드에 들어갈 수 있는지. 보유 수가 한도를 넘긴 경우에만 false다.
     public var canEditSecrets: @Sendable () async throws -> Bool
 
@@ -56,6 +59,7 @@ extension EntitlementClient: TestDependencyKey {
         canCreateSecret: { true },
         canCreateProject: { true },
         canImportSecrets: { _ in true },
+        remainingSecretSlots: { nil },
         canEditSecrets: { true },
         canEnableICloudSync: { true },
         canUseMultipleExpiryAlertDays: { true }
