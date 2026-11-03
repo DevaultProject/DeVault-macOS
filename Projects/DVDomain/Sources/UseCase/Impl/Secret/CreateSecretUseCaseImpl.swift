@@ -29,20 +29,7 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
         self.dateProvider = dateProvider
     }
 
-    /// 무료 티어 한도에 걸리면 생성을 막는다. **암호화보다 앞에 둔다** — 거부될 생성에 크립토 작업을 들일 이유가 없다.
-    ///
-    /// 판정 실패(저장소 오류)와 게이트 차단은 다른 것이다. 전자는 ``SecretUseCaseError``로 매핑하고, 후자만 ``EntitlementError``로 내보내 호출부가 페이월을 띄우게 한다.
-    private func ensureCreatable() async throws {
-        let allowed: Bool
-        do {
-            allowed = try await entitlementUseCase.canCreateSecret()
-        } catch {
-            throw SecretUseCaseError.map(error)
-        }
-        guard allowed else { throw EntitlementError.limitReached }
-    }
-
-    /// 한도를 지키며 저장한다. ``ensureCreatable()``이 이미 물었더라도 다시 지킨다 — 그 사이 암호화가 끼어 있어, 동시에 시작한 생성 둘이 같은 개수를 보고 나란히 통과할 수 있다.
+    /// 한도를 지키며 저장한다. 앞선 판정 뒤 암호화가 끼어 있어, 동시 생성이 같은 개수를 보고 통과할 수 있으므로 다시 지킨다.
     ///
     /// 실제 판정은 저장소가 세기와 넣기를 한 번에 처리하며 내린다. 여기서는 Pro를 무한대로 바꿔 넘기는 것뿐이다.
     /// - Parameters:
@@ -66,7 +53,8 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
         payload: Payload,
         projectIDs: [UUID]
     ) async throws -> Secret {
-        try await ensureCreatable()
+        // 거부될 생성에 암호화를 들이지 않도록 먼저 판정한다.
+        try await entitlementUseCase.ensureCanCreateSecret()
 
         do {
             let draft = try SecretUseCaseHelper.normalizedDraft(draft)
@@ -101,7 +89,7 @@ public struct CreateSecretUseCaseImpl: CreateSecretUseCase {
         metadata: Metadata,
         projectIDs: [UUID]
     ) async throws -> Secret {
-        try await ensureCreatable()
+        try await entitlementUseCase.ensureCanCreateSecret()
 
         do {
             let draft = try SecretUseCaseHelper.normalizedDraft(draft)

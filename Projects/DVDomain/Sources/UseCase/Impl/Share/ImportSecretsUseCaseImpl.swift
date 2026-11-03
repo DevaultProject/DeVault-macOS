@@ -133,7 +133,8 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             throw ShareUseCaseError.unresolvedConflict
         }
 
-        try await ensureImportable(count: judgement.slotsConsumed(by: resolutions))
+        // 화면 판정 뒤 상태가 바뀌었거나 화면을 우회한 호출일 수 있어 다시 지킨다.
+        try await entitlementUseCase.ensureCanImportSecrets(count: judgement.slotsConsumed(by: resolutions))
 
         let projectIDs = try await resolveProjectIDs(project)
         let overwriteTargets = Dictionary(
@@ -171,17 +172,6 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             throw error
         }
         return imported
-    }
-
-    /// 화면이 이미 물었더라도 다시 지킨다 — 그 사이 다른 생성이 끼어들 수 있고, 화면을 우회한 호출도 있다.
-    private func ensureImportable(count: Int) async throws {
-        let allowed: Bool
-        do {
-            allowed = try await entitlementUseCase.canImportSecrets(count: count)
-        } catch {
-            throw SecretUseCaseError.map(error)
-        }
-        guard allowed else { throw EntitlementError.limitReached }
     }
 
     /// 중도 실패 시 만든 것을 지우고 덮어쓴 것을 되돌린다.
