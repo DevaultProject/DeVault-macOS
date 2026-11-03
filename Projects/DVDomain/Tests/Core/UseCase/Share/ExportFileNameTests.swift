@@ -66,12 +66,14 @@ struct ExportFileNameTests {
     @Test("앞뒤 공백과 앞의 점은 지운다 — 숨김 파일이 되지 않게")
     func trimsWhitespaceAndLeadingDots() {
         #expect(make(["  ..hidden  "]) == "hidden.dvt")
+        #expect(make([". .hidden"]) == "hidden.dvt")
     }
 
     @Test("정리하고 남는 것이 없으면 기본 이름을 쓴다")
     func fallsBackWhenNothingRemains() {
         #expect(make(["   "]) == "DeVault.dvt")
         #expect(make(["..."]) == "DeVault.dvt")
+        #expect(make([". . ."]) == "DeVault.dvt")
         #expect(make(["A", "B"], project: "  ") == "DeVault.dvt")
     }
 

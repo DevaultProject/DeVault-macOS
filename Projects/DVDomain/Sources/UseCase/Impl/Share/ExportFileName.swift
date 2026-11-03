@@ -38,12 +38,12 @@ enum ExportFileName {
 
     private static func sanitized(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        var replaced = String(trimmed.map { character -> Character in
+        let replaced = String(trimmed.map { character -> Character in
             let isControl = character.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
             return forbiddenCharacters.contains(character) || isControl ? "-" : character
         })
-        while replaced.hasPrefix(".") { replaced.removeFirst() }
-        return truncated(replaced.trimmingCharacters(in: .whitespaces))
+        // 점과 공백이 섞여 있어도(`. .hidden`) 숨김 파일이 되지 않도록 함께 걷어낸다.
+        return truncated(String(replaced.drop(while: { $0 == "." || $0.isWhitespace })))
     }
 
     /// 글자 중간에서 끊지 않도록 글자 단위로 바이트를 센다.
