@@ -99,6 +99,57 @@ struct DevaultContainerServiceImplTests {
         }
     }
 
+    // MARK: - validateHeader
+
+    @Test("정상 헤더는 통과하고 키 유도를 하지 않는다")
+    func validateHeaderPassesWithoutKeyDerivation() async throws {
+        let data = try await service.export(payload: payload, password: .testing("correct horse"), expiresAt: nil)
+        let guarded = DevaultContainerServiceImpl(passwordKeyDerivationService: FailingKeyDerivationService())
+
+        try guarded.validateHeader(data: data)
+    }
+
+    @Test("만료된 파일은 expired를 던진다")
+    func validateHeaderFailsWhenExpired() async throws {
+        let data = try await service.export(
+            payload: payload,
+            password: .testing("correct horse"),
+            expiresAt: Date(timeIntervalSince1970: 1_000_000_000)
+        )
+        let laterService = DevaultContainerServiceImpl(
+            passwordKeyDerivationService: FailingKeyDerivationService(),
+            dateProvider: { Date(timeIntervalSince1970: 2_000_000_000) }
+        )
+
+        #expect(throws: DevaultImportError.expired) {
+            try laterService.validateHeader(data: data)
+        }
+    }
+
+    @Test("지원하지 않는 버전이면 versionMismatch를 던진다")
+    func validateHeaderFailsWhenVersionUnsupported() async throws {
+        var data = try await service.export(payload: payload, password: .testing("correct horse"), expiresAt: nil)
+        data[data.startIndex + 8] = 0x7F // version 하위 바이트
+
+        #expect(throws: DevaultImportError.versionMismatch) {
+            try service.validateHeader(data: data)
+        }
+    }
+
+    @Test("헤더보다 짧거나 magic이 다르면 corrupted를 던진다")
+    func validateHeaderFailsWhenCorrupted() async throws {
+        var data = try await service.export(payload: payload, password: .testing("correct horse"), expiresAt: nil)
+
+        #expect(throws: DevaultImportError.corrupted) {
+            try service.validateHeader(data: data.prefix(DevaultContainerHeader.byteCount - 1))
+        }
+
+        data[data.startIndex] ^= 0xFF
+        #expect(throws: DevaultImportError.corrupted) {
+            try service.validateHeader(data: data)
+        }
+    }
+
     @Test("주입한 현재 시각이 만료 시각보다 과거면 expired를 던지지 않는다")
     func doesNotThrowExpiredBeforeInjectedTime() async throws {
         let expiresAt = Date(timeIntervalSince1970: 2_000_000_000)
@@ -113,5 +164,13 @@ struct DevaultContainerServiceImplTests {
 
         let imported = try await earlierService.import(data: data, password: .testing("correct horse"))
         #expect(imported == payload)
+    }
+}
+
+/// 호출되면 실패로 기록한다 — 헤더 판별이 비밀번호 전에 끝나는지 고정한다.
+private struct FailingKeyDerivationService: PasswordKeyDerivationService {
+    func deriveKey(password: SensitiveString, salt: Data, derivedKeyByteCount: Int) async throws -> Data {
+        Issue.record("헤더 판별에서 키 유도가 호출되었다")
+        return Data(count: derivedKeyByteCount)
     }
 }
