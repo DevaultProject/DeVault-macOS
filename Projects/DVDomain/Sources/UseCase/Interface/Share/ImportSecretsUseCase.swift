@@ -5,6 +5,13 @@ import Foundation
 /// `.dvt` 파일을 열어 시크릿을 금고로 들여오는 UseCase입니다. Password Entry → Preview → Review Duplicates 세 화면이 단계별로 소비한다.
 public protocol ImportSecretsUseCase: Sendable {
 
+    /// 비밀번호를 받기 전에 파일이 열 수 있는 상태인지 헤더만 보고 판별한다.
+    ///
+    /// 손상·버전·만료는 헤더가 평문이라 비밀번호 없이 알 수 있다. Password Entry 앞에서 거절 화면으로 보내는 용도이며, ``decrypt(data:password:)``도 같은 검사를 다시 하므로 이 호출을 건너뛴 경로도 안전하다.
+    /// - Parameter data: `.dvt` 파일 바이트
+    /// - Throws: ``DevaultImportError`` 중 `corrupted`/`versionMismatch`/`expired`
+    func validateHeader(data: Data) throws
+
     /// `.dvt` 바이트를 비밀번호로 열어 내용을 복원한다.
     ///
     /// 실패는 전부 ``DevaultImportError``로 닫힌다 — 키 유도·복호화·역직렬화 중 어디서 깨졌든 호출부는 이 네 가지만 분기하면 된다. **틀린 비밀번호와 변조된 암호문은 구분하지 않는다**(구분하면 공격자에게 오라클이 된다).
