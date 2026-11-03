@@ -130,11 +130,11 @@ private extension ExportSecretSheetFeature {
 
   var exportFailureAlert: AlertState<Action.Alert> {
     AlertState {
-      TextState(String.module("Couldn't export the secrets."))
+      TextState(String.module("Couldn't Export Secret"))
     } actions: {
       ButtonState(role: .cancel) { TextState(String.module("OK")) }
     } message: {
-      TextState(String.module("Please try again in a moment."))
+      TextState(String.module("Something went wrong while creating the file. Please try again."))
     }
   }
 }
