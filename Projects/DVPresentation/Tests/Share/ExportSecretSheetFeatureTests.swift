@@ -70,11 +70,11 @@ struct ExportSecretSheetFeatureTests {
     await store.receive(.exportFailed) {
       $0.isExporting = false
       $0.alert = AlertState {
-        TextState(String.module("Couldn't export the secrets."))
+        TextState(String.module("Couldn't Export Secret"))
       } actions: {
         ButtonState(role: .cancel) { TextState(String.module("OK")) }
       } message: {
-        TextState(String.module("Please try again in a moment."))
+        TextState(String.module("Something went wrong while creating the file. Please try again."))
       }
     }
   }
