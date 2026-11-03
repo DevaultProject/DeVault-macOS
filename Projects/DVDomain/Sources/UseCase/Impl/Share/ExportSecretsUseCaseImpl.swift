@@ -6,19 +6,23 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
     private let repository: any SecretRepository
     private let cryptoService: any SecretCryptoService
     private let containerService: any DevaultContainerService
+    private let dateProvider: @Sendable () -> Date
 
     /// - Parameters:
     ///   - repository: 내보낼 Secret 조회
     ///   - cryptoService: 저장된 payload 복호화·metadata 디코딩
     ///   - containerService: `.dvt` 봉인
+    ///   - dateProvider: 파일 이름에 넣을 현재 시각
     public init(
         repository: any SecretRepository,
         cryptoService: any SecretCryptoService,
-        containerService: any DevaultContainerService
+        containerService: any DevaultContainerService,
+        dateProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.repository = repository
         self.cryptoService = cryptoService
         self.containerService = containerService
+        self.dateProvider = dateProvider
     }
 
     public func execute(secretIDs: [UUID], password: SensitiveString, expiresAt: Date?) async throws -> URL {
@@ -34,7 +38,12 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
 
         let payload = DevaultContainerPayload(projectName: projectName, secrets: exports)
         let sealed = try await containerService.export(payload: payload, password: password, expiresAt: expiresAt)
-        return try Self.writeToTemporaryFile(sealed)
+        let fileName = ExportFileName.make(
+            secretNames: secrets.map(\.name),
+            projectName: projectName,
+            now: dateProvider()
+        )
+        return try Self.writeToTemporaryFile(sealed, fileName: fileName)
     }
 
     /// 요청한 id를 전부 찾고, 휴지통 항목이 섞이면 거부한다.
@@ -83,13 +92,16 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
         )
     }
 
-    /// 임시 디렉터리에 `.dvt`로 쓴다. **삭제는 호출부 책임이다** — 시크릿 전체가 담긴 파일이라 공유·저장이 끝나면 지워야 한다.
-    /// - Parameter data: 봉인된 컨테이너 바이트
+    /// 임시 디렉터리의 UUID 폴더 안에 쓴다. 이름이 같은 파일끼리 덮어쓰지 않으려는 것이다. 파일과 그 폴더의 삭제는 호출부 책임이다.
+    /// - Parameters:
+    ///   - data: 봉인된 컨테이너 바이트
+    ///   - fileName: 확장자를 포함한 파일 이름
     /// - Returns: 쓰인 파일 URL
-    public static func writeToTemporaryFile(_ data: Data) throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("dvt")
+    public static func writeToTemporaryFile(_ data: Data, fileName: String) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent(fileName)
         try data.write(to: url, options: .completeFileProtection)
         return url
     }
