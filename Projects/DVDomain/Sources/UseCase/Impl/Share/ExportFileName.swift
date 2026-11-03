@@ -24,9 +24,10 @@ enum ExportFileName {
         } else if let projectName {
             base = sanitized(projectName)
         } else {
-            base = "\(fallbackName) \(timestamp(now, calendar: calendar))"
+            base = ""
         }
-        return "\(base.isEmpty ? fallbackName : base).\(fileExtension)"
+        let name = base.isEmpty ? "\(fallbackName) \(timestamp(now, calendar: calendar))" : base
+        return "\(name).\(fileExtension)"
     }
 
     /// 사용자의 달력(불기·연호 등)과 무관하게 연도가 그레고리력으로 나오도록 고정하고, 시각은 기기의 시간대를 따른다.
