@@ -102,8 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func application(_ application: NSApplication, open urls: [URL]) {
-    for url in urls where url.pathExtension.lowercased() == "dvt" {
-      onFileOpened?(url)
-    }
+    // 한 번에 하나만 받는다 — dropDestination과 동일 — 여러 개를 다 보내면 state.pendingImportFileURL이
+    // 마지막 것만 남기고 앞선 요청을 조용히 지운다.
+    guard let url = urls.first(where: { $0.pathExtension.lowercased() == "dvt" }) else { return }
+    onFileOpened?(url)
   }
 }
