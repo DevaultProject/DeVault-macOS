@@ -48,11 +48,11 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
     }
 
     public func validateHeader(data: Data) throws {
-        _ = try openableFile(data)
+        _ = try headerValidatedFile(data)
     }
 
     public func `import`(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
-        let file = try openableFile(data)
+        let file = try headerValidatedFile(data)
 
         var key: Data
         do {
@@ -89,7 +89,7 @@ public struct DevaultContainerServiceImpl: DevaultContainerService {
         }
     }
 
-    private func openableFile(_ data: Data) throws -> DevaultContainerFile {
+    private func headerValidatedFile(_ data: Data) throws -> DevaultContainerFile {
         let file = try DevaultContainerFileCodec.decode(data)
 
         // 비밀번호를 아는 사람은 재봉인해서 이 체크를 우회할 수 있다.
