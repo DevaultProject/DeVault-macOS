@@ -20,6 +20,8 @@ public struct ImportPreviewFeature {
     public internal(set) var projectChoice: ImportProjectChoice
     public internal(set) var remainingSlots: Int?
     public internal(set) var duplicateIndices: Set<Int> = []
+    /// "Create new project" 라디오 게이트 — Project 변형에서만 묻는다. 응답 전까지는 막지 않는다(깜빡임 방지).
+    public internal(set) var canCreateNewProject = true
 
     public init(payload: DevaultContainerPayload) {
       self.payload = payload
@@ -39,8 +41,10 @@ public struct ImportPreviewFeature {
     }
 
     public var variant: Variant {
-      if payload.secrets.count == 1 { return .single }
+      // projectName이 있으면 "프로젝트 공유" 진입점에서 온 것 — 그 프로젝트가 시크릿을 하나만
+      // 갖고 있어도 Single이 아니라 Project다(사용자가 명시적으로 프로젝트 단위를 골랐다).
       if let name = payload.projectName { return .project(name: name) }
+      if payload.secrets.count == 1 { return .single }
       return .multiple
     }
 
@@ -69,6 +73,7 @@ public struct ImportPreviewFeature {
     case projectsResponse(Result<[Project], ProjectFetchError>)
     case slotsResponse(Int?)
     case judgementResponse(ImportDuplicateJudgement)
+    case canCreateProjectResponse(Bool)
 
     // MARK: - Delegate
 
@@ -122,6 +127,7 @@ public struct ImportPreviewFeature {
             let slots = try? await entitlementClient.remainingSecretSlots()
             await send(.slotsResponse(slots ?? nil))
           },
+          canCreateProjectEffect(state: state),
           judgeEffect(state: state)
         )
 
@@ -163,6 +169,19 @@ public struct ImportPreviewFeature {
 
       case let .judgementResponse(judgement):
         state.duplicateIndices = Set(judgement.conflicts.map { selectedOriginalIndex(at: $0.index, in: state) })
+        return .none
+
+      case let .canCreateProjectResponse(allowed):
+        state.canCreateNewProject = allowed
+        // 막혀 있는데 Create new가 기본 선택돼 있으면 Merge(있으면)나 Without project로 내려 사용자가
+        // 비활성 라디오에 묶이지 않게 한다.
+        if !allowed, case .create = state.projectChoice {
+          if let existing = state.availableProjects.first(where: { $0.name == projectName(state) }) {
+            state.projectChoice = .existing(id: existing.id)
+          } else {
+            state.projectChoice = .none
+          }
+        }
         return .none
 
       case .didTapImport:
@@ -208,6 +227,20 @@ extension ImportPreviewFeature {
   /// 행 하이라이트는 원본 리스트를 그리므로 원본 인덱스가 필요하다.
   private func selectedOriginalIndex(at filteredIndex: Int, in state: State) -> Int {
     state.selectedIndices.sorted()[filteredIndex]
+  }
+
+  private func projectName(_ state: State) -> String? {
+    if case .project(let name) = state.variant { return name }
+    return nil
+  }
+
+  /// Project 변형에서만 묻는다 — Single/Multiple은 "Create new project" 선택지 자체가 없다.
+  private func canCreateProjectEffect(state: State) -> Effect<Action> {
+    guard case .project = state.variant else { return .none }
+    return .run { send in
+      let allowed = (try? await entitlementClient.canCreateProject()) ?? true
+      await send(.canCreateProjectResponse(allowed))
+    }
   }
 
   private func judgeEffect(state: State) -> Effect<Action> {
