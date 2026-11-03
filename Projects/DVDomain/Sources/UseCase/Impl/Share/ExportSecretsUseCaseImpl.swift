@@ -102,7 +102,12 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(fileName)
-        try data.write(to: url, options: .completeFileProtection)
+        do {
+            try data.write(to: url, options: .completeFileProtection)
+        } catch {
+            try? FileManager.default.removeItem(at: directory)
+            throw error
+        }
         return url
     }
 }
