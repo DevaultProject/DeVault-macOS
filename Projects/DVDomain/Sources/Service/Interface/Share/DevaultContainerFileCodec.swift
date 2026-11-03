@@ -19,7 +19,7 @@ public enum DevaultContainerFileCodec {
     /// `.dvt` 파일 바이트에서 헤더를 해석하고 암호문을 분리한다 — 만료 판단은 호출부 책임이다.
     /// - Parameter data: `.dvt` 파일 전체 바이트
     /// - Returns: 해석된 헤더와 분리된 암호문
-    /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`
+    /// - Throws: ``decodeHeader(_:)``와 같다
     public static func decode(_ data: Data) throws -> DevaultContainerFile {
         let header = try decodeHeader(data)
         let ciphertext = Data(data.dropFirst(DevaultContainerHeader.byteCount))
@@ -29,7 +29,7 @@ public enum DevaultContainerFileCodec {
 
     /// 헤더만 해석한다 — 암호문을 복사하지 않으므로 헤더 판별처럼 암호문이 필요 없는 곳에서 쓴다.
     /// - Parameter data: `.dvt` 파일 전체 바이트
-    /// - Throws: ``decode(_:)``와 같다
+    /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`
     public static func decodeHeader(_ data: Data) throws -> DevaultContainerHeader {
         guard data.count >= DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
