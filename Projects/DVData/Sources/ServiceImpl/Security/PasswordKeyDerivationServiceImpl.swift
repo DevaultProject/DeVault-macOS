@@ -11,9 +11,9 @@ public struct PasswordKeyDerivationServiceImpl: PasswordKeyDerivationService {
     private let timeCost: UInt32
     private let parallelism: UInt32
 
-    /// m=64MiB·t=3·p=4는 잠정값 — 지원 최저 사양 기기 실측(m=192~256MiB) 후 교체 예정.
+    /// 파라미터는 헤더에 담기지 않아 바꾸려면 포맷 버전을 올려야 한다.
     public init(
-        memoryCostKiB: UInt32 = 64 * 1024,
+        memoryCostKiB: UInt32 = 256 * 1024,
         timeCost: UInt32 = 3,
         parallelism: UInt32 = 4
     ) {

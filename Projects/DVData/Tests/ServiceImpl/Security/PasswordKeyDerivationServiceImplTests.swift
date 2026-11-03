@@ -73,7 +73,7 @@ struct PasswordKeyDerivationServiceImplTests {
     @Test("deriveKey가 고정 벡터를 재현한다 — 알고리즘·파라미터·인코딩이 바뀌면 깨진다")
     func matchesPinnedVector() async throws {
         let key = try await productionService.deriveKey(password: .testing("correct horse"), salt: salt, derivedKeyByteCount: 32)
-        #expect(key.hexEncoded == "5beffef9639dd7e5b490ffb982dc22fa8cb3fe9a99f556ec72f20bc9566c88c5")
+        #expect(key.hexEncoded == "a93f841079af3fe72629d04f140b09befc70630a91f34cb7d5bf70645eeebbe4")
     }
 
     @Test("NFC·NFD로 다르게 인코딩된 같은 비밀번호도 같은 키를 유도한다")
