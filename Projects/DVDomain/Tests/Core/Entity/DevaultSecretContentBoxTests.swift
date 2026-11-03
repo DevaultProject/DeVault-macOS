@@ -48,6 +48,30 @@ struct DevaultSecretContentBoxTests {
         }
     }
 
+    // make의 `default: throw`는 타입 쌍이 어긋나도 컴파일러가 못 잡으므로 11종을 순회해 고정한다.
+    @Test("11종이 materialize → make 왕복 후 같은 content와 스키마 버전으로 돌아온다")
+    func roundTripsThroughSecret() async throws {
+        let crypto = FakeSecretCryptoService()
+
+        for box in allCases {
+            let stored = try await box.materialize(cryptoService: crypto)
+            #expect(stored.secretType == box.secretType)
+            #expect(stored.subType == box.subType)
+
+            let secret = SecretFixture.make(
+                secretType: stored.secretType,
+                subType: stored.subType,
+                payload: stored.payload,
+                metadata: stored.metadata
+            )
+            let restored = try await DevaultSecretContentBox.make(from: secret, cryptoService: crypto)
+
+            #expect(restored.content == box)
+            #expect(restored.payloadSchemaVersion == stored.payload.schemaVersion)
+            #expect(restored.metadataSchemaVersion == stored.metadata?.schemaVersion)
+        }
+    }
+
     @Test("고정된 JSON 포맷이 깨지지 않는다 — case 이름이 바뀌면 이미 내보낸 .dvt 파일이 깨진다")
     func pinnedJSONFormatDoesNotBreak() throws {
         let fixtures: [(json: String, expected: DevaultSecretContentBox)] = [
