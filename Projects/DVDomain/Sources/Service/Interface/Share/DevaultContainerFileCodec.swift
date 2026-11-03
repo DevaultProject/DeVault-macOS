@@ -21,14 +21,21 @@ public enum DevaultContainerFileCodec {
     /// - Returns: 해석된 헤더와 분리된 암호문
     /// - Throws: 길이가 부족하거나 magic이 안 맞으면 `.corrupted`, 지원하는 버전이 아니면 `.versionMismatch`
     public static func decode(_ data: Data) throws -> DevaultContainerFile {
+        let header = try decodeHeader(data)
+        let ciphertext = Data(data.dropFirst(DevaultContainerHeader.byteCount))
+
+        return (header: header, ciphertext: ciphertext)
+    }
+
+    /// 헤더만 해석한다 — 암호문을 복사하지 않으므로 헤더 판별처럼 암호문이 필요 없는 곳에서 쓴다.
+    /// - Parameter data: `.dvt` 파일 전체 바이트
+    /// - Throws: ``decode(_:)``와 같다
+    public static func decodeHeader(_ data: Data) throws -> DevaultContainerHeader {
         guard data.count >= DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
         }
 
-        let header = try decodeHeader(Array(data.prefix(DevaultContainerHeader.byteCount)))
-        let ciphertext = Data(data.dropFirst(DevaultContainerHeader.byteCount))
-
-        return (header: header, ciphertext: ciphertext)
+        return try parseHeader(Array(data.prefix(DevaultContainerHeader.byteCount)))
     }
 
     public static func encodeHeader(_ header: DevaultContainerHeader) -> Data {
@@ -54,7 +61,7 @@ public enum DevaultContainerFileCodec {
         return bytes
     }
 
-    private static func decodeHeader(_ bytes: [UInt8]) throws -> DevaultContainerHeader {
+    private static func parseHeader(_ bytes: [UInt8]) throws -> DevaultContainerHeader {
         guard bytes.count == DevaultContainerHeader.byteCount else {
             throw DevaultImportError.corrupted
         }

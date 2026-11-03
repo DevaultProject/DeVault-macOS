@@ -34,6 +34,37 @@ struct DevaultContainerFileCodecTests {
         #expect(decoded.header == header)
     }
 
+    @Test("decodeHeader는 암호문 없이 헤더만 해석하고 decode와 같은 헤더를 돌려준다")
+    func decodeHeaderMatchesDecode() throws {
+        let header = DevaultContainerHeader(version: 1, expiresAt: Date(timeIntervalSince1970: 2_000_000_000), salt: salt, nonce: nonce)
+        let encoded = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
+
+        #expect(try DevaultContainerFileCodec.decodeHeader(encoded) == header)
+        #expect(try DevaultContainerFileCodec.decodeHeader(encoded.prefix(DevaultContainerHeader.byteCount)) == header)
+    }
+
+    @Test("decodeHeader도 짧거나 magic·version이 틀리면 decode와 같은 오류를 던진다")
+    func decodeHeaderRejectsInvalidData() {
+        let header = DevaultContainerHeader(version: 1, expiresAt: nil, salt: salt, nonce: nonce)
+        let valid = DevaultContainerFileCodec.encode(header: header, ciphertext: ciphertext)
+        var wrongMagic = valid
+        wrongMagic[wrongMagic.startIndex] = 0x00
+        let wrongVersion = DevaultContainerFileCodec.encode(
+            header: DevaultContainerHeader(version: 999, expiresAt: nil, salt: salt, nonce: nonce),
+            ciphertext: ciphertext
+        )
+
+        #expect(throws: DevaultImportError.corrupted) {
+            try DevaultContainerFileCodec.decodeHeader(valid.prefix(DevaultContainerHeader.byteCount - 1))
+        }
+        #expect(throws: DevaultImportError.corrupted) {
+            try DevaultContainerFileCodec.decodeHeader(wrongMagic)
+        }
+        #expect(throws: DevaultImportError.versionMismatch) {
+            try DevaultContainerFileCodec.decodeHeader(wrongVersion)
+        }
+    }
+
     @Test("길이가 45바이트 미만이면 corrupted를 던진다")
     func rejectsTooShortData() {
         let tooShort = Data(repeating: 0, count: DevaultContainerHeader.byteCount - 1)
