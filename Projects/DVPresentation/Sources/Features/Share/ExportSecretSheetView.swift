@@ -35,13 +35,15 @@ extension ExportSecretSheetView {
         Text(.module("Password"))
           .dvFont(.bodyMD)
           .foregroundStyle(Color.dv(.gray700))
-        DVTextField(.module("10–64 characters"), text: passwordBinding, size: .md, isSecure: true)
-          .onSubmit { store.send(.didTapExport) }
-        if let passwordError = store.passwordError {
-          Text(passwordError)
-            .dvFont(.captionMDRegular)
-            .foregroundStyle(Color.dv(.danger))
-        }
+        DVTextField(
+          .module("10–64 characters"),
+          text: passwordBinding,
+          size: .md,
+          isSecure: true,
+          errorMessage: store.passwordError
+        )
+        .disabled(store.isExporting)
+        .onSubmit { store.send(.didTapExport) }
       }
 
       VStack(alignment: .leading, spacing: 8) {

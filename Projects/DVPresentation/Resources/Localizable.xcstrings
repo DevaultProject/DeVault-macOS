@@ -1676,19 +1676,18 @@
         }
       }
     },
-    "Couldn't export the secrets." : {
-      "comment" : "Alert title shown when exporting a .dvt file fails.",
+    "Couldn't Export Secret" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn't export the secrets."
+            "value" : "Couldn't Export Secret"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "시크릿을 내보내지 못했습니다."
+            "value" : "시크릿을 내보내지 못했습니다"
           }
         }
       }
@@ -4811,6 +4810,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다음 갱신에 예약됨"
+          }
+        }
+      }
+    },
+    "Something went wrong while creating the file. Please try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong while creating the file. Please try again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일을 만드는 중 문제가 생겼습니다. 다시 시도해 주세요."
           }
         }
       }
