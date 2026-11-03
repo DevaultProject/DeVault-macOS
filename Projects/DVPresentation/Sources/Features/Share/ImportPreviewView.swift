@@ -173,12 +173,14 @@ extension ImportPreviewView {
         .foregroundStyle(Color.dv(.gray600))
 
       if case .project(let name) = store.variant {
-        DVRadioButton(isSelected: isCreateNewSelected, action: {
-          store.send(.didSelectProjectChoice(.create(name: name)))
-        }) {
+        DVRadioButton(
+          isSelected: isCreateNewSelected,
+          isInteractive: store.canCreateNewProject,
+          action: { store.send(.didSelectProjectChoice(.create(name: name))) }
+        ) {
           Text(.module("Create new project \"\(name)\""))
             .dvFont(.bodyMD)
-            .foregroundStyle(Color.dv(.gray900))
+            .foregroundStyle(store.canCreateNewProject ? Color.dv(.gray900) : Color.dv(.gray400))
         }
       }
 

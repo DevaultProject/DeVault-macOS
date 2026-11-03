@@ -46,13 +46,14 @@ struct ImportPreviewFeatureTests {
   @Test("같은 이름의 프로젝트가 이미 있으면 Merge를 기본 선택한다")
   func defaultsToMergeWhenProjectExists() async {
     let existingID = UUID()
-    let payload = DevaultContainerPayload(projectName: "DrinkiG", secrets: [makeExport("A")])
+    let payload = DevaultContainerPayload(projectName: "DrinkiG", secrets: [makeExport("A"), makeExport("B")])
     let store = TestStore(initialState: ImportPreviewFeature.State(payload: payload)) {
       ImportPreviewFeature()
     } withDependencies: {
       $0.projectClient.fetchProjects = { [Project(id: existingID, name: "DrinkiG", createdAt: Date(), updatedAt: Date())] }
       $0.entitlementClient.remainingSecretSlots = { nil }
-      $0.shareClient.judgeDuplicates = { _, _ in ImportDuplicateJudgement(totalCount: 1, conflicts: []) }
+      $0.entitlementClient.canCreateProject = { true }
+      $0.shareClient.judgeDuplicates = { filtered, _ in ImportDuplicateJudgement(totalCount: filtered.secrets.count, conflicts: []) }
     }
 
     await store.send(.task)
@@ -61,6 +62,31 @@ struct ImportPreviewFeatureTests {
       $0.projectChoice = .existing(id: existingID)
     }
     await store.receive(\.slotsResponse)
+    await store.receive(\.canCreateProjectResponse)
+    await store.receive(\.judgementResponse)
+  }
+
+  @Test("프로젝트를 새로 못 만들면 Create new 기본 선택을 Without project로 내린다")
+  func fallsBackWhenCreateProjectBlocked() async {
+    let payload = DevaultContainerPayload(projectName: "NewProject", secrets: [makeExport("A")])
+    let store = TestStore(initialState: ImportPreviewFeature.State(payload: payload)) {
+      ImportPreviewFeature()
+    } withDependencies: {
+      $0.projectClient.fetchProjects = { [] }
+      $0.entitlementClient.remainingSecretSlots = { nil }
+      $0.entitlementClient.canCreateProject = { false }
+      $0.shareClient.judgeDuplicates = { filtered, _ in ImportDuplicateJudgement(totalCount: filtered.secrets.count, conflicts: []) }
+    }
+
+    #expect(store.state.projectChoice == .create(name: "NewProject"))
+
+    await store.send(.task)
+    await store.receive(\.projectsResponse.success) { $0.availableProjects = [] }
+    await store.receive(\.slotsResponse)
+    await store.receive(\.canCreateProjectResponse) {
+      $0.canCreateNewProject = false
+      $0.projectChoice = .none
+    }
     await store.receive(\.judgementResponse)
   }
 
