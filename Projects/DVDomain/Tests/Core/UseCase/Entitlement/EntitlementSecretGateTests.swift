@@ -49,4 +49,45 @@ struct EntitlementSecretGateTests {
             try await stub.ensureCanImportSecrets(count: 1)
         }
     }
+
+    // MARK: - createSecretWithinLimit
+
+    @Test("무료는 보유 수가 한도에 차면 저장하지 않고 limitReached를 던진다")
+    func createWithinLimitStopsAtFreeLimit() async throws {
+        let repository = filledRepository(count: EntitlementLimits.maxSecrets)
+
+        await #expect(throws: EntitlementError.limitReached) {
+            try await StubEntitlementUseCase(entitlement: .free)
+                .createSecretWithinLimit(SecretFixture.make(id: UUID(), name: "new"), projectIDs: [], in: repository)
+        }
+        #expect(repository.secrets.count == EntitlementLimits.maxSecrets)
+    }
+
+    @Test("무료도 한도 미만이면 저장한다")
+    func createWithinLimitSavesBelowFreeLimit() async throws {
+        let repository = filledRepository(count: EntitlementLimits.maxSecrets - 1)
+
+        let saved = try await StubEntitlementUseCase(entitlement: .free)
+            .createSecretWithinLimit(SecretFixture.make(id: UUID(), name: "new"), projectIDs: [], in: repository)
+
+        #expect(repository.secrets[saved.id] != nil)
+    }
+
+    @Test("Pro는 보유 수와 상관없이 저장한다")
+    func createWithinLimitIgnoresCountForPro() async throws {
+        let repository = filledRepository(count: EntitlementLimits.maxSecrets)
+
+        _ = try await StubEntitlementUseCase(entitlement: .pro)
+            .createSecretWithinLimit(SecretFixture.make(id: UUID(), name: "new"), projectIDs: [], in: repository)
+
+        #expect(repository.secrets.count == EntitlementLimits.maxSecrets + 1)
+    }
+
+    private func filledRepository(count: Int) -> InMemorySecretRepository {
+        let repository = InMemorySecretRepository()
+        for index in 0..<count {
+            repository.seed(SecretFixture.make(id: UUID(), name: "s\(index)"))
+        }
+        return repository
+    }
 }
