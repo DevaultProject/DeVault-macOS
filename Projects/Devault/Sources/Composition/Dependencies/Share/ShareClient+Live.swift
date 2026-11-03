@@ -16,6 +16,7 @@ extension ShareClient: @retroactive DependencyKey {
                 expiresAt: expiresAt
             )
         },
+        validateHeader: { try LiveUseCases.importSecrets.validateHeader(data: $0) },
         decryptContainer: { data, password in
             try await LiveUseCases.importSecrets.decrypt(data: data, password: SensitiveString(password))
         },

@@ -43,6 +43,16 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
 
     // MARK: - Decrypt
 
+    public func validateHeader(data: Data) throws {
+        do {
+            try containerService.validateHeader(data: data)
+        } catch let error as DevaultImportError {
+            throw error
+        } catch {
+            throw DevaultImportError.corrupted
+        }
+    }
+
     public func decrypt(data: Data, password: SensitiveString) async throws -> DevaultContainerPayload {
         do {
             return try await containerService.import(data: data, password: password)

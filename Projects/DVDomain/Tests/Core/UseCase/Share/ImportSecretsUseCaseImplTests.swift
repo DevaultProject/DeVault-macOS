@@ -47,6 +47,28 @@ struct ImportSecretsUseCaseImplTests {
         return secret
     }
 
+    // MARK: - validateHeader
+
+    @Test("헤더 판별 오류는 그대로, 그 밖의 실패는 corrupted로 닫는다")
+    func validateHeaderClosesErrorSurface() {
+        container.errorOnValidateHeader = DevaultImportError.expired
+        #expect(throws: DevaultImportError.expired) {
+            try makeSUT().validateHeader(data: Data())
+        }
+
+        container.errorOnValidateHeader = SecretRepositoryError.persistenceFailed
+        #expect(throws: DevaultImportError.corrupted) {
+            try makeSUT().validateHeader(data: Data())
+        }
+    }
+
+    @Test("정상 헤더는 통과하고 컨테이너에 한 번 위임한다")
+    func validateHeaderDelegatesToContainer() throws {
+        try makeSUT().validateHeader(data: Data())
+
+        #expect(container.validateHeaderCount == 1)
+    }
+
     // MARK: - decrypt
 
     @Test("컨테이너 오류는 그대로, 그 밖의 실패는 corrupted로 닫는다")
