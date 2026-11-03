@@ -12,11 +12,14 @@ struct ExportSecretsUseCaseImplTests {
     private let crypto = FakeSecretCryptoService()
     private let container = FakeDevaultContainerService()
 
+    private let fixedNow = Date(timeIntervalSince1970: 1_793_000_000)
+
     private func makeSUT() -> ExportSecretsUseCaseImpl {
         ExportSecretsUseCaseImpl(
             repository: repository,
             cryptoService: crypto,
-            containerService: container
+            containerService: container,
+            dateProvider: { [fixedNow] in fixedNow }
         )
     }
 
@@ -63,6 +66,73 @@ struct ExportSecretsUseCaseImplTests {
         #expect(url.pathExtension == "dvt")
         #expect(container.lastPayload?.secrets.count == 1)
         #expect(container.lastPayload?.secrets.first?.name == "GitHub Token")
+    }
+
+    @Test("시크릿이 하나면 그 이름의 파일을 UUID 폴더 안에 쓴다")
+    func namesFileAfterSingleSecret() async throws {
+        let secret = try seed(name: "GitHub Token")
+
+        let url = try await makeSUT().execute(
+            secretIDs: [secret.id],
+            password: SensitiveString("pw"),
+            expiresAt: nil
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        #expect(url.lastPathComponent == "GitHub Token.dvt")
+        #expect(UUID(uuidString: url.deletingLastPathComponent().lastPathComponent) != nil)
+    }
+
+    @Test("모두 같은 프로젝트면 프로젝트 이름의 파일을 쓴다")
+    func namesFileAfterSharedProject() async throws {
+        let project = ProjectFixture.make(name: "DrinkiG")
+        repository.seedProject(project)
+        let first = try seed(name: "A")
+        let second = try seed(name: "B")
+        repository.projectLinks[first.id] = [project.id]
+        repository.projectLinks[second.id] = [project.id]
+
+        let url = try await makeSUT().execute(
+            secretIDs: [first.id, second.id],
+            password: SensitiveString("pw"),
+            expiresAt: nil
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        #expect(url.lastPathComponent == "DrinkiG.dvt")
+    }
+
+    @Test("프로젝트가 섞인 여러 시크릿은 날짜와 시각을 붙인 기본 이름을 쓴다")
+    func namesFileWithTimestampForMixedSecrets() async throws {
+        let first = try seed(name: "A")
+        let second = try seed(name: "B")
+
+        let url = try await makeSUT().execute(
+            secretIDs: [first.id, second.id],
+            password: SensitiveString("pw"),
+            expiresAt: nil
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let expected = ExportFileName.make(secretNames: ["A", "B"], projectName: nil, now: fixedNow)
+        #expect(url.lastPathComponent == expected)
+    }
+
+    @Test("같은 시크릿을 두 번 내보내도 서로 다른 폴더라 덮어쓰지 않는다")
+    func doesNotOverwriteSameNamedFile() async throws {
+        let secret = try seed(name: "GitHub Token")
+        let sut = makeSUT()
+
+        let first = try await sut.execute(secretIDs: [secret.id], password: SensitiveString("pw"), expiresAt: nil)
+        let second = try await sut.execute(secretIDs: [secret.id], password: SensitiveString("pw"), expiresAt: nil)
+        defer {
+            try? FileManager.default.removeItem(at: first.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: second.deletingLastPathComponent())
+        }
+
+        #expect(first != second)
+        #expect(FileManager.default.fileExists(atPath: first.path))
+        #expect(FileManager.default.fileExists(atPath: second.path))
     }
 
     @Test("휴지통 항목이 섞이면 전체를 거부하고 봉인하지 않는다")
