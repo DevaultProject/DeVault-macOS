@@ -21,6 +21,9 @@ public struct ShareClient: Sendable {
     _ expiresAt: Date?
   ) async throws -> URL
 
+  /// 비밀번호 입력 전에 헤더만 보고 손상·버전·만료를 판별한다. 실패는 ``DevaultImportError`` 중 `corrupted`/`versionMismatch`/`expired`다.
+  public var validateHeader: @Sendable (_ data: Data) throws -> Void
+
   /// `.dvt` 바이트를 열어 내용을 복원한다. 실패는 ``DevaultImportError`` 4종으로 닫혀 온다.
   public var decryptContainer: @Sendable (
     _ data: Data,
@@ -48,6 +51,7 @@ extension ShareClient: TestDependencyKey {
     exportSecrets: { _, _, _ in
       URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("preview.dvt")
     },
+    validateHeader: { _ in },
     decryptContainer: { _, _ in DevaultContainerPayload(secrets: []) },
     judgeDuplicates: { payload, _ in
       ImportDuplicateJudgement(totalCount: payload.secrets.count, conflicts: [])
