@@ -53,6 +53,11 @@ struct MainView: View {
           store.send(.didDismissExportedFile)
         }
       }
+      .sheet(
+        item: $store.scope(state: \.importFlow, action: \.importFlow)
+      ) { importFlowStore in
+        ImportFlowView(store: importFlowStore)
+      }
   }
 }
 

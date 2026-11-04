@@ -22,6 +22,9 @@ public struct MainFeature {
     @Presents var exportSecret: ExportSecretSheetFeature.State?
     /// Export가 끝난 뒤 Share/Save As 선택을 기다리는 임시 파일. sheet가 아닌 단순 optional이라 @Presents 미사용.
     var exportedFile: ExportedFile?
+    /// Preview→Review Duplicates→execute를 잇는 코디네이터. Entry(Password Entry) 화면이
+    /// 생기면 복호화된 payload로 이 값을 세우는 지점이 생긴다 — 아직은 진입점이 없다.
+    @Presents var importFlow: ImportFlowFeature.State?
     /// sheet가 아닌 2-column NavigationSplitView 전환 용도이므로 @Presents 미사용
     var createSecret: CreateSecretFeature.State?
     /// sheet가 아닌 3-column NavigationSplitView detail 컬럼 용도이므로 @Presents 미사용
@@ -95,6 +98,7 @@ public struct MainFeature {
     case secretDetail(SecretDetailFeature.Action)
     case settings(SettingsFeature.Action)
     case exportSecret(PresentationAction<ExportSecretSheetFeature.Action>)
+    case importFlow(PresentationAction<ImportFlowFeature.Action>)
     /// 프로젝트 공유 버튼 — 사이드바는 id만 알아서, 내보낼 시크릿 목록을 여기서 조회한다(휴지통 제외는 `secretClient.fetchByQuery`가 보장).
     case projectExportSecretsFetched(Result<[Secret.ID], SecretUseCaseError>)
     case didDismissExportedFile
@@ -203,6 +207,25 @@ public struct MainFeature {
            .secretList(.delegate(.paywallRequired)),
            .createSecret(.delegate(.paywallRequired)):
         state.paywall = DevaultProPaywallFeature.State()
+        return .none
+
+      case .importFlow(.presented(.delegate(.paywallRequired))):
+        state.importFlow = nil
+        state.paywall = DevaultProPaywallFeature.State()
+        return .none
+
+      case .importFlow(.presented(.delegate(.imported))):
+        state.importFlow = nil
+        return .concatenate(
+          .send(.secretList(.refresh)),
+          .send(.sidebar(.refresh))
+        )
+
+      case .importFlow(.presented(.delegate(.cancelled))):
+        state.importFlow = nil
+        return .none
+
+      case .importFlow:
         return .none
 
       case .settings(.delegate(.closeRequested)):
@@ -396,6 +419,9 @@ public struct MainFeature {
       }
       .ifLet(\.$exportSecret, action: \.exportSecret) {
         ExportSecretSheetFeature()
+      }
+      .ifLet(\.$importFlow, action: \.importFlow) {
+        ImportFlowFeature()
       }
   }
 
