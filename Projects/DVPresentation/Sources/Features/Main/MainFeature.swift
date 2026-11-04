@@ -22,8 +22,11 @@ public struct MainFeature {
     @Presents var exportSecret: ExportSecretSheetFeature.State?
     /// Export가 끝난 뒤 Share/Save As 선택을 기다리는 임시 파일. sheet가 아닌 단순 optional이라 @Presents 미사용.
     var exportedFile: ExportedFile?
-    /// Preview→Review Duplicates→execute를 잇는 코디네이터. Entry(Password Entry) 화면이
-    /// 생기면 복호화된 payload로 이 값을 세우는 지점이 생긴다 — 아직은 진입점이 없다.
+    /// 비밀번호 입력(#200). 복호화에 성공하면 `importFlow`로 넘긴다.
+    /// **이 값을 세우는 트리거(드래그&드롭·파일 열기)는 아직 없다** — AppFeature의
+    /// pendingImportFileURL을 읽어 여기로 넘기는 배선은 #191 몫으로 남겨둔다.
+    @Presents var importPassword: ImportPasswordFeature.State?
+    /// Preview→Review Duplicates→execute를 잇는 코디네이터.
     @Presents var importFlow: ImportFlowFeature.State?
     /// sheet가 아닌 2-column NavigationSplitView 전환 용도이므로 @Presents 미사용
     var createSecret: CreateSecretFeature.State?
@@ -98,6 +101,7 @@ public struct MainFeature {
     case secretDetail(SecretDetailFeature.Action)
     case settings(SettingsFeature.Action)
     case exportSecret(PresentationAction<ExportSecretSheetFeature.Action>)
+    case importPassword(PresentationAction<ImportPasswordFeature.Action>)
     case importFlow(PresentationAction<ImportFlowFeature.Action>)
     /// 프로젝트 공유 버튼 — 사이드바는 id만 알아서, 내보낼 시크릿 목록을 여기서 조회한다(휴지통 제외는 `secretClient.fetchByQuery`가 보장).
     case projectExportSecretsFetched(Result<[Secret.ID], SecretUseCaseError>)
@@ -209,6 +213,23 @@ public struct MainFeature {
         state.paywall = DevaultProPaywallFeature.State()
         return .none
 
+      case .importPassword(.presented(.delegate(.decrypted(let payload)))):
+        guard let fileName = state.importPassword?.fileName else { return .none }
+        state.importPassword = nil
+        state.importFlow = ImportFlowFeature.State(fileName: fileName, payload: payload)
+        return .none
+
+      // 거절(손상·버전불일치·만료)은 Entry가 자기 알럿으로 이미 안내하고 확인받은 뒤에만 온다 —
+      // 여기서는 시트만 닫는다.
+      case .importPassword(.presented(.delegate(.rejected))):
+        state.importPassword = nil
+        return .none
+
+      case .importPassword:
+        return .none
+
+      // 페이월이 뜨면 importFlow(Preview/Review Duplicates)를 통째로 닫는다 — 시트 위에 시트를
+      // 못 쌓는 제약 때문에 의도한 동작이다. 결제 후 다시 돌아오려면 파일 선택부터 다시 해야 한다.
       case .importFlow(.presented(.delegate(.paywallRequired))):
         state.importFlow = nil
         state.paywall = DevaultProPaywallFeature.State()
@@ -419,6 +440,9 @@ public struct MainFeature {
       }
       .ifLet(\.$exportSecret, action: \.exportSecret) {
         ExportSecretSheetFeature()
+      }
+      .ifLet(\.$importPassword, action: \.importPassword) {
+        ImportPasswordFeature()
       }
       .ifLet(\.$importFlow, action: \.importFlow) {
         ImportFlowFeature()

@@ -54,6 +54,11 @@ struct MainView: View {
         }
       }
       .sheet(
+        item: $store.scope(state: \.importPassword, action: \.importPassword)
+      ) { importPasswordStore in
+        ImportPasswordView(store: importPasswordStore)
+      }
+      .sheet(
         item: $store.scope(state: \.importFlow, action: \.importFlow)
       ) { importFlowStore in
         ImportFlowView(store: importFlowStore)
