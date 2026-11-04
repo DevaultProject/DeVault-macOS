@@ -22,10 +22,12 @@ public struct ImportFlowView: View {
 
   public var body: some View {
     Group {
-      if let previewStore = store.scope(state: \.preview, action: \.preview) {
-        ImportPreviewView(store: previewStore)
-      } else if let reviewStore = store.scope(state: \.reviewDuplicates, action: \.reviewDuplicates) {
+      // preview는 reviewDuplicates로 넘어가도 살아있다(뒤로 가기 복원용) — reviewDuplicates가
+      // 있으면 그게 앞선다.
+      if let reviewStore = store.scope(state: \.reviewDuplicates, action: \.reviewDuplicates) {
         ReviewDuplicatesView(store: reviewStore)
+      } else if let previewStore = store.scope(state: \.preview, action: \.preview) {
+        ImportPreviewView(store: previewStore)
       }
     }
     .windowBusy(store.isExecuting)
