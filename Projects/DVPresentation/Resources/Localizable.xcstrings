@@ -95,9 +95,21 @@
       "comment" : "Import Preview — the number of secrets the free tier can still import. Shown in red.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld secrets available"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld secret available"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld secrets available"
+                }
+              }
+            }
           }
         },
         "ko" : {
@@ -1708,6 +1720,23 @@
         }
       }
     },
+    "Couldn't Check Secrets" : {
+      "comment" : "Alert title shown when Import Preview fails to re-check selected secrets (duplicate judgement/gate).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Check Secrets"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시크릿 확인에 실패했습니다"
+          }
+        }
+      }
+    },
     "Couldn't complete the action." : {
       "comment" : "Alert title when a secret list mutation (delete/recover) fails.",
       "localizations" : {
@@ -1807,6 +1836,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "시크릿 내보내기에 실패했습니다"
+          }
+        }
+      }
+    },
+    "Couldn't Import Secrets" : {
+      "comment" : "Alert title shown when importing secrets fails during execute.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Import Secrets"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시크릿 가져오기에 실패했습니다"
           }
         }
       }
