@@ -37,6 +37,7 @@ public struct ImportPreviewView: View {
     }
     .frame(width: 480)
     .task { store.send(.task) }
+    .alert($store.scope(state: \.alert, action: \.alert))
   }
 }
 
@@ -49,20 +50,12 @@ extension ImportPreviewView {
       Text(.module("Import \(store.payload.secrets.count) secrets"))
         .dvFont(.headingLG)
         .foregroundStyle(Color.dv(.gray900))
-      if let name = sourceFileName {
-        Text(name)
-          .dvFont(.bodyMD)
-          .foregroundStyle(Color.dv(.gray600))
-      }
+      Text(store.fileName)
+        .dvFont(.bodyMD)
+        .foregroundStyle(Color.dv(.gray600))
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(20)
-  }
-
-  /// 목업의 파일명 서브타이틀 — payload 자체엔 파일명이 없어 project 공유 변형에서만 보여준다.
-  private var sourceFileName: String? {
-    guard case .project(let name) = store.variant else { return nil }
-    return "\(name).devault"
   }
 }
 
@@ -184,16 +177,20 @@ extension ImportPreviewView {
         }
       }
 
-      DVRadioButton(isSelected: isMergeSelected, action: {
-        if case .existing(let id) = store.projectChoice { store.send(.didSelectProjectChoice(.existing(id: id))) }
-        else if let first = store.availableProjects.first {
-          store.send(.didSelectProjectChoice(.existing(id: first.id)))
+      DVRadioButton(
+        isSelected: isMergeSelected,
+        isInteractive: !store.availableProjects.isEmpty,
+        action: {
+          if case .existing(let id) = store.projectChoice { store.send(.didSelectProjectChoice(.existing(id: id))) }
+          else if let first = store.availableProjects.first {
+            store.send(.didSelectProjectChoice(.existing(id: first.id)))
+          }
         }
-      }) {
+      ) {
         HStack(spacing: 8) {
           Text(.module("Merge into existing project"))
             .dvFont(.bodyMD)
-            .foregroundStyle(Color.dv(.gray900))
+            .foregroundStyle(store.availableProjects.isEmpty ? Color.dv(.gray400) : Color.dv(.gray900))
           mergeProjectDropdown
         }
       }
@@ -245,7 +242,7 @@ extension ImportPreviewView {
       DVButton(titleText: importButtonTitle, style: .secondaryProminent) {
         store.send(.didTapImport)
       }
-      .disabled(store.selectedIndices.isEmpty)
+      .disabled(store.selectedIndices.isEmpty || store.isCheckingImport)
     }
     .padding(20)
   }
@@ -273,18 +270,18 @@ extension ImportPreviewView {
 #if DEBUG
 
 #Preview("Single") {
-  ImportPreviewView(store: previewStore(count: 1, projectName: nil))
+  ImportPreviewView(store: previewStore(fileName: "GitHub-Token.dvt", count: 1, projectName: nil))
 }
 
 #Preview("Project") {
-  ImportPreviewView(store: previewStore(count: 4, projectName: "DrinkiG"))
+  ImportPreviewView(store: previewStore(fileName: "DrinkiG.dvt", count: 4, projectName: "DrinkiG"))
 }
 
 #Preview("Multiple") {
-  ImportPreviewView(store: previewStore(count: 5, projectName: nil))
+  ImportPreviewView(store: previewStore(fileName: "AWS-Keys.dvt", count: 5, projectName: nil))
 }
 
-private func previewStore(count: Int, projectName: String?) -> StoreOf<ImportPreviewFeature> {
+private func previewStore(fileName: String, count: Int, projectName: String?) -> StoreOf<ImportPreviewFeature> {
   let secrets = (0..<count).map { index in
     DevaultSecretExport(
       name: "Secret \(index + 1)",
@@ -294,6 +291,7 @@ private func previewStore(count: Int, projectName: String?) -> StoreOf<ImportPre
   }
   return Store(
     initialState: ImportPreviewFeature.State(
+      fileName: fileName,
       payload: DevaultContainerPayload(projectName: projectName, secrets: secrets)
     )
   ) {
