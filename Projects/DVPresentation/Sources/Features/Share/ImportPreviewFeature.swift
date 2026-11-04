@@ -14,6 +14,7 @@ public struct ImportPreviewFeature {
 
   @ObservableState
   public struct State: Equatable {
+    public let fileName: String
     public let payload: DevaultContainerPayload
     public internal(set) var selectedIndices: Set<Int>
     public internal(set) var availableProjects: [Project] = []
@@ -22,8 +23,12 @@ public struct ImportPreviewFeature {
     public internal(set) var duplicateIndices: Set<Int> = []
     /// "Create new project" 라디오 게이트 — Project 변형에서만 묻는다. 응답 전까지는 막지 않는다(깜빡임 방지).
     public internal(set) var canCreateNewProject = true
+    /// didTapImport 연타 방지 — 판정·게이트 왕복이 끝날 때까지 다시 누를 수 없다.
+    public internal(set) var isCheckingImport = false
+    @Presents public var alert: AlertState<Action.Alert>?
 
-    public init(payload: DevaultContainerPayload) {
+    public init(fileName: String, payload: DevaultContainerPayload) {
+      self.fileName = fileName
       self.payload = payload
       self.selectedIndices = Set(payload.secrets.indices)
       if let name = payload.projectName {
@@ -40,11 +45,11 @@ public struct ImportPreviewFeature {
       case multiple
     }
 
+    /// 합의된 우선순위: 시크릿이 하나면 그 출처가 프로젝트든 아니든 Single이다 — 멀티선택이 우연히
+    /// 같은 프로젝트에 걸쳐도 projectName이 채워지므로(#201), count 체크가 반드시 먼저여야 한다.
     public var variant: Variant {
-      // projectName이 있으면 "프로젝트 공유" 진입점에서 온 것 — 그 프로젝트가 시크릿을 하나만
-      // 갖고 있어도 Single이 아니라 Project다(사용자가 명시적으로 프로젝트 단위를 골랐다).
-      if let name = payload.projectName { return .project(name: name) }
       if payload.secrets.count == 1 { return .single }
+      if let name = payload.projectName { return .project(name: name) }
       return .multiple
     }
 
@@ -74,6 +79,11 @@ public struct ImportPreviewFeature {
     case slotsResponse(Int?)
     case judgementResponse(ImportDuplicateJudgement)
     case canCreateProjectResponse(Bool)
+    case importCheckResponse(Result<ImportCheckResult, ImportCheckError>)
+
+    // MARK: - Child
+
+    case alert(PresentationAction<Alert>)
 
     // MARK: - Delegate
 
@@ -85,10 +95,24 @@ public struct ImportPreviewFeature {
       case paywallRequired
       case cancelled
     }
+
+    public enum Alert: Equatable {}
   }
 
-  /// `ProjectUseCaseError` 같은 구체 에러를 Action에 직접 담으면 Equatable 합성이 막히므로 지운다.
+  /// `didTapImport`가 재판정한 뒤 어디로 보낼지 — 중복이 있으면 게이트①을 건너뛴다(중복 항목은
+  /// 실제로 슬롯을 안 쓸 수 있어 섣불리 막으면 과잉 차단이다). execute의 게이트②가 실해결 반영 뒤 다시 본다.
+  public enum ImportCheckResult: Equatable {
+    case proceed(payload: DevaultContainerPayload, project: ImportProjectChoice)
+    case duplicates(payload: DevaultContainerPayload, judgement: ImportDuplicateJudgement, project: ImportProjectChoice)
+    case blocked
+  }
+
+  /// `ProjectUseCaseError`·`ShareClient` 구체 에러를 Action에 직접 담으면 Equatable 합성이 막히므로 지운다.
   public struct ProjectFetchError: Error, Equatable {
+    public init() {}
+  }
+
+  public struct ImportCheckError: Error, Equatable {
     public init() {}
   }
 
@@ -124,8 +148,10 @@ public struct ImportPreviewFeature {
             }
           },
           .run { send in
-            let slots = try? await entitlementClient.remainingSecretSlots()
-            await send(.slotsResponse(slots ?? nil))
+            // 실패하면 nil 그대로 둔다 — Pro(무제한)와 같은 표시(배지 숨김)가 되지만,
+            // 저장소가 깨진 드문 경우라 추가 UI 분기를 두지 않았다.
+            guard let slots = try? await entitlementClient.remainingSecretSlots() else { return }
+            await send(.slotsResponse(slots))
           },
           canCreateProjectEffect(state: state),
           judgeEffect(state: state)
@@ -134,8 +160,11 @@ public struct ImportPreviewFeature {
       case let .projectsResponse(.success(projects)):
         state.availableProjects = projects
         // 같은 이름의 프로젝트가 이미 있으면 Merge를, 없으면 Create new를 기본 선택한다.
+        // 대소문자를 구분하면 "drinkig"와 기존 "DrinkiG"를 못 알아봐 화면은 Create new인데
+        // execute(ProjectNameRule 기준)는 합류해 화면·실행이 어긋난다(#188과 같은 버그).
         if case .create(let name) = state.projectChoice,
-           let existing = projects.first(where: { $0.name == name }) {
+           let key = ProjectNameRule.comparisonKey(name),
+           let existing = projects.first(where: { ProjectNameRule.comparisonKey($0.name) == key }) {
           state.projectChoice = .existing(id: existing.id)
         }
         return .none
@@ -153,11 +182,13 @@ public struct ImportPreviewFeature {
         } else {
           state.selectedIndices.insert(index)
         }
+        if state.selectedIndices.isEmpty { state.duplicateIndices = [] }
         return judgeEffect(state: state)
 
       case .didToggleSelectAll:
         if state.selectedIndices.count == state.payload.secrets.count {
           state.selectedIndices.removeAll()
+          state.duplicateIndices = []
         } else {
           state.selectedIndices = Set(state.payload.secrets.indices)
         }
@@ -175,8 +206,9 @@ public struct ImportPreviewFeature {
         state.canCreateNewProject = allowed
         // 막혀 있는데 Create new가 기본 선택돼 있으면 Merge(있으면)나 Without project로 내려 사용자가
         // 비활성 라디오에 묶이지 않게 한다.
-        if !allowed, case .create = state.projectChoice {
-          if let existing = state.availableProjects.first(where: { $0.name == projectName(state) }) {
+        if !allowed, case .create(let name) = state.projectChoice {
+          if let key = ProjectNameRule.comparisonKey(name),
+             let existing = state.availableProjects.first(where: { ProjectNameRule.comparisonKey($0.name) == key }) {
             state.projectChoice = .existing(id: existing.id)
           } else {
             state.projectChoice = .none
@@ -185,28 +217,56 @@ public struct ImportPreviewFeature {
         return .none
 
       case .didTapImport:
+        guard !state.isCheckingImport, !state.selectedIndices.isEmpty else { return .none }
+        state.isCheckingImport = true
         let filtered = filteredPayload(state)
         return .run { [projectChoice = state.projectChoice] send in
-          let judgement = try await shareClient.judgeDuplicates(filtered, [:])
-          let allowed = try await entitlementClient.canImportSecrets(judgement.slotsConsumed(by: [:]))
-          guard allowed else {
-            await send(.delegate(.paywallRequired))
-            return
-          }
-          if judgement.conflicts.isEmpty {
-            await send(.delegate(.proceedWithoutDuplicates(payload: filtered, project: projectChoice)))
-          } else {
-            await send(.delegate(.duplicatesFound(payload: filtered, judgement: judgement, project: projectChoice)))
+          do {
+            let judgement = try await shareClient.judgeDuplicates(filtered, [:])
+            guard judgement.conflicts.isEmpty else {
+              await send(.importCheckResponse(.success(.duplicates(payload: filtered, judgement: judgement, project: projectChoice))))
+              return
+            }
+            // 중복이 없을 때만 게이트①을 본다 — 중복이 있으면 해결(덮어쓰기·건너뛰기)에 따라
+            // 실제 슬롯 소모가 달라지므로, 여기서 빈 resolutions로 판단하면 과잉 차단된다.
+            let allowed = try await entitlementClient.canImportSecrets(judgement.slotsConsumed(by: [:]))
+            guard allowed else {
+              await send(.importCheckResponse(.success(.blocked)))
+              return
+            }
+            await send(.importCheckResponse(.success(.proceed(payload: filtered, project: projectChoice))))
+          } catch {
+            await send(.importCheckResponse(.failure(ImportCheckError())))
           }
         }
 
+      case let .importCheckResponse(.success(result)):
+        state.isCheckingImport = false
+        switch result {
+        case let .proceed(payload, project):
+          return .send(.delegate(.proceedWithoutDuplicates(payload: payload, project: project)))
+        case let .duplicates(payload, judgement, project):
+          return .send(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: project)))
+        case .blocked:
+          return .send(.delegate(.paywallRequired))
+        }
+
+      case .importCheckResponse(.failure):
+        state.isCheckingImport = false
+        state.alert = importCheckFailureAlert
+        return .none
+
       case .didTapCancel:
         return .send(.delegate(.cancelled))
+
+      case .alert:
+        return .none
 
       case .delegate:
         return .none
       }
     }
+    .ifLet(\.$alert, action: \.alert)
   }
 }
 
@@ -229,11 +289,6 @@ extension ImportPreviewFeature {
     state.selectedIndices.sorted()[filteredIndex]
   }
 
-  private func projectName(_ state: State) -> String? {
-    if case .project(let name) = state.variant { return name }
-    return nil
-  }
-
   /// Project 변형에서만 묻는다 — Single/Multiple은 "Create new project" 선택지 자체가 없다.
   private func canCreateProjectEffect(state: State) -> Effect<Action> {
     guard case .project = state.variant else { return .none }
@@ -251,5 +306,15 @@ extension ImportPreviewFeature {
       await send(.judgementResponse(judgement))
     }
     .cancellable(id: CancelID.judge, cancelInFlight: true)
+  }
+
+  var importCheckFailureAlert: AlertState<Action.Alert> {
+    AlertState {
+      TextState(String.module("Couldn't Check Secrets"))
+    } actions: {
+      ButtonState(role: .cancel) { TextState(String.module("OK")) }
+    } message: {
+      TextState(String.module("Please try again in a moment."))
+    }
   }
 }
