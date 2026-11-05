@@ -136,10 +136,13 @@ public struct AppFeature {
         )
 
       case let .fileOpened(url):
-        // Import 화면(#186/#187)이 준비되기 전이라 상태에 보관만 해둔다 — unlockCompleted/onboarding
-        // 완료 시점까지 pendingImportFileURL이 그대로 남아있으므로 재개 처리는 따로 필요 없다.
+        // main이 떠 있으면 즉시 소비한다. 잠금/온보딩 중이면 pendingImportFileURL에 남아
+        // unlockCompleted/onboarding 완료 시점에 재개된다(아래 두 케이스).
         state.pendingImportFileURL = url
-        return .run { _ in await windowClient.ensureMainWindowOpen() }
+        return .merge(
+          .run { _ in await windowClient.ensureMainWindowOpen() },
+          consumePendingImportEffect(&state)
+        )
 
       case let .windowCaptureBlockingChanged(isEnabled):
         state.isWindowCaptureBlockingEnabled = isEnabled
@@ -199,7 +202,8 @@ public struct AppFeature {
         return .merge(
           .run { _ in appLaunchClient.setOnboardingCompleted() },
           .run { _ in await appLaunchClient.syncExpiryNotifications() },
-          inactivityWatchEffect()
+          inactivityWatchEffect(),
+          consumePendingImportEffect(&state)
         )
 
       case .onboarding:
@@ -208,7 +212,7 @@ public struct AppFeature {
       case .locked(.delegate(.unlockCompleted)):
         state.locked = nil
         state.main = .init()
-        return inactivityWatchEffect()
+        return .merge(inactivityWatchEffect(), consumePendingImportEffect(&state))
 
       case .locked:
         return .none
@@ -298,6 +302,19 @@ private extension AppFeature {
       }
     }
     .cancellable(id: CancelID.entitlementWatch, cancelInFlight: true)
+  }
+
+  /// main이 떠 있고 보류 중인 파일이 있으면 읽어서 비밀번호 입력으로 넘긴다. main이 아직 없으면
+  /// (잠금·온보딩 중) 아무것도 안 하고 pendingImportFileURL을 그대로 둔다 — unlockCompleted/onboarding
+  /// 완료 시점에 다시 호출된다.
+  func consumePendingImportEffect(_ state: inout State) -> Effect<Action> {
+    guard state.main != nil, let url = state.pendingImportFileURL else { return .none }
+    state.pendingImportFileURL = nil
+    return .run { send in
+      // 드롭·열기 이후 파일이 지워진 드문 경우 — 조용히 무시한다.
+      guard let data = try? Data(contentsOf: url) else { return }
+      await send(.main(.importFileOpened(fileName: url.lastPathComponent, data: data)))
+    }
   }
 
   func iCloudRemoteChangeWatchEffect() -> Effect<Action> {
