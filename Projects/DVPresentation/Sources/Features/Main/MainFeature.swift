@@ -215,7 +215,8 @@ public struct MainFeature {
         return .none
 
       case let .importFileOpened(fileName, data):
-        // 다른 파일이 또 오면 마지막 것으로 덮는다.
+        // 이미 Review Duplicates까지 진행 중이면(importFlow) 끼어들지 않는다 — 시트 두 개가 동시에 뜨는 것을 막는다.
+        guard state.importFlow == nil else { return .none }
         state.importPassword = ImportPasswordFeature.State(fileName: fileName, data: data)
         return .none
 

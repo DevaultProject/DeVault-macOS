@@ -1481,4 +1481,34 @@ struct MainFeatureTests {
       $0.secretList = .init(collection: .all)
     }
   }
+
+  // MARK: - importFileOpened
+
+  @Test("importFileOpened — 진행 중인 importFlow가 없으면 importPassword를 띄운다")
+  func importFileOpenedSetsImportPasswordWhenNoFlowInProgress() async {
+    let store = TestStore(initialState: MainFeature.State()) {
+      MainFeature()
+    }
+
+    await store.send(.importFileOpened(fileName: "Export.dvt", data: Data("file".utf8))) {
+      $0.importPassword = ImportPasswordFeature.State(fileName: "Export.dvt", data: Data("file".utf8))
+    }
+  }
+
+  // Review Duplicates까지 진행 중일 때 또 다른 파일이 오면 시트 두 개(importPassword·importFlow)가
+  // 동시에 뜰 수 있다 — 끼어들지 않고 무시해야 한다.
+  @Test("importFileOpened — importFlow가 진행 중이면 무시한다")
+  func importFileOpenedIsIgnoredWhileImportFlowInProgress() async {
+    var initial = MainFeature.State()
+    let payload = DevaultContainerPayload(secrets: [
+      DevaultSecretExport(name: "A", content: .accessToken(APIKeyPayload(value: "token"), nil), payloadSchemaVersion: 1)
+    ])
+    initial.importFlow = ImportFlowFeature.State(fileName: "First.dvt", payload: payload)
+
+    let store = TestStore(initialState: initial) {
+      MainFeature()
+    }
+
+    await store.send(.importFileOpened(fileName: "Second.dvt", data: Data("file".utf8)))
+  }
 }

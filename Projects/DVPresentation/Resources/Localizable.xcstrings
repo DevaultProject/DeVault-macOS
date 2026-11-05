@@ -1759,6 +1759,23 @@
         }
       }
     },
+    "Couldn't Open File" : {
+      "comment" : "Alert title shown when a dropped/opened .dvt file can no longer be read (e.g. moved or deleted).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Open File"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일을 열 수 없습니다"
+          }
+        }
+      }
+    },
     "Couldn't complete the action." : {
       "comment" : "Alert title when a secret list mutation (delete/recover) fails.",
       "localizations" : {
@@ -6159,6 +6176,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "복사된 값이 클립보드에 %lld초 넘게 남아 있어 지워졌습니다."
+          }
+        }
+      }
+    },
+    "The file may have been moved or deleted. Please try again." : {
+      "comment" : "Alert message shown when a dropped/opened .dvt file can no longer be read.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file may have been moved or deleted. Please try again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일이 이동되었거나 삭제된 것 같습니다. 다시 시도해 주세요."
           }
         }
       }
