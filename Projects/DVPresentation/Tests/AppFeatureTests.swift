@@ -231,8 +231,17 @@ struct AppFeatureTests {
             $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled = true }
         }
 
-        await store.send(.fileOpened(URL(fileURLWithPath: "/tmp/does-not-exist.dvt"))) {
-            $0.pendingImportFileURL = URL(fileURLWithPath: "/tmp/does-not-exist.dvt")
+        // main이 이미 떠 있어 consumePendingImportEffect가 같은 턴에서 즉시 소비한다 —
+        // pendingImportFileURL은 설정됐다가 바로 비워져 net 변화가 없다.
+        await store.send(.fileOpened(URL(fileURLWithPath: "/tmp/does-not-exist.dvt")))
+        await store.receive(\.pendingImportFileReadFailed) {
+            $0.alert = AlertState {
+                TextState(String.module("Couldn't Open File"))
+            } actions: {
+                ButtonState(role: .cancel) { TextState(String.module("OK")) }
+            } message: {
+                TextState(String.module("The file may have been moved or deleted. Please try again."))
+            }
         }
 
         #expect(!ensureMainWindowOpenCalled)

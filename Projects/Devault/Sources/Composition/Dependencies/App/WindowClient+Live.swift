@@ -8,12 +8,12 @@ extension WindowClient: @retroactive DependencyKey {
   public static let liveValue = WindowClient(
     ensureMainWindowOpen: {
       await MainActor.run {
-        guard !NSApp.windows.contains(where: \.isVisible) else { return }
+        guard !hasVisibleWindow() else { return }
         WindowOpener.shared.openMainWindow?()
       }
     },
     isMainWindowVisible: {
-      MainActor.assumeIsolated { NSApp.windows.contains(where: \.isVisible) }
+      MainActor.assumeIsolated { hasVisibleWindow() }
     },
     activateMainWindow: {
       await MainActor.run {
@@ -22,4 +22,9 @@ extension WindowClient: @retroactive DependencyKey {
       }
     }
   )
+}
+
+@MainActor
+private func hasVisibleWindow() -> Bool {
+  NSApp.windows.contains(where: \.isVisible)
 }

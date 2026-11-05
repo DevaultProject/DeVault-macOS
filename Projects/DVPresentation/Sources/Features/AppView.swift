@@ -37,6 +37,7 @@ public struct AppView: View {
       } isTargeted: { isDropTargeted = $0 }
       .overlay { if isDropTargeted { DropImportOverlay() } }
       .task { store.send(.task) }
+      .alert($store.scope(state: \.alert, action: \.alert))
   }
 }
 

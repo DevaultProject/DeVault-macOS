@@ -22,6 +22,7 @@ public struct AppFeature {
 
     /// Finder에서 연 `.dvt` 파일 — Import 화면이 준비될 때까지 잠금/온보딩 동안 보관한다.
     public var pendingImportFileURL: URL?
+    @Presents public var alert: AlertState<Action.Alert>?
 
     /// 지금 어느 화면인지. 전환 애니메이션이 이 값 하나를 본다.
     /// 셋을 다 비웠다가 하나를 세우는 구간이 있어(`task`) 옵셔널이다.
@@ -60,18 +61,21 @@ public struct AppFeature {
     case entitlementChanged
     case entitlementSettledAtLaunch(isFree: Bool)
     case appDidEnterBackground
+    case pendingImportFileReadFailed
 
     // MARK: - Child
 
     case onboarding(OnboardingContainerFeature.Action)
     case locked(LockFeature.Action)
     case main(MainFeature.Action)
+    case alert(PresentationAction<Alert>)
 
     // MARK: - Delegate
 
     case delegate(Delegate)
 
     public enum Delegate: Equatable {}
+    public enum Alert: Equatable {}
   }
 
   // MARK: - Dependencies
@@ -241,6 +245,13 @@ public struct AppFeature {
       case .main:
         return .none
 
+      case .pendingImportFileReadFailed:
+        state.alert = pendingImportFileReadFailedAlert
+        return .none
+
+      case .alert:
+        return .none
+
       case .delegate:
         return .none
       }
@@ -254,6 +265,7 @@ public struct AppFeature {
     .ifLet(\.main, action: \.main) {
       MainFeature()
     }
+    .ifLet(\.$alert, action: \.alert)
   }
 }
 
@@ -310,8 +322,21 @@ private extension AppFeature {
     guard state.main != nil, let url = state.pendingImportFileURL else { return .none }
     state.pendingImportFileURL = nil
     return .run { send in
-      guard let data = try? Data(contentsOf: url) else { return }
+      guard let data = try? Data(contentsOf: url) else {
+        await send(.pendingImportFileReadFailed)
+        return
+      }
       await send(.main(.importFileOpened(fileName: url.lastPathComponent, data: data)))
+    }
+  }
+
+  var pendingImportFileReadFailedAlert: AlertState<Action.Alert> {
+    AlertState {
+      TextState(String.module("Couldn't Open File"))
+    } actions: {
+      ButtonState(role: .cancel) { TextState(String.module("OK")) }
+    } message: {
+      TextState(String.module("The file may have been moved or deleted. Please try again."))
     }
   }
 
