@@ -19,13 +19,13 @@
       disablePerformanceAntipatternChecker = "YES"
       launchStyle = "0"
       useCustomWorkingDirectory = "YES"
-      customWorkingDirectory = "/Users/hyeon-ju/Documents/GitHub/Devault-macOS"
+      customWorkingDirectory = "/Users/iyeseong/Documents/GitHub/Devault-macOS"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
       <PathRunnable
-         FilePath = "/Users/hyeon-ju/.local/share/mise/installs/tuist/4.191.0/bin/tuist"
+         FilePath = "/Users/iyeseong/.local/share/mise/installs/tuist/4.202.0/tuist"
          runnableDebuggingMode = "0">
       </PathRunnable>
       <CommandLineArguments>

@@ -92,10 +92,13 @@ public struct SecretListFeature {
     case didChangeSearchText(String)
     case didSelectSort(SecretQuery.Sort)
     case didTapDelete(id: Secret.ID)
+    /// 컨텍스트 메뉴 대상이 멀티선택(`selectedSecretIDs`)의 일부일 때 — 선택된 전체를 지운다.
+    case didTapDeleteSelected
     case didTapRecover(id: Secret.ID)
     /// 복구가 자리를 차지할 수 있는지 물은 결과. 복구는 보유 수를 늘리므로 생성과 같은 판정을 쓴다.
     case canRecoverResponse(Result<Bool, SecretUseCaseError>, id: Secret.ID)
     case didTapDeleteForever(id: Secret.ID)
+    case didTapDeleteForeverSelected
     /// Expired/Deleted 탭의 "모두 삭제"/"비우기" — 컬렉션 전체 정리.
     case didTapEmptyCollection
     case didTapRetry
@@ -110,6 +113,9 @@ public struct SecretListFeature {
 
     case secretsResponse(Result<[Secret], SecretUseCaseError>)
     case mutationResponse(Result<Secret.ID, SecretUseCaseError>)
+    /// 멀티선택 삭제(`didTapDeleteSelected`/`didTapDeleteForeverSelected`) 결과. 벌크 API가 없어
+    /// 한 건씩 처리하므로 일부만 실패할 수 있다 — `failedCount`가 0보다 크면 알린다.
+    case batchDeleteResponse(ids: [Secret.ID], failedCount: Int)
     /// 컬렉션 일괄 정리(비우기/모두 삭제) 결과. nil이면 성공.
     case emptyCollectionResponse(SecretUseCaseError?)
     /// 지금 조회 중이던 시크릿을 삭제·복구·영구삭제해 목록에서 사라졌을 때만 보낸다.
@@ -138,6 +144,7 @@ public struct SecretListFeature {
 
     public enum Alert: Equatable {
       case confirmDeleteForever(id: Secret.ID)
+      case confirmDeleteForeverSelected
       case confirmEmptyCollection
     }
   }
@@ -224,6 +231,10 @@ public struct SecretListFeature {
       case .didTapDelete(let id):
         return mutationEffect(id: id) { try await secretClient.softDelete(id) }
 
+      case .didTapDeleteSelected:
+        guard !state.selectedSecretIDs.isEmpty else { return .none }
+        return batchMutationEffect(ids: Array(state.selectedSecretIDs)) { try await secretClient.softDelete($0) }
+
       // 복구를 시도하기 전에 먼저 묻는다. UseCase 쪽 게이트는 2차 방어선이라, 그쪽에 맡기면 사용자는 재시도해도 절대 풀리지 않는 일반 오류 알림을 받는다.
       case .didTapRecover(let id):
         return .run { send in
@@ -247,6 +258,11 @@ public struct SecretListFeature {
         state.alert = deleteForeverConfirmationAlert(id: id)
         return .none
 
+      case .didTapDeleteForeverSelected:
+        guard !state.selectedSecretIDs.isEmpty else { return .none }
+        state.alert = deleteForeverSelectedConfirmationAlert(count: state.selectedSecretIDs.count)
+        return .none
+
       case .didTapEmptyCollection:
         guard state.collectionCount > 0 else { return .none }
         state.alert = emptyCollectionConfirmationAlert(collection: state.collection, count: state.collectionCount)
@@ -254,6 +270,10 @@ public struct SecretListFeature {
 
       case .alert(.presented(.confirmDeleteForever(let id))):
         return mutationEffect(id: id) { try await secretClient.permanentlyDelete(id) }
+
+      case .alert(.presented(.confirmDeleteForeverSelected)):
+        guard !state.selectedSecretIDs.isEmpty else { return .none }
+        return batchMutationEffect(ids: Array(state.selectedSecretIDs)) { try await secretClient.permanentlyDelete($0) }
 
       case .alert(.presented(.confirmEmptyCollection)):
         return emptyCollectionEffect(collection: state.collection)
@@ -283,6 +303,22 @@ public struct SecretListFeature {
           fetchSecretsEffect(query: state.query, debounced: false)
         ]
         if wasViewingMutatedSecret {
+          effects.append(.send(.reselectAfterMutation))
+        }
+        return .concatenate(effects)
+
+      case let .batchDeleteResponse(ids, failedCount):
+        // selectedSecretIDs를 비우기 전에 봐야 한다 — 비우면 selectedSecretID가 항상 nil이 된다.
+        let wasViewingDeletedSecret = state.selectedSecretID.map(ids.contains) ?? false
+        state.selectedSecretIDs.subtract(ids)
+        if failedCount > 0 {
+          state.alert = mutationFailureAlert()
+        }
+        var effects: [Effect<Action>] = [
+          .send(.delegate(.secretsChanged)),
+          fetchSecretsEffect(query: state.query, debounced: false)
+        ]
+        if wasViewingDeletedSecret {
           effects.append(.send(.reselectAfterMutation))
         }
         return .concatenate(effects)
@@ -341,6 +377,22 @@ public struct SecretListFeature {
       } catch {
         await send(.mutationResponse(.failure(SecretUseCaseError.map(error))))
       }
+    }
+  }
+
+  /// 벌크 API가 없어 한 건씩 순서대로 처리한다. 일부가 실패해도 나머지는 계속 지운다 —
+  /// 하나 막혔다고 다 되돌리면 이미 지워진 것까지 취소해야 해서 더 위험하다.
+  private func batchMutationEffect(ids: [Secret.ID], operation: @escaping (Secret.ID) async throws -> Void) -> Effect<Action> {
+    .run { send in
+      var failedCount = 0
+      for id in ids {
+        do {
+          try await operation(id)
+        } catch {
+          failedCount += 1
+        }
+      }
+      await send(.batchDeleteResponse(ids: ids, failedCount: failedCount))
     }
   }
 
@@ -414,6 +466,21 @@ public struct SecretListFeature {
       }
     } message: {
       TextState(String.module("This action cannot be undone."))
+    }
+  }
+
+  private func deleteForeverSelectedConfirmationAlert(count: Int) -> AlertState<Action.Alert> {
+    AlertState {
+      TextState(String.module("Delete Forever?"))
+    } actions: {
+      ButtonState(role: .destructive, action: .confirmDeleteForeverSelected) {
+        TextState(String.module("Delete Forever"))
+      }
+      ButtonState(role: .cancel) {
+        TextState(String.module("Cancel"))
+      }
+    } message: {
+      TextState(String.module("\(count) secrets will be permanently deleted. This can't be undone."))
     }
   }
 }

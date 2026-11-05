@@ -36,6 +36,9 @@
          location = "group:Tuist/.build/tuist-derived/Projects/Lottie/Lottie.xcodeproj">
       </FileRef>
       <FileRef
+         location = "group:Tuist/.build/tuist-derived/Projects/argon2/argon2.xcodeproj">
+      </FileRef>
+      <FileRef
          location = "group:Tuist/.build/tuist-derived/Projects/combine-schedulers/combine-schedulers.xcodeproj">
       </FileRef>
       <FileRef

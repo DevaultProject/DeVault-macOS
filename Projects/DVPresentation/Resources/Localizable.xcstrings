@@ -2176,6 +2176,23 @@
         }
       }
     },
+    "Delete (%lld)" : {
+      "comment" : "Secret list row context menu — deletes the entire multi-selection. The argument is the selected secret count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete (%lld)"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제 (%lld)"
+          }
+        }
+      }
+    },
     "Delete All" : {
       "localizations" : {
         "ko" : {
@@ -2228,6 +2245,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "영구 삭제"
+          }
+        }
+      }
+    },
+    "Delete Forever (%lld)" : {
+      "comment" : "Secret list row context menu (Deleted tab) — permanently deletes the entire multi-selection. The argument is the selected secret count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Forever (%lld)"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "영구 삭제 (%lld)"
           }
         }
       }

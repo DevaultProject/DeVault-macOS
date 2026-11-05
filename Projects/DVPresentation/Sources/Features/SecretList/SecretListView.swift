@@ -163,20 +163,36 @@ extension SecretListView {
     }
   }
 
+  // 우클릭한 행이 멀티선택(cmd/shift-클릭)의 일부면 선택 전체를 대상으로 한다 — Finder와 같은 규칙.
+  private func isPartOfMultiSelection(_ secret: Secret) -> Bool {
+    store.selectedSecretIDs.count > 1 && store.selectedSecretIDs.contains(secret.id)
+  }
+
   @ViewBuilder
   private func contextMenuItems(for secret: Secret) -> some View {
+    let isMultiSelected = isPartOfMultiSelection(secret)
     switch store.collection {
     case .deleted:
-      Button(.module("Recover")) {
-        store.send(.didTapRecover(id: secret.id))
+      if !isMultiSelected {
+        Button(.module("Recover")) {
+          store.send(.didTapRecover(id: secret.id))
+        }
       }
-      Button(.module("Delete Forever"), role: .destructive) {
-        store.send(.didTapDeleteForever(id: secret.id))
+      Button(isMultiSelected ? .module("Delete Forever (\(store.selectedSecretIDs.count))") : .module("Delete Forever"), role: .destructive) {
+        if isMultiSelected {
+          store.send(.didTapDeleteForeverSelected)
+        } else {
+          store.send(.didTapDeleteForever(id: secret.id))
+        }
       }
 
     case .all, .liked, .notice, .expired, .project:
-      Button(.module("Delete"), role: .destructive) {
-        store.send(.didTapDelete(id: secret.id))
+      Button(isMultiSelected ? .module("Delete (\(store.selectedSecretIDs.count))") : .module("Delete"), role: .destructive) {
+        if isMultiSelected {
+          store.send(.didTapDeleteSelected)
+        } else {
+          store.send(.didTapDelete(id: secret.id))
+        }
       }
     }
   }

@@ -406,6 +406,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "616DDF76C571CEA0ED94123C"
+               BuildableName = "DevaultTests.xctest"
+               BlueprintName = "DevaultTests"
+               ReferencedContainer = "container:Projects/Devault/Devault.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "210AE3919E1578F6373794C3"
                BuildableName = "IdentifiedCollections.framework"
                BlueprintName = "IdentifiedCollections"
@@ -910,6 +924,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "79C7CECCCBE5686F4437C292"
+               BuildableName = "argon2.framework"
+               BlueprintName = "argon2"
+               ReferencedContainer = "container:Tuist/.build/tuist-derived/Projects/argon2/argon2.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "799C5D97FA7841560405B32D"
                BuildableName = "swift-composable-architecture_ComposableArchitecture.bundle"
                BlueprintName = "swift-composable-architecture_ComposableArchitecture"
@@ -980,6 +1008,17 @@
                BuildableName = "DVPresentationTests.xctest"
                BlueprintName = "DVPresentationTests"
                ReferencedContainer = "container:Projects/DVPresentation/DVPresentation.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "616DDF76C571CEA0ED94123C"
+               BuildableName = "DevaultTests.xctest"
+               BlueprintName = "DevaultTests"
+               ReferencedContainer = "container:Projects/Devault/Devault.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
