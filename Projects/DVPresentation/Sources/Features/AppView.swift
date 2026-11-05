@@ -13,7 +13,6 @@ public struct AppView: View {
 
   @Bindable var store: StoreOf<AppFeature>
 
-  /// 드래그 중인 항목이 창 위에 있는지 — 오버레이를 그리는 용도로만 쓰고 reducer로는 안 보낸다.
   @State private var isDropTargeted = false
 
   // MARK: - Init
@@ -43,8 +42,6 @@ public struct AppView: View {
 
 // MARK: - Drop Overlay
 
-/// 창 전체 위에 덮는 드롭 유도 오버레이 — 잠금·온보딩 화면 위에서도 그대로 받는다(파일 열기와 동일하게
-/// `AppFeature.pendingImportFileURL`에 보관됐다가 unlock 뒤 재개되므로).
 private struct DropImportOverlay: View {
   var body: some View {
     ZStack {

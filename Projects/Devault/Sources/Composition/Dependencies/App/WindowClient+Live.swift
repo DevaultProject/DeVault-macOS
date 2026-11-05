@@ -11,6 +11,15 @@ extension WindowClient: @retroactive DependencyKey {
         guard !NSApp.windows.contains(where: \.isVisible) else { return }
         WindowOpener.shared.openMainWindow?()
       }
+    },
+    isMainWindowVisible: {
+      MainActor.assumeIsolated { NSApp.windows.contains(where: \.isVisible) }
+    },
+    activateMainWindow: {
+      await MainActor.run {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first(where: \.isVisible)?.makeKeyAndOrderFront(nil)
+      }
     }
   )
 }
