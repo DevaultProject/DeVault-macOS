@@ -25,7 +25,6 @@ public struct MainFeature {
     /// Export가 끝난 뒤 Share/Save As 선택을 기다리는 임시 파일. sheet가 아닌 단순 optional이라 @Presents 미사용.
     var exportedFile: ExportedFile?
     /// 비밀번호 입력(#200). 복호화에 성공하면 `importFlow`로 넘긴다.
-    /// `AppFeature`가 드래그&드롭·파일 열기로 받은 파일을 `importFileOpened`로 여기로 넘긴다.
     @Presents var importPassword: ImportPasswordFeature.State?
     /// Preview→Review Duplicates→execute를 잇는 코디네이터.
     @Presents var importFlow: ImportFlowFeature.State?
@@ -86,7 +85,6 @@ public struct MainFeature {
     // MARK: - Internal
 
     case iCloudRemoteChangeDetected
-    /// AppFeature가 드래그&드롭·Finder "다음으로 열기"로 받은 `.dvt` 파일을 읽어 넘긴다.
     case importFileOpened(fileName: String, data: Data)
 
     // MARK: - Child
@@ -217,7 +215,7 @@ public struct MainFeature {
         return .none
 
       case let .importFileOpened(fileName, data):
-        // 드롭 중 다른 파일이 또 오면 뒤의 것으로 덮는다 — 사용자가 마지막으로 끌어놓은 파일이 의도다.
+        // 다른 파일이 또 오면 마지막 것으로 덮는다.
         state.importPassword = ImportPasswordFeature.State(fileName: fileName, data: data)
         return .none
 

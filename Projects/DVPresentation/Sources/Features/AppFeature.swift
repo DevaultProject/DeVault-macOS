@@ -106,9 +106,10 @@ public struct AppFeature {
     Reduce { state, action in
       switch action {
       case .task:
-        state.onboarding = nil
-        state.locked = nil
-        state.main = nil
+        // scenePhase가 background → active로 돌아올 때 SwiftUI가 .task를 다시 돌릴 수 있다.
+        // 이미 화면이 떠 있으면(진짜 콜드 스타트가 아니면) 아무것도 하지 않는다 — 안 그러면
+        // 풀어둔 main이 매번 다시 잠긴다.
+        guard state.onboarding == nil, state.locked == nil, state.main == nil else { return .none }
 
         let hasCompletedOnboarding = appLaunchClient.hasCompletedOnboarding()
         if hasCompletedOnboarding {
@@ -136,11 +137,11 @@ public struct AppFeature {
         )
 
       case let .fileOpened(url):
-        // main이 떠 있으면 즉시 소비한다. 잠금/온보딩 중이면 pendingImportFileURL에 남아
-        // unlockCompleted/onboarding 완료 시점에 재개된다(아래 두 케이스).
         state.pendingImportFileURL = url
+        // main이 떠 있으면 ensureMainWindowOpen을 건너뛴다 — openWindow가 창을 재생성해 .task를 다시 돌리고 강제로 재잠그기 때문.
         return .merge(
-          .run { _ in await windowClient.ensureMainWindowOpen() },
+          .run { _ in await windowClient.activateMainWindow() },
+          state.main == nil ? .run { _ in await windowClient.ensureMainWindowOpen() } : .none,
           consumePendingImportEffect(&state)
         )
 
@@ -229,9 +230,10 @@ public struct AppFeature {
         return .cancel(id: CancelID.inactivityWatch)
 
       case .appDidEnterBackground:
-        // 창 닫힘·백그라운드 전환 시 즉시 잠가 재오픈 때 시크릿 노출을 막는다.
-        // 앱 전환만으로는 잠그지 않는다(창은 열려 있음) — 타임아웃 몫.
-        guard state.main != nil, appSecurityClient.isRequireAuthOnLaunchEnabled() else { return .none }
+        guard state.main != nil,
+              appSecurityClient.isRequireAuthOnLaunchEnabled(),
+              !windowClient.isMainWindowVisible()
+        else { return .none }
         state.main = nil
         state.locked = .init()
         return .cancel(id: CancelID.inactivityWatch)
@@ -304,14 +306,10 @@ private extension AppFeature {
     .cancellable(id: CancelID.entitlementWatch, cancelInFlight: true)
   }
 
-  /// main이 떠 있고 보류 중인 파일이 있으면 읽어서 비밀번호 입력으로 넘긴다. main이 아직 없으면
-  /// (잠금·온보딩 중) 아무것도 안 하고 pendingImportFileURL을 그대로 둔다 — unlockCompleted/onboarding
-  /// 완료 시점에 다시 호출된다.
   func consumePendingImportEffect(_ state: inout State) -> Effect<Action> {
     guard state.main != nil, let url = state.pendingImportFileURL else { return .none }
     state.pendingImportFileURL = nil
     return .run { send in
-      // 드롭·열기 이후 파일이 지워진 드문 경우 — 조용히 무시한다.
       guard let data = try? Data(contentsOf: url) else { return }
       await send(.main(.importFileOpened(fileName: url.lastPathComponent, data: data)))
     }

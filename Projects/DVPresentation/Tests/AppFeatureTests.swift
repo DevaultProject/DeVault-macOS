@@ -140,6 +140,20 @@ struct AppFeatureTests {
         }
     }
 
+    // macOS SwiftUI가 scenePhase background→active 복귀 시 .task를 다시 돌릴 수 있다 —
+    // 이미 main이 떠 있는데 또 콜드 스타트 로직을 타면 풀어둔 상태가 매번 재잠긴다.
+    @Test("task — 이미 main이 떠 있으면 다시 불려도 아무것도 하지 않는다")
+    func taskIsNoOpWhenMainAlreadyActive() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        }
+
+        await store.send(.task)
+    }
+
     @Test("앱 비활성 타임아웃이 발생하면 main에서 locked로 전환한다")
     func inactivityTimeoutLocksApp() async {
         var initial = AppFeature.State()
@@ -165,12 +179,28 @@ struct AppFeatureTests {
             AppFeature()
         } withDependencies: {
             $0.appSecurityClient.isRequireAuthOnLaunchEnabled = { true }
+            $0.windowClient.isMainWindowVisible = { false }
         }
 
         await store.send(.appDidEnterBackground) {
             $0.main = nil
             $0.locked = .init()
         }
+    }
+
+    @Test("창이 그대로 떠 있으면(단순 앱 전환) 백그라운드 전환으로 잠그지 않는다")
+    func backgroundDoesNotLockWhenWindowStillVisible() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.appSecurityClient.isRequireAuthOnLaunchEnabled = { true }
+            $0.windowClient.isMainWindowVisible = { true }
+        }
+
+        await store.send(.appDidEnterBackground)
     }
 
     @Test("인증 요구가 꺼져 있으면 백그라운드 전환에 잠그지 않는다")
@@ -185,6 +215,43 @@ struct AppFeatureTests {
         }
 
         await store.send(.appDidEnterBackground)
+    }
+
+    // main이 이미 떠 있는데 ensureMainWindowOpen을 또 부르면, 그 비동기 가시성 체크가 포커스
+    // 전환 타이밍에 오판해 openWindow로 창을 재생성하고 .task가 다시 돌며 강제로 재잠근다.
+    @Test("fileOpened — main이 떠 있으면 ensureMainWindowOpen을 부르지 않고 바로 소비한다")
+    func fileOpenedSkipsEnsureMainWindowOpenWhenMainIsActive() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        var ensureMainWindowOpenCalled = false
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled = true }
+        }
+
+        await store.send(.fileOpened(URL(fileURLWithPath: "/tmp/does-not-exist.dvt"))) {
+            $0.pendingImportFileURL = URL(fileURLWithPath: "/tmp/does-not-exist.dvt")
+        }
+
+        #expect(!ensureMainWindowOpenCalled)
+    }
+
+    @Test("fileOpened — main이 없으면 ensureMainWindowOpen을 부른다")
+    func fileOpenedCallsEnsureMainWindowOpenWhenNoMain() async {
+        var ensureMainWindowOpenCalled = false
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled = true }
+        }
+
+        await store.send(.fileOpened(URL(fileURLWithPath: "/tmp/does-not-exist.dvt"))) {
+            $0.pendingImportFileURL = URL(fileURLWithPath: "/tmp/does-not-exist.dvt")
+        }
+
+        #expect(ensureMainWindowOpenCalled)
     }
 
     @Test("main이 아닐 때는 앱 비활성 타임아웃을 무시한다")
