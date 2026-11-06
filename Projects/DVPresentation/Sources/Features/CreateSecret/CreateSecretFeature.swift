@@ -169,16 +169,9 @@ public struct CreateSecretFeature {
                 return .none
 
             case .binding:
-                let primary = state.meta.primaryDetectionValue
-                guard !primary.isEmpty else {
-                    state.serviceCandidates = []
-                    state.detectedServices = [:]
-                    return .none
-                }
-                let result = detectionClient.detect(SensitiveString(primary))
-                state.serviceCandidates = result.candidates.map(\.service)
-                let fieldID = state.meta.primaryDetectionFieldID
-                state.detectedServices[fieldID] = result.candidates.first?.service
+                (state.serviceCandidates, state.detectedServices) = state.meta.detectServices(
+                    using: detectionClient.detect
+                )
                 return .none
 
             case .didTapCancel:
