@@ -612,7 +612,10 @@ public struct SecretDetailFeature {
                 return .none
 
             case .binding(\.editFields):
-                guard let primary = state.editFields?.primaryDetectionValue, !primary.isEmpty else {
+                // 값이 편집 진입 시점과 같으면 감지하지 않는다 — 메모·이름만 고쳐도 `editFields` 전체가 바뀌어 여기로 오므로, 거르지 않으면 손대지 않은 저장값으로 힌트가 뜬다.
+                guard let primary = state.editFields?.primaryDetectionValue, !primary.isEmpty,
+                      primary != state.editFieldsBaseline?.primaryDetectionValue
+                else {
                     state.serviceCandidates = []
                     state.detectedServices = [:]
                     return .none
