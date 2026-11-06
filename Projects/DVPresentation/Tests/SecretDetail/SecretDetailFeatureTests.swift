@@ -1006,6 +1006,36 @@ struct SecretDetailFeatureTests {
         }
     }
 
+    @Test("편집 중 값이 아닌 필드만 고치면 감지하지 않는다")
+    func binding_editFields_nonValueChange_skipsDetection() async {
+        var edited = Self.editingState().editFields!
+        edited.memo = "고친 메모"
+
+        // detect는 일부러 비워 둔다 — 불리면 TestStore가 unimplemented로 실패한다.
+        let store = TestStore(initialState: Self.editingState()) { SecretDetailFeature() }
+
+        await store.send(.set(\.editFields, edited)) {
+            $0.editFields = edited
+        }
+    }
+
+    @Test("편집 중 값을 진입 시점 값으로 되돌리면 감지 결과가 비워진다")
+    func binding_editFields_revertedValue_clearsDetection() async {
+        var initial = Self.editingState()
+        initial.editFields?.content = .apiKeyToken(APIKeyTokenFields(value: "ghp_1234567890", authorityScope: "repo:read"))
+        initial.serviceCandidates = ["GitHub"]
+        initial.detectedServices = [.value: "GitHub"]
+        let reverted = Self.editingState().editFields!
+
+        let store = TestStore(initialState: initial) { SecretDetailFeature() }
+
+        await store.send(.set(\.editFields, reverted)) {
+            $0.editFields = reverted
+            $0.serviceCandidates = []
+            $0.detectedServices = [:]
+        }
+    }
+
     /// 남겨두면 다음 편집 진입에서 값을 고치기 전부터 지난 편집의 힌트가 보인다.
     @Test("편집을 끝내면 감지 결과도 함께 비워진다")
     func endEditing_clearsDetection() async {
