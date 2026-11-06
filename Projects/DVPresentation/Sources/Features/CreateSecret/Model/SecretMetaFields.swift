@@ -92,4 +92,18 @@ struct SecretMetaFields: Equatable {
         case .custom:               return .value
         }
     }
+
+    /// 감지 대상 값으로 서비스 후보와 인라인 힌트를 구한다.
+    ///
+    /// 생성·수정 화면이 같은 규칙을 쓰도록 한곳에 둔다. 값이 비었으면 감지 엔진을 부르지 않는다.
+    /// - Parameter detect: 감지 엔진. ``DetectionClient/detect``를 넘긴다.
+    /// - Returns: chip으로 띄울 후보 서비스 목록과, ``primaryDetectionFieldID``에 붙일 힌트.
+    func detectServices(
+        using detect: (SensitiveString) -> DetectionResult
+    ) -> (candidates: [String], hints: [FieldID: String]) {
+        guard !primaryDetectionValue.isEmpty else { return ([], [:]) }
+        let result = detect(SensitiveString(primaryDetectionValue))
+        let hints = result.candidates.first.map { [primaryDetectionFieldID: $0.service] } ?? [:]
+        return (result.candidates.map(\.service), hints)
+    }
 }

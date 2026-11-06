@@ -616,16 +616,15 @@ public struct SecretDetailFeature {
             case .binding(\.editFields):
                 // 값이 편집 진입 시점과 같으면 감지하지 않는다 — 메모·이름만 고쳐도 `editFields` 전체가 바뀌어 여기로 오므로, 거르지 않으면 손대지 않은 저장값으로 힌트가 뜬다.
                 guard let fields = state.editFields,
-                      !fields.primaryDetectionValue.isEmpty,
                       fields.primaryDetectionValue != state.editFieldsBaseline?.primaryDetectionValue
                 else {
                     state.serviceCandidates = []
                     state.detectedServices = [:]
                     return .none
                 }
-                let result = detectionClient.detect(SensitiveString(fields.primaryDetectionValue))
-                state.serviceCandidates = result.candidates.map(\.service)
-                state.detectedServices[fields.primaryDetectionFieldID] = result.candidates.first?.service
+                (state.serviceCandidates, state.detectedServices) = fields.detectServices(
+                    using: detectionClient.detect
+                )
                 return .none
 
             case .binding, .alert, .delegate, .createProject:
