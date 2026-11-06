@@ -16,12 +16,14 @@ struct CreateSecretView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            VStack(spacing: 20) {
+            // 본문 여백은 ScrollView 안쪽(`scrollContent`)에 둔다. 바깥에 두면 스크롤 경계가 필드 테두리와 겹쳐 stroke 바깥 절반이 잘린다.
+            VStack(spacing: 0) {
                 header
+                    .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
                 scrollContent
                 footer
+                    .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
             }
-            .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
             .padding(.vertical, 16)
             // 프레임 상한. 없으면 본문 필드는 제자리인데 footer 버튼만 창 오른쪽 끝까지 밀려난다.
             .formMaxWidth()
@@ -66,6 +68,8 @@ extension CreateSecretView {
                 detectedServices: store.detectedServices,
                 onCreateProject: { store.send(.didTapCreateProject) }
             )
+            .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
+            .padding(.vertical, 20)
         }
         .scrollIndicators(.hidden)
         .disabled(store.isSaving)
