@@ -123,9 +123,11 @@ public struct SecretDetailFeature {
         public var isLoadingProjects = false
         /// 저장 시도에서 누락된 필수 필드의 인라인 경고. 생성 화면과 같은 규칙으로 채운다.
         var validationErrors: [SecretFieldID: String] = [:]
-        /// 편집 폼의 "Auto-detected: <service>" 인라인 힌트. 생성 화면과 같이 값을 고칠 때만 채운다 — 편집 진입 시점의 저장된 값으로는 감지하지 않는다.
+        /// 편집 폼에 띄울 "Auto-detected: <service>" 인라인 힌트를 담는다.
+        ///
+        /// 값을 편집 진입 시점과 다르게 고쳤을 때만 채운다 — 저장된 값 그대로는 감지하지 않는다.
         var detectedServices: [SecretFieldID: String] = [:]
-        /// 편집 폼 Services 필드에 chip으로 띄울 감지 후보.
+        /// 편집 폼 Services 필드에 chip으로 띄울 감지 후보를 담는다.
         var serviceCandidates: [String] = []
         public var isSaving = false
         /// 삭제 요청 진행 중. 진행 중에는 삭제 버튼을 비활성화한다.
