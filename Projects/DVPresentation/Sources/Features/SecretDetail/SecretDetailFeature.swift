@@ -123,6 +123,10 @@ public struct SecretDetailFeature {
         public var isLoadingProjects = false
         /// 저장 시도에서 누락된 필수 필드의 인라인 경고. 생성 화면과 같은 규칙으로 채운다.
         var validationErrors: [SecretFieldID: String] = [:]
+        /// 편집 폼의 "Auto-detected: <service>" 인라인 힌트. 생성 화면과 같이 값을 고칠 때만 채운다 — 편집 진입 시점의 저장된 값으로는 감지하지 않는다.
+        var detectedServices: [SecretFieldID: String] = [:]
+        /// 편집 폼 Services 필드에 chip으로 띄울 감지 후보.
+        var serviceCandidates: [String] = []
         public var isSaving = false
         /// 삭제 요청 진행 중. 진행 중에는 삭제 버튼을 비활성화한다.
         public var isDeleting = false
@@ -263,6 +267,7 @@ public struct SecretDetailFeature {
     @Dependency(\.entitlementClient) var entitlementClient
     @Dependency(\.appLifecycleClient) var appLifecycleClient
     @Dependency(\.revealAuthPolicy) var revealAuthPolicy
+    @Dependency(\.detectionClient) var detectionClient
     @Dependency(\.date.now) var now
 
     // MARK: - Init
@@ -606,6 +611,19 @@ public struct SecretDetailFeature {
                     : .updateFailed
                 return .none
 
+            case .binding(\.editFields):
+                guard let primary = state.editFields?.primaryDetectionValue, !primary.isEmpty else {
+                    state.serviceCandidates = []
+                    state.detectedServices = [:]
+                    return .none
+                }
+                let result = detectionClient.detect(SensitiveString(primary))
+                state.serviceCandidates = result.candidates.map(\.service)
+                if let fieldID = state.editFields?.primaryDetectionFieldID {
+                    state.detectedServices[fieldID] = result.candidates.first?.service
+                }
+                return .none
+
             case .binding, .alert, .delegate, .createProject:
                 return .none
             }
@@ -644,6 +662,8 @@ public struct SecretDetailFeature {
         state.editFieldsBaseline = nil
         state.editPayloadBaseline = nil
         state.validationErrors = [:]
+        state.serviceCandidates = []
+        state.detectedServices = [:]
         state.availableProjects = []
         state.isLoadingProjects = false
         return .cancel(id: CancelID.projects)

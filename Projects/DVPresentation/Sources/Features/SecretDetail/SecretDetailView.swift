@@ -178,10 +178,9 @@ extension SecretDetailView {
                     .resolvedSubType(store.secret.subType),
                 meta: fields,
                 availableProjects: store.availableProjects,
-                // 감지 힌트는 생성 화면 전용이다. 이미 저장된 값을 고치는 중에 서비스 제안 필요 없음.
-                serviceCandidates: [],
+                serviceCandidates: store.serviceCandidates,
                 validationErrors: store.validationErrors,
-                detectedServices: [:],
+                detectedServices: store.detectedServices,
                 onCreateProject: { store.send(.didTapCreateProject) }
             )
             // 진행 표시는 창 루트가 그린다 (`.omc/GUIDELINES.md`). 알리는 것은 `body`가

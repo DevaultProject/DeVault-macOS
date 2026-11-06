@@ -967,6 +967,64 @@ struct SecretDetailFeatureTests {
         }
     }
 
+    // MARK: - 편집 폼의 서비스 감지
+
+    @Test("편집 중 값을 고치면 감지 결과가 힌트와 후보로 채워진다")
+    func binding_editFields_triggersDetection() async {
+        let candidate = ServiceCandidate(service: "GitHub", displayLabel: "GitHub PAT", confidence: .high)
+        var edited = Self.editingState().editFields!
+        edited.content = .apiKeyToken(APIKeyTokenFields(value: "ghp_1234567890", authorityScope: "repo:read"))
+
+        let store = TestStore(initialState: Self.editingState()) {
+            SecretDetailFeature()
+        } withDependencies: {
+            $0.detectionClient.detect = { _ in DetectionResult(candidates: [candidate]) }
+        }
+
+        await store.send(.set(\.editFields, edited)) {
+            $0.editFields = edited
+            $0.serviceCandidates = ["GitHub"]
+            $0.detectedServices = [.value: "GitHub"]
+        }
+    }
+
+    @Test("편집 중 값을 비우면 감지 결과도 비워진다")
+    func binding_editFields_emptyValue_clearsDetection() async {
+        var initial = Self.editingState()
+        initial.serviceCandidates = ["GitHub"]
+        initial.detectedServices = [.value: "GitHub"]
+        var edited = initial.editFields!
+        edited.content = .apiKeyToken(APIKeyTokenFields(value: "", authorityScope: "repo:read"))
+
+        // detect는 일부러 비워 둔다 — 빈 값으로 불리면 TestStore가 unimplemented로 실패한다.
+        let store = TestStore(initialState: initial) { SecretDetailFeature() }
+
+        await store.send(.set(\.editFields, edited)) {
+            $0.editFields = edited
+            $0.serviceCandidates = []
+            $0.detectedServices = [:]
+        }
+    }
+
+    /// 남겨두면 다음 편집 진입에서 값을 고치기 전부터 지난 편집의 힌트가 보인다.
+    @Test("편집을 끝내면 감지 결과도 함께 비워진다")
+    func endEditing_clearsDetection() async {
+        var initial = Self.editingState()
+        initial.serviceCandidates = ["GitHub"]
+        initial.detectedServices = [.value: "GitHub"]
+
+        let store = TestStore(initialState: initial) { SecretDetailFeature() }
+
+        await store.send(.didTapCancelEdit) {
+            $0.mode = .viewing
+            $0.editFields = nil
+            $0.editFieldsBaseline = nil
+            $0.editPayloadBaseline = nil
+            $0.serviceCandidates = []
+            $0.detectedServices = [:]
+        }
+    }
+
     // MARK: - 편집 폼의 프로젝트 목록
 
     @Test("편집 진입 시 프로젝트 선택 옵션을 읽어 온다")
