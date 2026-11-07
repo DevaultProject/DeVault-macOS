@@ -16,8 +16,8 @@ struct CreateSecretView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            // 본문 여백은 ScrollView 안쪽(`scrollContent`)에 둔다. 바깥에 두면 스크롤 경계가 필드 테두리와 겹쳐 stroke 바깥 절반이 잘린다.
-            VStack(spacing: 0) {
+            // 본문 좌우 여백은 ScrollView 안쪽(`scrollContent`)에 둔다. 바깥에 두면 스크롤 경계가 필드 테두리와 겹쳐 stroke 바깥 절반이 잘린다.
+            VStack(spacing: 20) {
                 header
                     .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
                 scrollContent
@@ -69,7 +69,8 @@ extension CreateSecretView {
                 onCreateProject: { store.send(.didTapCreateProject) }
             )
             .padding(.horizontal, FormLayoutMetrics.horizontalPadding)
-            .padding(.vertical, 20)
+            // 위아래 스크롤 경계에 닿은 필드 테두리(1pt stroke)가 반쯤 잘리지 않게 띄운다.
+            .padding(.vertical, 1)
         }
         .scrollIndicators(.hidden)
         .disabled(store.isSaving)
