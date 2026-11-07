@@ -811,6 +811,7 @@ struct SecretDetailFeatureTests {
 
         await store.send(.didTapEdit)
         await store.receive(.canEditSecretsResponse(.success(true))) {
+            $0.availableProjects = [project]
             $0.isLoadingProjects = true
             $0.mode = .editing
             $0.editFields = SecretMetaFields(secret: secret, payload: payload, projectIds: [project.id])
@@ -1089,14 +1090,22 @@ struct SecretDetailFeatureTests {
         }
     }
 
-    /// 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없으므로 편집을 계속할 수 있게 둔다.
-    @Test("프로젝트 목록 조회 실패: alert를 띄우되 편집 모드는 유지한다")
+    /// 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없으므로 편집을 계속할 수 있게 둔다. 진입 때 채운 연결 프로젝트는 실패 후에도 남아야 chip이 사라지지 않는다.
+    @Test("프로젝트 목록 조회 실패: alert를 띄우되 편집 모드와 연결 chip은 유지한다")
     func availableProjectsFailure_keepsEditing() async {
         let secret = Self.makeSecret()
         let payload = Self.editablePayload
+        let linked = Project(
+            id: UUID(), name: "DrinkiG",
+            createdAt: Self.referenceDate, updatedAt: Self.referenceDate
+        )
 
         let store = TestStore(
-            initialState: Self.readyToEditState(secret: secret, payloadState: .loaded(payload))
+            initialState: Self.readyToEditState(
+                secret: secret,
+                payloadState: .loaded(payload),
+                linkedProjects: [linked]
+            )
         ) {
             SecretDetailFeature()
         } withDependencies: {
@@ -1107,9 +1116,10 @@ struct SecretDetailFeatureTests {
 
         await store.send(.didTapEdit)
         await store.receive(.canEditSecretsResponse(.success(true))) {
+            $0.availableProjects = [linked]
             $0.isLoadingProjects = true
             $0.mode = .editing
-            $0.editFields = SecretMetaFields(secret: secret, payload: payload, projectIds: [])
+            $0.editFields = SecretMetaFields(secret: secret, payload: payload, projectIds: [linked.id])
             $0.editFieldsBaseline = $0.editFields
             $0.editPayloadBaseline = payload
         }
