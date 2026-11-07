@@ -509,6 +509,8 @@ public struct SecretDetailFeature {
             case .canEditSecretsResponse(.success(true)):
                 guard state.mode == .viewing else { return .none }
                 guard case .loaded = state.linkedProjectsState else { return .none }
+                // 전체 목록이 오기 전에도 연결된 프로젝트 chip이 보이도록 이미 아는 것부터 채운다. 비워 두면 드롭다운이 "Select Project"였다가 chip으로 바뀌며 깜빡인다.
+                state.availableProjects = state.linkedProjects
                 state.isLoadingProjects = true
                 let projects = availableProjectsEffect()
 
@@ -540,10 +542,9 @@ public struct SecretDetailFeature {
                 state.availableProjects = projects
                 return .none
 
-            // 편집은 계속할 수 있게 둔다 — 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없다.
+            // 편집은 계속할 수 있게 둔다 — 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없다. 진입 때 채운 연결 프로젝트는 남긴다 — 비우면 연결이 그대로인데 chip만 사라진다.
             case .availableProjectsResponse(.failure):
                 state.isLoadingProjects = false
-                state.availableProjects = []
                 state.alert = .projectsLoadFailed
                 return .none
 
