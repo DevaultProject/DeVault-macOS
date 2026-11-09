@@ -19,13 +19,30 @@ struct ProjectFieldView: View {
 
     @Environment(\.formLayout) private var layout
     @Environment(\.isProjectLoading) private var isProjectLoading
+    /// 스피너를 실제로 띄울지 정한다. 로컬 조회는 한두 프레임 만에 끝나 바로 띄우면 드롭다운이 깜빡이므로, 로딩이 ``Self/loadingIndicatorDelay``보다 길어질 때만 켠다.
+    @State private var showsLoadingIndicator = false
+
+    private static let loadingIndicatorDelay: Duration = .milliseconds(300)
 
     private var size: DVComponentSize {
         layout.size(for: sizeMode)
     }
 
     var body: some View {
-        if isProjectLoading {
+        content
+            .task(id: isProjectLoading) {
+                guard isProjectLoading else {
+                    showsLoadingIndicator = false
+                    return
+                }
+                try? await Task.sleep(for: Self.loadingIndicatorDelay)
+                if !Task.isCancelled { showsLoadingIndicator = true }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if isProjectLoading && showsLoadingIndicator {
             DVLabeledField(.module("Project"), size: size) {
                 HStack(spacing: 6) {
                     ProgressView()
