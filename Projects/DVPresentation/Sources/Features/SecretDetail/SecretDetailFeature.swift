@@ -116,6 +116,12 @@ public struct SecretDetailFeature {
         public var isLoadingProjects = false
         /// 저장 시도에서 누락된 필수 필드의 인라인 경고. 생성 화면과 같은 규칙으로 채운다.
         var validationErrors: [SecretFieldID: String] = [:]
+        /// 편집 폼에 띄울 "Auto-detected: <service>" 인라인 힌트를 담는다.
+        ///
+        /// 값을 편집 진입 시점과 다르게 고쳤을 때만 채운다 — 저장된 값 그대로는 감지하지 않는다.
+        var detectedServices: [SecretFieldID: String] = [:]
+        /// 편집 폼 Services 필드에 chip으로 띄울 감지 후보를 담는다.
+        var serviceCandidates: [String] = []
         public var isSaving = false
         /// 삭제 요청 진행 중. 진행 중에는 삭제 버튼을 비활성화한다.
         public var isDeleting = false
@@ -258,6 +264,7 @@ public struct SecretDetailFeature {
     @Dependency(\.entitlementClient) var entitlementClient
     @Dependency(\.appLifecycleClient) var appLifecycleClient
     @Dependency(\.revealAuthPolicy) var revealAuthPolicy
+    @Dependency(\.detectionClient) var detectionClient
     @Dependency(\.date.now) var now
 
     // MARK: - Init
@@ -493,6 +500,8 @@ public struct SecretDetailFeature {
             case .canEditSecretsResponse(.success(true)):
                 guard state.mode == .viewing else { return .none }
                 guard case .loaded = state.linkedProjectsState else { return .none }
+                // 전체 목록이 오기 전에도 연결된 프로젝트 chip이 보이도록 이미 아는 것부터 채운다. 비워 두면 드롭다운이 "Select Project"였다가 chip으로 바뀌며 깜빡인다.
+                state.availableProjects = state.linkedProjects
                 state.isLoadingProjects = true
                 let projects = availableProjectsEffect()
 
@@ -524,10 +533,9 @@ public struct SecretDetailFeature {
                 state.availableProjects = projects
                 return .none
 
-            // 편집은 계속할 수 있게 둔다 — 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없다.
+            // 편집은 계속할 수 있게 둔다 — 프로젝트 연결만 못 바꿀 뿐 나머지 필드는 영향이 없다. 진입 때 채운 연결 프로젝트는 남긴다 — 비우면 연결이 그대로인데 chip만 사라진다.
             case .availableProjectsResponse(.failure):
                 state.isLoadingProjects = false
-                state.availableProjects = []
                 state.alert = .projectsLoadFailed
                 return .none
 
@@ -597,6 +605,20 @@ public struct SecretDetailFeature {
                     : .updateFailed
                 return .none
 
+            case .binding(\.editFields):
+                // 값이 편집 진입 시점과 같으면 감지하지 않는다 — 메모·이름만 고쳐도 `editFields` 전체가 바뀌어 여기로 오므로, 거르지 않으면 손대지 않은 저장값으로 힌트가 뜬다.
+                guard let fields = state.editFields,
+                      fields.primaryDetectionValue != state.editFieldsBaseline?.primaryDetectionValue
+                else {
+                    state.serviceCandidates = []
+                    state.detectedServices = [:]
+                    return .none
+                }
+                (state.serviceCandidates, state.detectedServices) = fields.detectServices(
+                    using: detectionClient.detect
+                )
+                return .none
+
             case .binding, .alert, .delegate, .createProject:
                 return .none
             }
@@ -632,6 +654,8 @@ public struct SecretDetailFeature {
         state.editFieldsBaseline = nil
         state.editPayloadBaseline = nil
         state.validationErrors = [:]
+        state.serviceCandidates = []
+        state.detectedServices = [:]
         state.availableProjects = []
         state.isLoadingProjects = false
         return .cancel(id: CancelID.projects)
