@@ -41,9 +41,7 @@ extension ImportPasswordView {
       Text(.module("Enter Password"))
         .dvFont(.headingLG)
         .foregroundStyle(Color.dv(.gray900))
-      Text(store.fileName)
-        .dvFont(.captionMDRegular)
-        .foregroundStyle(Color.dv(.gray500))
+      ImportSubtitleView(store.fileName)
     }
   }
 

@@ -34,12 +34,11 @@ public struct DuplicateActionOptionView: View {
                 indicator
                 Text(title)
                     .dvFont(.bodyMD)
-                    .fontWeight(.semibold)
                     .foregroundStyle(Color.dv(.gray900))
             }
             Text(description)
                 .dvFont(.captionMDRegular)
-                .foregroundStyle(Color.dv(.gray600))
+                .foregroundStyle(Color.dv(.gray700))
                 .padding(.leading, 16 + 8)
         }
         .padding(.vertical, 4)
