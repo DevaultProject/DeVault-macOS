@@ -21,6 +21,7 @@ public struct ImportSubtitleView: View {
     public var body: some View {
         HStack(spacing: 3) {
             Image(systemName: "doc")
+                .accessibilityHidden(true)
             Text(text)
         }
         .dvFont(.captionMDRegular)
