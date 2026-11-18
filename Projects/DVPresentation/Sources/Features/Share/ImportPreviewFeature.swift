@@ -89,6 +89,7 @@ public struct ImportPreviewFeature {
 
     case delegate(Delegate)
 
+    @CasePathable
     public enum Delegate: Equatable {
       case proceedWithoutDuplicates(payload: DevaultContainerPayload, project: ImportProjectChoice)
       case duplicatesFound(payload: DevaultContainerPayload, judgement: ImportDuplicateJudgement, project: ImportProjectChoice)

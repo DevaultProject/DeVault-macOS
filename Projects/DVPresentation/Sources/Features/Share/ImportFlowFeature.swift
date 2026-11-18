@@ -50,6 +50,7 @@ public struct ImportFlowFeature {
     case alert(PresentationAction<Alert>)
     case delegate(Delegate)
 
+    @CasePathable
     public enum Delegate: Equatable {
       case imported([Secret])
       case cancelled
