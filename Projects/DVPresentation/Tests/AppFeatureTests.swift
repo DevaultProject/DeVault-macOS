@@ -1,6 +1,7 @@
 // Copyright © 2026 Devault. All rights reserved
 
 import ComposableArchitecture
+import DVDomain
 import Foundation
 import Testing
 
@@ -343,6 +344,116 @@ struct AppFeatureTests {
         }
 
         await store.send(.filesOpened([]))
+    }
+
+    // MARK: - 파일 진입 시 헤더 사전 판별
+
+    private func makeTemporaryDvtFile() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).dvt")
+        try Data("header".utf8).write(to: url)
+        return url
+    }
+
+    private func assertFileOpenedRejected(
+        _ error: DevaultImportError,
+        title: String.LocalizationValue,
+        message: String.LocalizationValue
+    ) async throws {
+        let url = try makeTemporaryDvtFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.activateMainWindow = { }
+            $0.shareClient.validateHeader = { _ in throw error }
+        }
+
+        // importFileOpened가 오지 않아야 한다 — 받지 않은 액션이 남으면 TestStore가 실패한다.
+        await store.send(.fileOpened(url))
+        await store.receive(\.pendingImportFileRejected) {
+            $0.alert = AlertState {
+                TextState(String.module(title))
+            } actions: {
+                ButtonState(role: .cancel) { TextState(String.module("OK")) }
+            } message: {
+                TextState(String.module(message))
+            }
+        }
+    }
+
+    @Test("fileOpened — 헤더가 유효하면 비밀번호 시트(importFileOpened)로 넘긴다")
+    func fileOpenedForwardsToMainWhenHeaderIsValid() async throws {
+        let url = try makeTemporaryDvtFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.activateMainWindow = { }
+            $0.shareClient.validateHeader = { _ in }
+        }
+
+        await store.send(.fileOpened(url))
+        await store.receive(\.main.importFileOpened) {
+            $0.main?.importPassword = ImportPasswordFeature.State(
+                fileName: url.lastPathComponent,
+                data: Data("header".utf8)
+            )
+        }
+    }
+
+    @Test("fileOpened — 만료된 파일이면 비밀번호 시트 없이 만료 알럿을 띄운다")
+    func fileOpenedShowsExpiredAlert() async throws {
+        try await assertFileOpenedRejected(
+            .expired,
+            title: "File Expired",
+            message: "This file has expired and can no longer be opened. Ask the sender to share it again."
+        )
+    }
+
+    @Test("fileOpened — 지원하지 않는 버전이면 버전 알럿을 띄운다")
+    func fileOpenedShowsVersionMismatchAlert() async throws {
+        try await assertFileOpenedRejected(
+            .versionMismatch,
+            title: "Unsupported File Version",
+            message: "This file requires a newer version of DeVault. Please update the app and try again."
+        )
+    }
+
+    @Test("fileOpened — 손상된 파일이면 손상 알럿을 띄운다")
+    func fileOpenedShowsCorruptedAlert() async throws {
+        try await assertFileOpenedRejected(
+            .corrupted,
+            title: "File Corrupted",
+            message: "This file appears to be damaged or tampered with and can't be opened."
+        )
+    }
+
+    // 헤더 판별은 invalidPassword를 던지지 않지만, 알릴 문구가 없는 거절은 조용히 넘긴다.
+    @Test("fileOpened — 알릴 문구가 없는 거절이면 알럿을 띄우지 않는다")
+    func fileOpenedIgnoresRejectionWithoutAlertText() async throws {
+        let url = try makeTemporaryDvtFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.activateMainWindow = { }
+            $0.shareClient.validateHeader = { _ in throw DevaultImportError.invalidPassword }
+        }
+
+        await store.send(.fileOpened(url))
+        await store.receive(\.pendingImportFileRejected)
     }
 
     @Test("main이 아닐 때는 앱 비활성 타임아웃을 무시한다")

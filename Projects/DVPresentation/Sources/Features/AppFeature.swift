@@ -3,6 +3,7 @@
 import Foundation
 
 import ComposableArchitecture
+import DVDomain
 
 // MARK: - AppFeature
 
@@ -63,6 +64,7 @@ public struct AppFeature {
     case entitlementSettledAtLaunch(isFree: Bool)
     case appDidEnterBackground
     case pendingImportFileReadFailed
+    case pendingImportFileRejected(DevaultImportError)
 
     // MARK: - Child
 
@@ -87,6 +89,7 @@ public struct AppFeature {
   @Dependency(\.generalSettingsClient) var generalSettingsClient
   @Dependency(\.entitlementClient) var entitlementClient
   @Dependency(\.windowClient) var windowClient
+  @Dependency(\.shareClient) var shareClient
   @Dependency(\.continuousClock) var clock
   @Dependency(\.date.now) var now
 
@@ -264,6 +267,11 @@ public struct AppFeature {
         state.alert = .importFileReadFailed
         return .none
 
+      case let .pendingImportFileRejected(error):
+        guard let text = error.rejectionAlertText else { return .none }
+        state.alert = .importFileRejected(text)
+        return .none
+
       case .alert:
         return .none
 
@@ -341,6 +349,13 @@ private extension AppFeature {
         await send(.pendingImportFileReadFailed)
         return
       }
+      // 비밀번호를 받기 전에 손상·버전·만료를 먼저 거른다.
+      do {
+        try shareClient.validateHeader(data)
+      } catch {
+        await send(.pendingImportFileRejected(error as? DevaultImportError ?? .corrupted))
+        return
+      }
       await send(.main(.importFileOpened(fileName: url.lastPathComponent, data: data)))
     }
   }
@@ -368,5 +383,9 @@ extension AlertState where Action == AppFeature.Action.Alert {
       title: "Couldn't Open File",
       message: "The file may have been moved or deleted. Please try again."
     )
+  }
+
+  static func importFileRejected(_ text: (title: String.LocalizationValue, message: String.LocalizationValue)) -> Self {
+    .info(title: text.title, message: text.message)
   }
 }
