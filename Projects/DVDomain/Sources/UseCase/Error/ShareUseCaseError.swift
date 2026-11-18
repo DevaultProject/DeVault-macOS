@@ -17,6 +17,9 @@ public enum ShareUseCaseError: Error, Equatable, Sendable {
     /// 중복으로 판정된 항목에 덮어쓰기·건너뛰기·이름변경 중 아무것도 고르지 않았다.
     case unresolvedConflict
 
+    /// 이름을 바꿨는데도 바꾼 이름이 금고나 파일 안의 다른 항목과 또 겹친다.
+    case renamedNameConflict
+
     /// 덮어쓰기를 골랐는데 덮어쓸 대상이 없다 — 파일 내부 충돌이거나, 판정 이후 대상이 사라졌다.
     case overwriteTargetMissing
 

@@ -138,6 +138,10 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
         project: ImportProjectChoice
     ) async throws -> [Secret] {
         let judgement = try await judgeDuplicates(payload: payload, resolutions: resolutions)
+        // 이름을 바꿨어도 바꾼 이름이 금고나 파일 안의 다른 항목과 또 겹칠 수 있다. 그대로 만들면 같은 이름이 둘이 되므로 막는다.
+        guard judgement.conflictingRenames(in: resolutions).isEmpty else {
+            throw ShareUseCaseError.renamedNameConflict
+        }
         // 선택하지 않은 충돌이 남아 있으면 진행할 수 없다 — 덮어쓸지 건너뛸지를 추측하면 사용자 데이터가 조용히 사라진다.
         guard judgement.conflicts.allSatisfy({ resolutions[$0.index] != nil }) else {
             throw ShareUseCaseError.unresolvedConflict

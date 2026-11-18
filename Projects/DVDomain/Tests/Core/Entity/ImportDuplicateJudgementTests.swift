@@ -61,6 +61,31 @@ struct ImportDuplicateJudgementTests {
         #expect(judgement.slotsConsumed(by: [2: .rename("Other")]) == 3)
     }
 
+    @Test("conflictingRenames는 재판정에서도 충돌하는 rename만 고른다")
+    func conflictingRenamesPicksOnlyRenames() {
+        let judgement = ImportDuplicateJudgement(
+            totalCount: 4,
+            conflicts: [conflict(index: 0), conflict(index: 1), conflict(index: 2)]
+        )
+        let renames = judgement.conflictingRenames(in: [
+            0: .rename("Taken"),
+            1: .overwrite,
+            2: .skip,
+            3: .rename("Free"),
+        ])
+        #expect(renames == [0])
+    }
+
+    @Test("rename한 이름이 뒤 항목과 겹치면 고칠 대상은 앞 항목이다")
+    func renameCollidingWithLaterItemPointsAtEarlierItem() {
+        let judgement = ImportDuplicateJudgement(
+            totalCount: 2,
+            conflicts: [conflict(index: 1, target: .itemInFile(index: 0))]
+        )
+        #expect(judgement.conflictingRenames(in: [0: .rename("Other")]) == [0])
+        #expect(judgement.conflictingRenames(in: [0: .overwrite]).isEmpty)
+    }
+
     @Test("충돌에 없는 index의 선택은 계산에 영향을 주지 않는다")
     func unknownIndexResolutionIsIgnored() {
         let judgement = ImportDuplicateJudgement(totalCount: 3, conflicts: [conflict(index: 0)])
