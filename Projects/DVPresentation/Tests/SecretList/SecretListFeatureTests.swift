@@ -810,6 +810,44 @@ struct SecretListFeatureTests {
         await store.send(.didTapExportSelected)
     }
 
+    @Test("프로젝트 보기의 didTapExportProject는 선택과 무관하게 프로젝트 id를 delegate로 알린다")
+    func exportProjectSendsProjectIDRegardlessOfSelection() async {
+        let projectID = UUID()
+        let secret = makeSecret(name: "프로젝트 항목")
+        var initial = SecretListFeature.State(collection: .project(id: projectID))
+        initial.collectionCount = 1
+        initial.selectedSecretIDs = [secret.id]
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        // 선택은 그대로 둔다 — 프로젝트 전체를 내보내는 것이라 선택 항목을 건드리지 않는다.
+        await store.send(.didTapExportProject)
+        await store.receive(.delegate(.exportProjectRequested(id: projectID)))
+    }
+
+    @Test("빈 프로젝트에서는 didTapExportProject가 아무 일도 안 한다")
+    func exportProjectIgnoredWhenProjectIsEmpty() async {
+        let store = TestStore(initialState: SecretListFeature.State(collection: .project(id: UUID()))) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportProject)
+    }
+
+    @Test("프로젝트가 아닌 컬렉션에서는 didTapExportProject가 아무 일도 안 한다")
+    func exportProjectIgnoredOutsideProjectCollection() async {
+        var initial = SecretListFeature.State(collection: .all)
+        initial.collectionCount = 3
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportProject)
+    }
+
     // MARK: - Helpers
 
     private func makeSecret(id: UUID = UUID(), name: String) -> Secret {
