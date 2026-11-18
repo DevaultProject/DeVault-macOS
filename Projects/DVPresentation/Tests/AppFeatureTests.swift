@@ -265,6 +265,86 @@ struct AppFeatureTests {
         #expect(ensureMainWindowOpenCalled.value)
     }
 
+    // MARK: - filesOpened
+
+    @Test("filesOpened — .dvt가 섞여 있으면 첫 .dvt만 fileOpened로 넘긴다")
+    func filesOpenedForwardsFirstDvt() async {
+        let first = URL(fileURLWithPath: "/tmp/first.dvt")
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.activateMainWindow = { }
+            $0.windowClient.ensureMainWindowOpen = { }
+        }
+
+        await store.send(.filesOpened([
+            URL(fileURLWithPath: "/tmp/note.txt"),
+            first,
+            URL(fileURLWithPath: "/tmp/second.dvt"),
+        ]))
+        await store.receive(\.fileOpened) {
+            $0.pendingImportFileURL = first
+        }
+    }
+
+    @Test("filesOpened — 확장자 대소문자는 구분하지 않는다")
+    func filesOpenedIgnoresExtensionCase() async {
+        let upper = URL(fileURLWithPath: "/tmp/UPPER.DVT")
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.windowClient.activateMainWindow = { }
+            $0.windowClient.ensureMainWindowOpen = { }
+        }
+
+        await store.send(.filesOpened([upper]))
+        await store.receive(\.fileOpened) {
+            $0.pendingImportFileURL = upper
+        }
+    }
+
+    @Test("filesOpened — .dvt가 없으면 main에서 지원하지 않는 파일 알럿을 띄운다")
+    func filesOpenedShowsUnsupportedAlertOnMain() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        }
+
+        await store.send(.filesOpened([URL(fileURLWithPath: "/tmp/note.txt")])) {
+            $0.alert = AlertState {
+                TextState(String.module("Unsupported File"))
+            } actions: {
+                ButtonState(role: .cancel) { TextState(String.module("OK")) }
+            } message: {
+                TextState(String.module("Only .dvt files can be opened."))
+            }
+        }
+    }
+
+    // 잠금·온보딩·창 닫힘에서는 알럿이 보이지 않거나 나중에 뜬금없이 뜬다.
+    @Test("filesOpened — .dvt가 없어도 main이 없으면(잠금·온보딩·창 닫힘) 알럿을 띄우지 않는다")
+    func filesOpenedIgnoresUnsupportedFilesWithoutMain() async {
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        }
+
+        await store.send(.filesOpened([URL(fileURLWithPath: "/tmp/note.txt")]))
+    }
+
+    @Test("filesOpened — 빈 목록이면 아무것도 하지 않는다")
+    func filesOpenedIgnoresEmptyList() async {
+        var initial = AppFeature.State()
+        initial.main = .init()
+
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        }
+
+        await store.send(.filesOpened([]))
+    }
+
     @Test("main이 아닐 때는 앱 비활성 타임아웃을 무시한다")
     func inactivityTimeoutIgnoredWhenNotInMain() async {
         var initial = AppFeature.State()

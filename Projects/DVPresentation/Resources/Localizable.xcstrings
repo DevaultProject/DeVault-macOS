@@ -4725,6 +4725,23 @@
         }
       }
     },
+    "Only .dvt files can be opened." : {
+      "comment" : "Alert message shown when a dropped/opened file is not a .dvt file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only .dvt files can be opened."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".dvt 파일만 열 수 있습니다."
+          }
+        }
+      }
+    },
     "Open Main Window" : {
       "comment" : "Window menu item that reopens the main window after it was closed.",
       "localizations" : {
@@ -6683,6 +6700,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Touch ID로 잠금 해제"
+          }
+        }
+      }
+    },
+    "Unsupported File" : {
+      "comment" : "Alert title shown when a dropped/opened file is not a .dvt file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsupported File"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지원하지 않는 파일입니다"
           }
         }
       }

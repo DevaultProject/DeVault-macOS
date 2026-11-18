@@ -30,8 +30,8 @@ struct DevaultApp: App {
     transactionObserver = LiveServices.purchase.observeTransactionUpdates()
 
     let store = store
-    appDelegate.onFileOpened = { url in
-      store.send(.fileOpened(url))
+    appDelegate.onFilesOpened = { urls in
+      store.send(.filesOpened(urls))
     }
   }
 
@@ -99,16 +99,13 @@ private struct DevaultRootView: View {
 /// 창을 닫아도 앱을 종료하지 않고 Dock에 유지한다(`Window` scene 기본 종료를 막는다).
 final class AppDelegate: NSObject, NSApplicationDelegate {
   /// Finder에서 `.dvt` 더블클릭·"다음으로 열기" 시 전달된다.
-  var onFileOpened: ((URL) -> Void)?
+  var onFilesOpened: (([URL]) -> Void)?
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     false
   }
 
   func application(_ application: NSApplication, open urls: [URL]) {
-    // 한 번에 하나만 받는다 — dropDestination과 동일 — 여러 개를 다 보내면 state.pendingImportFileURL이
-    // 마지막 것만 남기고 앞선 요청을 조용히 지운다.
-    guard let url = urls.first(where: { $0.pathExtension.lowercased() == "dvt" }) else { return }
-    onFileOpened?(url)
+    onFilesOpened?(urls)
   }
 }
