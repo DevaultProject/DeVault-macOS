@@ -20,12 +20,12 @@ public struct AppFeature {
     public var isWindowCaptureBlockingEnabled = true
     public var appearance: AppAppearance = .system
 
-    /// Finder에서 연 `.dvt` 파일 — Import 화면이 준비될 때까지 잠금/온보딩 동안 보관한다.
+    /// 메인이 뜰 때까지 보관하는 `.dvt` 파일.
     public var pendingImportFileURL: URL?
     @Presents public var alert: AlertState<Action.Alert>?
 
-    /// 지금 어느 화면인지. 전환 애니메이션이 이 값 하나를 본다.
-    /// 셋을 다 비웠다가 하나를 세우는 구간이 있어(`task`) 옵셔널이다.
+    /// 현재 화면 — 전환 애니메이션이 이 값만 본다.
+    /// `task`에서 셋이 모두 비는 구간이 있어서 옵셔널
     var screen: Screen? {
       if onboarding != nil { return .onboarding }
       if locked != nil { return .locked }
@@ -50,6 +50,7 @@ public struct AppFeature {
 
     case task
     case inactivityTimeoutReached
+    case filesOpened([URL])
     case fileOpened(URL)
 
     // MARK: - Internal
@@ -92,6 +93,13 @@ public struct AppFeature {
   // MARK: - Init
 
   public init() {}
+
+  // MARK: - Helpers
+
+  /// 드롭 판정과 리듀서가 같은 `.dvt` 기준을 쓴다.
+  static func importableURL(in urls: [URL]) -> URL? {
+    urls.first { $0.pathExtension.lowercased() == "dvt" }
+  }
 
   // MARK: - Cancellation
 
@@ -139,6 +147,13 @@ public struct AppFeature {
           iCloudRemoteChangeWatchEffect(),
           entitlementWatchEffect()
         )
+
+      // 하나만 열기 — 여러 개를 보내면 pendingImportFileURL이 앞선 요청을 덮어쓴다.
+      case let .filesOpened(urls):
+        if let url = Self.importableURL(in: urls) { return .send(.fileOpened(url)) }
+        guard !urls.isEmpty, state.main != nil else { return .none }  // 메인이 없으면 알럿이 안 보이거나 뒤늦게 뜸
+        state.alert = .unsupportedFile
+        return .none
 
       case let .fileOpened(url):
         state.pendingImportFileURL = url
@@ -246,7 +261,7 @@ public struct AppFeature {
         return .none
 
       case .pendingImportFileReadFailed:
-        state.alert = pendingImportFileReadFailedAlert
+        state.alert = .importFileReadFailed
         return .none
 
       case .alert:
@@ -330,16 +345,6 @@ private extension AppFeature {
     }
   }
 
-  var pendingImportFileReadFailedAlert: AlertState<Action.Alert> {
-    AlertState {
-      TextState(String.module("Couldn't Open File"))
-    } actions: {
-      ButtonState(role: .cancel) { TextState(String.module("OK")) }
-    } message: {
-      TextState(String.module("The file may have been moved or deleted. Please try again."))
-    }
-  }
-
   func iCloudRemoteChangeWatchEffect() -> Effect<Action> {
     .run { send in
       for await _ in appLaunchClient.iCloudRemoteChangeStream() {
@@ -347,5 +352,21 @@ private extension AppFeature {
       }
     }
     .cancellable(id: CancelID.iCloudRemoteChangeWatch, cancelInFlight: true)
+  }
+}
+
+// MARK: - AlertState presets
+
+extension AlertState where Action == AppFeature.Action.Alert {
+
+  static var unsupportedFile: Self {
+    .info(title: "Unsupported File", message: "Only .dvt files can be opened.")
+  }
+
+  static var importFileReadFailed: Self {
+    .info(
+      title: "Couldn't Open File",
+      message: "The file may have been moved or deleted. Please try again."
+    )
   }
 }
