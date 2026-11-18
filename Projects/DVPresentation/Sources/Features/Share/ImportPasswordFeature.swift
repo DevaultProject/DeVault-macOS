@@ -149,11 +149,11 @@ private extension ImportPasswordFeature {
   static func rejectionAlert(for error: DevaultImportError) -> AlertState<Action.Alert>? {
     guard let text = error.rejectionAlertText else { return nil }
     return AlertState {
-      TextState(text.title)
+      TextState(String.module(text.title))
     } actions: {
       ButtonState(action: .didConfirm) { TextState(String.module("OK")) }
     } message: {
-      TextState(text.message)
+      TextState(String.module(text.message))
     }
   }
 }
