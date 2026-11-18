@@ -16,32 +16,27 @@ public struct MainFeature {
   public struct State: Equatable {
     var sidebar: SidebarFeature.State = .init()
     var secretList: SecretListFeature.State = .init(collection: .all)
-    /// sheet가 아닌 2-column NavigationSplitView 전환 용도이므로 @Presents 미사용
-    var selectSecretType: SelectSecretTypeFeature.State?
+
+    // 시트
     @Presents var createProject: CreateProjectFeature.State?
-    /// 게이트에 막혀 띄우는 업그레이드 시트.
     @Presents var paywall: DevaultProPaywallFeature.State?
     @Presents var exportSecret: ExportSecretSheetFeature.State?
-    /// Export가 끝난 뒤 Share/Save As 선택을 기다리는 임시 파일. sheet가 아닌 단순 optional이라 @Presents 미사용.
+    /// Export 뒤 Share/Save As 선택을 기다리는 임시 파일. 단순 optional이라 @Presents를 쓰지 않는다.
     var exportedFile: ExportedFile?
-    /// 비밀번호 입력(#200). 복호화에 성공하면 `importFlow`로 넘긴다.
     @Presents var importPassword: ImportPasswordFeature.State?
-    /// Preview→Review Duplicates→execute를 잇는 코디네이터.
     @Presents var importFlow: ImportFlowFeature.State?
-    /// sheet가 아닌 2-column NavigationSplitView 전환 용도이므로 @Presents 미사용
+
+    // 화면 전환 — sheet가 아니라 컬럼·콘텐츠를 바꾸므로 @Presents를 쓰지 않는다.
+    var selectSecretType: SelectSecretTypeFeature.State?
     var createSecret: CreateSecretFeature.State?
-    /// sheet가 아닌 3-column NavigationSplitView detail 컬럼 용도이므로 @Presents 미사용
     var secretDetail: SecretDetailFeature.State?
-    /// 별도 Window가 아니라 콘텐츠 스위칭으로 처리하므로 @Presents 미사용
     var settings: SettingsFeature.State?
 
-    /// 생성 폼의 취소 확인을 기다리는 동안 보관하는 이동 목적지.
+    // 작성 중인 폼의 취소 확인을 기다리는 동안 보관한다.
     var pendingSelection: SidebarSelection?
-
-    /// New▸로 요청한 타입을, 작성 중이던 폼을 취소 확인한 뒤 열기 위해 보관한다.
     var pendingCreateType: CreatableSecretType?
 
-    /// 삭제된 시크릿을 고른 상태라면 detail 컬럼에 상세 대신 그릴 복구 안내 대상. 저장 필드로 두지 않는다 — 상세를 닫는 경로가 여럿이라 한 곳만 빠뜨려도 안내가 남는다.
+    /// 삭제된 시크릿을 고르면 상세 대신 그릴 복구 안내 대상. 상세를 닫는 경로가 여럿이라 저장하지 않고 계산한다.
     var deletedNoticeSecret: Secret? {
       guard secretDetail == nil,
             let id = secretList.selectedSecretID,
@@ -52,8 +47,7 @@ public struct MainFeature {
       return secret
     }
 
-    /// 지금 무엇을 그릴지. **화면 분기는 이 값 하나만 본다.**
-    /// 뷰에서 optional을 직접 조합하면 같은 판정이 렌더 지점마다 흩어진다.
+    /// 화면 분기는 이 값 하나만 본다 — 뷰에서 optional을 조합하면 판정이 흩어진다.
     var screen: Screen {
       if settings != nil { return .settings }
       if createSecret != nil || selectSecretType != nil { return .creating }
@@ -79,7 +73,7 @@ public struct MainFeature {
     case binding(BindingAction<State>)
     case task
     case didTapLock
-    /// App 메뉴 서브메뉴에서 타입 선택 그리드를 건너뛰고 해당 타입으로 바로 생성.
+    /// App 메뉴에서 타입 선택을 건너뛰고 바로 생성.
     case createSecretRequested(CreatableSecretType)
 
     // MARK: - Internal
@@ -93,9 +87,9 @@ public struct MainFeature {
     case secretList(SecretListFeature.Action)
     case selectSecretType(SelectSecretTypeFeature.Action)
     case createProject(PresentationAction<CreateProjectFeature.Action>)
-    /// Project 생성 게이트 판정 결과. 화면은 **시도 전에** 물어보고, 막혔으면 페이월을 띄운다.
+    /// Project 생성 게이트 판정 결과. 시도 전에 묻는다.
     case canCreateProjectResponse(Result<Bool, ProjectUseCaseError>)
-    /// Secret 생성 게이트 판정 결과. 타입 선택 화면을 열기 **전에** 묻는다.
+    /// Secret 생성 게이트 판정 결과. 타입 선택을 열기 전에 묻는다.
     case canCreateSecretResponse(Result<Bool, SecretUseCaseError>)
     case paywall(PresentationAction<DevaultProPaywallFeature.Action>)
     case createSecret(CreateSecretFeature.Action)
@@ -104,7 +98,7 @@ public struct MainFeature {
     case exportSecret(PresentationAction<ExportSecretSheetFeature.Action>)
     case importPassword(PresentationAction<ImportPasswordFeature.Action>)
     case importFlow(PresentationAction<ImportFlowFeature.Action>)
-    /// 프로젝트 공유 버튼 — 사이드바는 id만 알아서, 내보낼 시크릿 목록을 여기서 조회한다(휴지통 제외는 `secretClient.fetchByQuery`가 보장).
+    /// 프로젝트 공유 — 사이드바는 id만 알아서 내보낼 시크릿을 여기서 조회한다.
     case projectExportSecretsFetched(Result<[Secret.ID], SecretUseCaseError>)
     case didDismissExportedFile
 
@@ -130,7 +124,7 @@ public struct MainFeature {
   // MARK: - Cancellation
 
   private enum CancelID {
-    /// 생성 게이트 판정. 세 진입점이 **하나의 ID를 공유한다** — 사용자가 마음을 바꿔 다른 생성을 누르면 앞선 판정은 버려야 한다. 나눠 두면 두 응답이 모두 도착해 한쪽 화면이 다른 쪽을 덮는다.
+    /// 생성 게이트 판정. 세 진입점이 한 ID를 공유해야 앞선 판정이 취소된다 — 나누면 두 응답이 모두 도착해 한쪽 화면이 덮인다.
     case createGate
   }
 
@@ -153,7 +147,7 @@ public struct MainFeature {
         return .none
 
       case .canCreateSecretResponse(.success(true)):
-        // 메뉴(File ▸ New ▸ 타입)로 들어왔으면 타입이 정해져 있다. 사이드바 `+`는 타입 선택부터 연다.
+        // 메뉴 진입이면 타입이 정해져 있고, 사이드바 `+`는 타입 선택부터 연다.
         if let secretType = state.pendingCreateType {
           state.pendingCreateType = nil
           return startCreating(secretType: secretType, &state)
@@ -190,7 +184,7 @@ public struct MainFeature {
       case .paywall:
         return .none
 
-      // 알림은 어떤 id가 바뀌었는지 알려주지 않아, 재조회 결과와 대조해 선택을 정리해야 한다.
+      // 알림에 바뀐 id가 없어 재조회 결과와 대조해 선택을 정리한다.
       case .iCloudRemoteChangeDetected:
         return .concatenate(
           .send(.secretList(.refreshRevalidatingSelection)),
@@ -206,7 +200,7 @@ public struct MainFeature {
       case .sidebar:
         return .none
 
-      // `case .settings:` catch-all보다 **앞에** 있어야 한다. 뒤에 두면 잡히지 않아 설정 게이트가 조용히 무시된다 — 토글만 되돌아가고 페이월이 뜨지 않는다.
+      // `case .settings:` catch-all보다 앞에 둔다 — 뒤면 잡히지 않아 페이월이 뜨지 않는다.
       case .settings(.delegate(.paywallRequired)),
            .secretDetail(.delegate(.paywallRequired)),
            .secretList(.delegate(.paywallRequired)),
@@ -215,7 +209,7 @@ public struct MainFeature {
         return .none
 
       case let .importFileOpened(fileName, data):
-        // 이미 Review Duplicates까지 진행 중이면(importFlow) 끼어들지 않는다 — 시트 두 개가 동시에 뜨는 것을 막는다.
+        // importFlow 진행 중이면 끼어들지 않는다 — 시트가 겹쳐 뜨는 것을 막는다.
         guard state.importFlow == nil else { return .none }
         state.importPassword = ImportPasswordFeature.State(fileName: fileName, data: data)
         return .none
@@ -226,8 +220,7 @@ public struct MainFeature {
         state.importFlow = ImportFlowFeature.State(fileName: fileName, payload: payload)
         return .none
 
-      // 거절(손상·버전불일치·만료)은 Entry가 자기 알럿으로 이미 안내하고 확인받은 뒤에만 온다 —
-      // 여기서는 시트만 닫는다.
+      // 거절은 비밀번호 화면이 알럿으로 이미 안내한 뒤에만 온다 — 시트만 닫는다.
       case .importPassword(.presented(.delegate(.rejected))):
         state.importPassword = nil
         return .none
@@ -235,8 +228,7 @@ public struct MainFeature {
       case .importPassword:
         return .none
 
-      // 페이월이 뜨면 importFlow(Preview/Review Duplicates)를 통째로 닫는다 — 시트 위에 시트를
-      // 못 쌓는 제약 때문에 의도한 동작이다. 결제 후 다시 돌아오려면 파일 선택부터 다시 해야 한다.
+      // 시트 위에 시트를 못 쌓아 importFlow를 통째로 닫는다. 결제 뒤에는 파일 선택부터 다시 해야 한다.
       case .importFlow(.presented(.delegate(.paywallRequired))):
         state.importFlow = nil
         state.paywall = DevaultProPaywallFeature.State()
@@ -272,7 +264,7 @@ public struct MainFeature {
         return .none
 
       // 삭제된 시크릿은 상세를 만들지 않는다 — 상세가 조회·복사·수정의 유일한 진입점이다.
-      // 목록의 선택이 아니라 여기서 막는다 — 선택을 막으면 `List` selection이 확정되지 않아 방향키 탐색과 컨텍스트 메뉴의 영구 삭제가 키보드로 도달 불가가 된다.
+      // 선택이 아니라 여기서 막는다 — 선택을 막으면 `List` selection이 확정되지 않아 방향키 탐색과 영구 삭제가 키보드로 안 된다.
       case .secretList(.delegate(.secretSelected(let id))):
         if let id, case .loaded(let secrets) = state.secretList.secretsState, let secret = secrets[id: id],
            secret.deletedAt == nil {
@@ -282,7 +274,7 @@ public struct MainFeature {
         }
         return .none
 
-      // 자식끼리 직접 연결하지 않고 공통 부모가 사이드바 개수 갱신을 지시한다 (TCA_GUIDELINES 7.4).
+      // 자식끼리 직접 연결하지 않고 부모가 사이드바 개수 갱신을 지시한다 (TCA_GUIDELINES 7.4).
       case .secretList(.delegate(.secretsChanged)):
         return .send(.sidebar(.countsRefreshRequested))
 
@@ -293,20 +285,20 @@ public struct MainFeature {
         return .none
 
       case .exportSecret(let presentationAction):
-        // child의 dismiss() 대신 여기서 시트 닫기+다음 시트 열기를 원자적으로 처리한다.
+        // dismiss() 대신 여기서 시트 닫기+다음 시트 열기를 원자적으로 처리한다.
         if case .presented(.delegate(.exportSucceeded(let url))) = presentationAction {
           state.exportSecret = nil
           state.exportedFile = ExportedFile(url: url)
         }
         return .none
 
-      // 빈 프로젝트는 비밀번호를 받고 Touch ID까지 거치고도 내보낼 게 없다 — `didTapExportSelected`와 같은 가드.
+      // 빈 프로젝트는 비밀번호·Touch ID까지 거치고도 내보낼 게 없다.
       case .projectExportSecretsFetched(.success(let ids)):
         guard !ids.isEmpty else { return .none }
         state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
         return .none
 
-      // 조회 실패는 저장소가 깨진 것이다 — `.canCreateProjectResponse(.failure)`와 같은 이유로 조용히 무시한다.
+      // 저장소가 깨진 것이라 조용히 무시한다(`.canCreateProjectResponse(.failure)`와 같은 이유).
       case .projectExportSecretsFetched(.failure):
         return .none
 
@@ -319,7 +311,7 @@ public struct MainFeature {
         state.secretList.selectedSecretID = nil
         return .none
 
-      // 단순 항목 교체로는 liked / expired / project 같은 필터 컬렉션에서 조건을 벗어난 항목이 남는다.
+      // 항목만 교체하면 필터 컬렉션(liked·expired·project)에서 조건을 벗어난 항목이 남는다.
       case .secretDetail(.delegate(.secretUpdated)):
         return .concatenate(
           .send(.secretList(.refresh)),
@@ -334,8 +326,8 @@ public struct MainFeature {
           .send(.sidebar(.countsRefreshRequested))
         )
 
-      // 자식끼리 직접 연결하지 않고 공통 부모가 사이드바 재조회를 지시한다 (TCA_GUIDELINES 7.4).
-      // 아래 `.secretDetail` 캐치올보다 **앞에** 둬야 한다 — 뒤에 두면 그쪽이 먼저 잡아 무시된다.
+      // 자식끼리 직접 연결하지 않고 부모가 사이드바 재조회를 지시한다 (TCA_GUIDELINES 7.4).
+      // 아래 `.secretDetail` 캐치올보다 앞에 둔다 — 뒤면 그쪽이 먼저 잡는다.
       case .secretDetail(.delegate(.projectsChanged)):
         return .send(.sidebar(.refresh))
 
@@ -346,15 +338,14 @@ public struct MainFeature {
         return .none
 
       case .createSecretRequested(let secretType):
-        // 설정 화면에선 사이드바·리스트가 없어, 진행하면 보이지 않는 상태만 바뀐다(설정 닫을 때 튐).
+        // 설정 화면엔 사이드바·리스트가 없어, 진행하면 보이지 않는 상태만 바뀐다.
         guard state.settings == nil else { return .none }
-        // 작성 중인 폼이 있으면 덮어쓰지 않는다 — 다른 진입점(⌘N·사이드바)처럼 취소 확인을 거치고,
-        // 확인되면(cancelled) 이 타입으로 새 폼을 연다.
+        // 작성 중인 폼은 덮어쓰지 않는다 — 취소 확인을 거쳐 확인되면 이 타입으로 새 폼을 연다.
         guard state.createSecret == nil else {
           state.pendingCreateType = secretType
           return .send(.createSecret(.didTapCancel))
         }
-        // 사이드바 `+`와 같은 규칙을 태운다. 여기만 빠지면 메뉴로 들어온 사용자는 폼을 다 채운 뒤 저장에서 막히고 입력한 시크릿 값이 날아간다.
+        // 사이드바 `+`와 같은 게이트를 태운다 — 빠지면 폼을 채운 뒤 저장에서 막혀 입력이 날아간다.
         state.pendingCreateType = secretType
         return .run { send in
           await send(.canCreateSecretResponse(Result {
@@ -370,24 +361,23 @@ public struct MainFeature {
       case .selectSecretType:
         return .none
 
-      // 목록도 함께 다시 읽는다. 컬럼만 접히고 뷰는 살아 있어 `.task`가 다시 돌지 않으므로,
-      // 이게 없으면 방금 만든 시크릿이 목록에 나타나지 않는다.
+      // 컬럼만 접히고 뷰는 살아 있어 `.task`가 다시 돌지 않으므로 목록을 직접 다시 읽는다.
       case .createSecret(.delegate(.secretCreated(_))):
         exitCreating(&state)
-        // `.merge`는 도착 순서를 보장하지 않아 테스트가 깨지기 쉬우므로 순차 실행한다.
+        // `.merge`는 도착 순서를 보장하지 않아 순차 실행한다.
         return .concatenate(
           .send(.sidebar(.setCreatingSecret(false))),
           .send(.secretList(.refresh)),
           .send(.sidebar(.countsRefreshRequested))
         )
 
-      // 자식끼리 직접 연결하지 않고 공통 부모가 사이드바 재조회를 지시한다 (TCA_GUIDELINES 7.4).
+      // 자식끼리 직접 연결하지 않고 부모가 사이드바 재조회를 지시한다 (TCA_GUIDELINES 7.4).
       case .createSecret(.delegate(.projectsChanged)):
         return .send(.sidebar(.refresh))
 
       // 사이드바가 시작한 취소면 목록으로, 폼의 Cancel이면 타입 그리드로 — 목적지가 다르다.
       case .createSecret(.delegate(.cancelled)):
-        // New▸로 다른 타입을 요청해 폼을 접은 경우: 목록/그리드가 아니라 그 타입 폼을 새로 연다.
+        // New▸로 다른 타입을 요청했으면 그 타입 폼을 새로 연다.
         if let secretType = state.pendingCreateType {
           state.pendingCreateType = nil
           return startCreating(secretType: secretType, &state)
@@ -401,8 +391,7 @@ public struct MainFeature {
         applySelection(pending, &state)
         return .send(.sidebar(.setCreatingSecret(false)))
 
-      // 목적지를 버리지 않으면 다음에 폼의 Cancel을 눌렀을 때 엉뚱하게 목록으로 나간다.
-      // 사이드바는 아직 움직이지 않았으므로 되돌릴 것이 없다.
+      // 목적지를 버리지 않으면 다음 폼 Cancel이 엉뚱하게 목록으로 나간다. 사이드바는 아직 안 움직여 되돌릴 게 없다.
       case .createSecret(.alert(.dismiss)):
         state.pendingSelection = nil
         state.pendingCreateType = nil
@@ -416,7 +405,7 @@ public struct MainFeature {
         // 생성 중이면 목록을 옮기지 않는다 — 마치고 엉뚱한 목록으로 돌아오게 된다.
         if case .browsing = state.sidebar.mode {
           state.sidebar.selection = .project(id: item.id)
-          // 새 프로젝트는 아직 `sidebar.projects`에 없어 이름을 찾을 수 없어 `applySelection`을 못 쓴다.
+          // 새 프로젝트는 아직 `sidebar.projects`에 없어 `applySelection`을 못 쓴다.
           state.secretDetail = nil
           state.secretList.retarget(to: .project(id: item.id), projectName: item.name)
         }
@@ -479,8 +468,7 @@ extension MainFeature {
     delegate: SidebarFeature.Action.Delegate
   ) -> Effect<Action> {
     switch delegate {
-    // 폼이 열려 있으면 입력이 있을 수 있으므로 자식의 기존 취소 alert를 거친다.
-    // 타입 선택 단계는 입력이 없어 확인 없이 나간다.
+    // 폼이 열려 있으면 입력이 있을 수 있어 취소 alert를 거친다. 타입 선택 단계는 입력이 없어 바로 나간다.
     case .selectionChanged(let selection):
       guard state.createSecret == nil else {
         state.pendingSelection = selection
@@ -489,13 +477,12 @@ extension MainFeature {
       applySelection(selection, &state)
       return .send(.sidebar(.setCreatingSecret(false)))
 
-    // 폼이 열려 있으면 사이드바 선택과 똑같이 확인을 거친다. `pendingSelection`을 두지
-    // 않으므로 확인되면 목록이 아니라 타입 선택으로 돌아간다 — `+`가 뜻하는 바 그대로다.
+    // 폼이 열려 있으면 사이드바 선택처럼 확인을 거친다. `pendingSelection`을 두지 않으므로 확인되면 타입 선택으로 돌아간다.
     case .addButtonTapped:
       guard state.createSecret == nil else {
         return .send(.createSecret(.didTapCancel))
       }
-      // 타입 선택 화면을 열기 전에 묻는다. 폼을 끝까지 채우게 한 뒤 저장에서 막으면 입력한 시크릿 값이 날아간다.
+      // 타입 선택을 열기 전에 묻는다 — 폼을 채운 뒤 저장에서 막으면 입력이 날아간다.
       return .run { send in
         await send(.canCreateSecretResponse(Result {
           try await entitlementClient.canCreateSecret()
@@ -504,7 +491,7 @@ extension MainFeature {
       .cancellable(id: CancelID.createGate, cancelInFlight: true)
 
     case .addProjectTapped:
-      // 생성 화면을 열기 전에 묻는다. 폼을 채우게 한 뒤 저장에서 막으면 입력한 값이 날아간다.
+      // 생성 화면을 열기 전에 묻는다 — 채운 뒤 막으면 입력이 날아간다.
       return .run { send in
         await send(.canCreateProjectResponse(Result {
           try await entitlementClient.canCreateProject()
@@ -516,9 +503,8 @@ extension MainFeature {
       state.settings = .init()
       return .none
 
-    // State를 갈아끼우면 목록이 버려지는데 `collection`이 같아 다시 읽지도 않는다.
-    // 판정 기준은 사이드바가 아니라 목록이 지금 보고 있는 것이다 — 둘은 어긋날 수 있고
-    // (생성 중의 "돌아갈 곳") 사이드바를 보면 A의 목록에 B의 이름이 붙는다.
+    // State를 갈아끼우면 목록이 버려진다. 판정 기준은 사이드바가 아니라 목록이 보고 있는 것이다 —
+    // 둘은 어긋날 수 있어(생성 중) 사이드바를 보면 A의 목록에 B의 이름이 붙는다.
     case .projectRenamed(let item):
       if case .project(id: item.id) = state.secretList.collection {
         state.secretList.projectName = item.name
@@ -538,9 +524,8 @@ extension MainFeature {
   }
 
   /// 고른 곳이 이미 보고 있던 곳일 수 있어(생성 중 같은 필터 재선택) `retarget`을 거친다.
-  /// **사이드바를 옮기는 것도 여기서 한다** — `SidebarFeature.didSelect`는 생성 중일 때
-  /// 알리기만 하므로(확인을 거쳐야 확정된다) 여기서 옮기지 않으면 이어지는
-  /// `setCreatingSecret(false)`가 이전 자리를 강조해 목록과 어긋난다.
+  /// 사이드바 이동도 여기서 한다 — `SidebarFeature.didSelect`는 생성 중일 때 알리기만 해서,
+  /// 옮기지 않으면 `setCreatingSecret(false)`가 이전 자리를 강조해 목록과 어긋난다.
   private func applySelection(_ selection: SidebarSelection, _ state: inout State) {
     state.sidebar.selection = selection
     exitCreating(&state)
@@ -549,8 +534,7 @@ extension MainFeature {
     state.secretList.retarget(to: target.collection, projectName: target.projectName)
   }
 
-  /// New▸ 진입: 타입 그리드를 건너뛰고 해당 타입 폼으로 바로 들어간다. 조회 중이던 상세를 놓아
-  /// 스테일 상세 재등장을 막고, 사이드바가 아무 것도 선택되지 않은 상태로 표시되게 한다.
+  /// New▸ 진입 — 타입 그리드를 건너뛴다. 조회 중이던 상세를 놓아 스테일 상세가 되살아나는 것을 막는다.
   private func startCreating(secretType: CreatableSecretType, _ state: inout State) -> Effect<Action> {
     state.selectSecretType = nil
     state.createSecret = CreateSecretFeature.State(secretType: secretType)
@@ -559,8 +543,7 @@ extension MainFeature {
     return .send(.sidebar(.setCreatingSecret(true)))
   }
 
-  /// 조회 중이던 시크릿을 함께 놓는다 — 상세 State가 살아남으면
-  /// 돌아올 때 되살아나고 `.task(id:)`가 Touch ID까지 다시 요구한다.
+  /// 조회 중이던 시크릿도 놓는다 — 상세 State가 살아남으면 돌아올 때 되살아나 `.task(id:)`가 Touch ID를 다시 요구한다.
   private func enterCreating(_ state: inout State) {
     state.createSecret = nil
     state.selectSecretType = .init()
