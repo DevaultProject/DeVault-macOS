@@ -27,7 +27,7 @@ extension ExportSecretSheetView {
 
   private var content: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Text(.module("Export Secret"))
+      Text(store.target == .project ? String.module("Export Project") : String.module("Export Secret"))
         .dvFont(.bodyLG)
         .foregroundStyle(Color.dv(.gray900))
 
