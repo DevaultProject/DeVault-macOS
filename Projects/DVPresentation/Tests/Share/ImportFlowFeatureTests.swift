@@ -79,10 +79,15 @@ struct ImportFlowFeatureTests {
     let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
     let secret = makeSecret("A")
     var capturedArgs: (payload: DevaultContainerPayload, resolutions: [Int: ImportDuplicateResolution], project: ImportProjectChoice)?
+    let rejudgedResolutions = LockIsolated<[Int: ImportDuplicateResolution]?>(nil)
 
     let store = TestStore(initialState: makeState(payload: payload)) {
       ImportFlowFeature()
     } withDependencies: {
+      $0.shareClient.judgeDuplicates = { _, resolutions in
+        rejudgedResolutions.setValue(resolutions)
+        return ImportDuplicateJudgement(totalCount: 1, conflicts: [])
+      }
       $0.shareClient.authenticate = { _ in }
       $0.shareClient.importSecrets = { payload, resolutions, project in
         capturedArgs = (payload, resolutions, project)
@@ -96,15 +101,96 @@ struct ImportFlowFeatureTests {
       $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
     }
 
-    await store.send(.reviewDuplicates(.delegate(.resolved([0: .overwrite])))) {
+    await store.send(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
+    await store.receive(.renameRecheckResponse(.success([]), resolutions: [0: .overwrite])) {
       $0.isExecuting = true
     }
     await store.receive(\.executeResponse.success) { $0.isExecuting = false }
     await store.receive(\.delegate.imported)
 
+    #expect(rejudgedResolutions.value == [0: .overwrite])
     #expect(capturedArgs?.payload == payload)
     #expect(capturedArgs?.resolutions == [0: .overwrite])
     #expect(capturedArgs?.project == .existing(id: projectID))
+  }
+
+  @Test("바꾼 이름이 또 겹치면 execute하지 않고 Review Duplicates에 충돌을 돌려준다")
+  func renameStillConflictingReturnsToReviewWithoutExecuting() async {
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+    let importCalled = LockIsolated(false)
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      // 바꾼 이름(A (1))이 금고에 이미 있어 재판정에서도 같은 항목이 충돌한다.
+      $0.shareClient.judgeDuplicates = { _, _ in judgement }
+      $0.shareClient.authenticate = { _ in }
+      $0.shareClient.importSecrets = { _, _, _ in
+        importCalled.setValue(true)
+        return []
+      }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+
+    let resolutions: [Int: ImportDuplicateResolution] = [0: .rename("A (1)")]
+    await store.send(.reviewDuplicates(.delegate(.resolved(resolutions))))
+    await store.receive(.renameRecheckResponse(.success([0]), resolutions: resolutions))
+    await store.receive(.reviewDuplicates(.renameConflictsFound([0]))) {
+      $0.reviewDuplicates?.renameConflicts = [0]
+      $0.reviewDuplicates?.shakeCount = 1
+    }
+
+    #expect(!importCalled.value)
+    #expect(!store.state.isExecuting)
+  }
+
+  @Test("재판정이 실패하면 execute하지 않고 실패 alert를 띄운다")
+  func rejudgeFailureShowsAlertWithoutExecuting() async {
+    struct SomeError: Error {}
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+    let importCalled = LockIsolated(false)
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      $0.shareClient.judgeDuplicates = { _, _ in throw SomeError() }
+      $0.shareClient.importSecrets = { _, _, _ in
+        importCalled.setValue(true)
+        return []
+      }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+
+    await store.send(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
+    await store.receive(.renameRecheckResponse(.failure(ImportFlowFeature.ExecuteError(SomeError())), resolutions: [0: .overwrite])) {
+      $0.alert = AlertState {
+        TextState(String.module("Couldn't Import Secrets"))
+      } actions: {
+        ButtonState(role: .cancel) { TextState(String.module("OK")) }
+      } message: {
+        TextState(String.module("Please try again in a moment."))
+      }
+    }
+
+    #expect(!importCalled.value)
   }
 
   @Test("Review Duplicates에서 뒤로 가면 Preview가 살아있던 선택·프로젝트 선택 그대로 다시 보인다")

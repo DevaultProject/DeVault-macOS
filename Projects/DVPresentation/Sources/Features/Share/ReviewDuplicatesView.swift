@@ -110,9 +110,14 @@ extension ReviewDuplicatesView {
         )
 
         if isRenameSelected(conflict.index) {
-          TextField(conflict.name, text: renameTextBinding(for: conflict.index))
-            .textFieldStyle(.roundedBorder)
-            .padding(.leading, 16 + 8)
+          DVTextField(
+            conflict.name,
+            text: renameTextBinding(for: conflict.index),
+            errorMessage: store.renameConflicts.contains(conflict.index) ? String.module("This name is already in use.") : nil,
+            reservesErrorSpace: true
+          )
+          .dvShake(trigger: store.shakeCount)
+          .padding(.leading, 16 + 8)
         }
 
         DuplicateActionOptionView(

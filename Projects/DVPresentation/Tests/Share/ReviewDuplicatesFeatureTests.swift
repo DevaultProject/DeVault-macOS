@@ -84,10 +84,68 @@ struct ReviewDuplicatesFeatureTests {
     }
 
     await store.send(.didSelectOverwrite(index: 0)) { $0.resolutions[0] = .overwrite }
-    await store.send(.didSelectRename(index: 1)) { $0.resolutions[1] = .rename("Staging DB") }
+    await store.send(.didSelectRename(index: 1)) { $0.resolutions[1] = .rename("Staging DB (1)") }
     await store.send(.didChangeRenameText(index: 1, text: "   ")) { $0.resolutions[1] = .rename("   ") }
 
     #expect(!store.state.canContinue)
+  }
+
+  @Test("Rename을 고르면 원래 이름 뒤에 (1)을 붙인 이름이 기본값이다")
+  func renameDefaultsToNumberedName() async {
+    let store = TestStore(initialState: ReviewDuplicatesFeature.State(judgement: makeJudgement())) {
+      ReviewDuplicatesFeature()
+    }
+
+    await store.send(.didSelectRename(index: 0)) { $0.resolutions[0] = .rename("GitHub Token (1)") }
+  }
+
+  @Test("다른 rename 항목이 이미 쓰는 번호는 건너뛴다")
+  func renameDefaultSkipsNumbersTakenByOtherRenames() async {
+    let judgement = ImportDuplicateJudgement(
+      totalCount: 2,
+      conflicts: [
+        ImportDuplicateConflict(index: 0, name: "Key", secretType: .apiKeyToken, subType: .apiKey, target: .existingSecret(id: UUID())),
+        ImportDuplicateConflict(index: 1, name: "Key", secretType: .apiKeyToken, subType: .apiKey, target: .itemInFile(index: 0)),
+      ]
+    )
+    let store = TestStore(initialState: ReviewDuplicatesFeature.State(judgement: judgement)) {
+      ReviewDuplicatesFeature()
+    }
+
+    await store.send(.didSelectRename(index: 0)) { $0.resolutions[0] = .rename("Key (1)") }
+    await store.send(.didSelectRename(index: 1)) { $0.resolutions[1] = .rename("Key (2)") }
+  }
+
+  @Test("renameConflictsFound는 충돌 칸을 표시하고 첫 충돌 칸으로 옮겨 흔든다")
+  func renameConflictsFoundMarksSelectsAndShakes() async {
+    let store = TestStore(initialState: ReviewDuplicatesFeature.State(judgement: makeJudgement())) {
+      ReviewDuplicatesFeature()
+    }
+
+    await store.send(.renameConflictsFound([1])) {
+      $0.renameConflicts = [1]
+      $0.selectedConflictIndex = 1
+      $0.shakeCount = 1
+    }
+  }
+
+  @Test("이름을 고치거나 다른 선택을 하면 그 칸의 충돌 표시가 풀린다")
+  func editingOrSwitchingClearsRenameConflict() async {
+    var initial = ReviewDuplicatesFeature.State(judgement: makeJudgement())
+    initial.resolutions = [0: .rename("A"), 1: .rename("B")]
+    initial.renameConflicts = [0, 1]
+    let store = TestStore(initialState: initial) {
+      ReviewDuplicatesFeature()
+    }
+
+    await store.send(.didChangeRenameText(index: 0, text: "A2")) {
+      $0.resolutions[0] = .rename("A2")
+      $0.renameConflicts = [1]
+    }
+    await store.send(.didSelectSkip(index: 1)) {
+      $0.resolutions[1] = .skip
+      $0.renameConflicts = []
+    }
   }
 
   @Test("slotsConsumed — skip은 슬롯을 안 쓰고 rename은 쓴다")
