@@ -179,6 +179,41 @@ struct ImportSecretsUseCaseImplTests {
         #expect(secretRepository.secrets.count == 1)
     }
 
+    @Test("바꾼 이름이 금고의 기존 이름과 또 겹치면 거부한다 — 이름을 그대로 두고 rename한 경우도 같다")
+    func rejectsRenameThatStillConflictsWithVault() async throws {
+        _ = seedVaultSecret(name: "GitHub")
+        _ = seedVaultSecret(name: "GitLab")
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub")])
+
+        for taken in ["GitHub", "GitLab"] {
+            await #expect(throws: ShareUseCaseError.renamedNameConflict) {
+                try await makeSUT().execute(payload: payload, resolutions: [0: .rename(taken)], project: .none)
+            }
+        }
+        #expect(secretRepository.secrets.count == 2)
+    }
+
+    @Test("바꾼 이름이 파일 안의 다른 항목과 겹치면 거부한다")
+    func rejectsRenameThatCollidesWithItemInFile() async throws {
+        _ = seedVaultSecret(name: "GitHub")
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub"), export(name: "Other")])
+
+        await #expect(throws: ShareUseCaseError.renamedNameConflict) {
+            try await makeSUT().execute(payload: payload, resolutions: [0: .rename("Other")], project: .none)
+        }
+        #expect(secretRepository.secrets.count == 1)
+    }
+
+    @Test("충돌하지 않는 이름으로 바꾸면 그 이름으로 만든다")
+    func renameToFreeNameCreatesWithNewName() async throws {
+        _ = seedVaultSecret(name: "GitHub")
+        let payload = DevaultContainerPayload(secrets: [export(name: "GitHub")])
+
+        let imported = try await makeSUT().execute(payload: payload, resolutions: [0: .rename("GitHub (1)")], project: .none)
+
+        #expect(imported.map(\.name) == ["GitHub (1)"])
+    }
+
     @Test("overwrite는 기존 시크릿을 교체하고 새 자리를 쓰지 않는다")
     func overwriteReplacesExisting() async throws {
         let existing = seedVaultSecret(name: "GitHub")

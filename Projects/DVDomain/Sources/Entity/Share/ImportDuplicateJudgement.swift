@@ -25,4 +25,21 @@ public struct ImportDuplicateJudgement: Equatable, Sendable {
         let waived = Set(conflicts.map(\.index)).count { resolutions[$0]?.consumesSlot == false }
         return max(0, totalCount - waived)
     }
+
+    /// 재판정(`resolutions`를 넣은 판정)에서도 이름이 겹치는 rename 항목을 고른다 — 사용자가 이름을 다시 고쳐야 하는 항목이다.
+    ///
+    /// 바꾼 이름이 **뒤에 있는 항목**과 겹치면 충돌은 선택이 없는 뒤 항목에 잡힌다. 이때도 고칠 쪽은 rename한 앞 항목이라 그쪽을 돌려준다.
+    /// - Parameter resolutions: 충돌 ``ImportDuplicateConflict/index`` → 선택
+    /// - Returns: 이름을 다시 고쳐야 하는 rename 항목의 index
+    public func conflictingRenames(in resolutions: [Int: ImportDuplicateResolution]) -> Set<Int> {
+        var indices: Set<Int> = []
+        for conflict in conflicts {
+            if case .rename = resolutions[conflict.index] {
+                indices.insert(conflict.index)
+            } else if case .itemInFile(let earlier) = conflict.target, case .rename = resolutions[earlier] {
+                indices.insert(earlier)
+            }
+        }
+        return indices
+    }
 }
