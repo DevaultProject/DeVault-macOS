@@ -102,7 +102,7 @@ struct ImportFlowFeatureTests {
     }
 
     await store.send(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
-    await store.receive(.renameRecheckResponse(.success([]), resolutions: [0: .overwrite])) {
+    await store.receive(.renameRecheckResponse(.success([]), resolutions: [0: .overwrite], executes: true)) {
       $0.isExecuting = true
     }
     await store.receive(\.executeResponse.success) { $0.isExecuting = false }
@@ -143,7 +143,7 @@ struct ImportFlowFeatureTests {
 
     let resolutions: [Int: ImportDuplicateResolution] = [0: .rename("A (1)")]
     await store.send(.reviewDuplicates(.delegate(.resolved(resolutions))))
-    await store.receive(.renameRecheckResponse(.success([0]), resolutions: resolutions))
+    await store.receive(.renameRecheckResponse(.success([0]), resolutions: resolutions, executes: true))
     await store.receive(.reviewDuplicates(.renameConflictsFound([0]))) {
       $0.reviewDuplicates?.renameConflicts = [0]
       $0.reviewDuplicates?.shakeCount = 1
@@ -180,7 +180,7 @@ struct ImportFlowFeatureTests {
     }
 
     await store.send(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
-    await store.receive(.renameRecheckResponse(.failure(ImportFlowFeature.ExecuteError(SomeError())), resolutions: [0: .overwrite])) {
+    await store.receive(.renameRecheckResponse(.failure(ImportFlowFeature.ExecuteError(SomeError())), resolutions: [0: .overwrite], executes: true)) {
       $0.alert = AlertState {
         TextState(String.module("Couldn't Import Secrets"))
       } actions: {
@@ -188,6 +188,77 @@ struct ImportFlowFeatureTests {
       } message: {
         TextState(String.module("Please try again in a moment."))
       }
+    }
+    await store.receive(.reviewDuplicates(.renameCheckFailed))
+
+    #expect(!importCalled.value)
+  }
+
+  @Test("Next에서 이름이 겹치지 않으면 execute 없이 통과 신호만 보낸다")
+  func nextCheckPassesWithoutExecuting() async {
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+    let importCalled = LockIsolated(false)
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      $0.shareClient.judgeDuplicates = { _, _ in ImportDuplicateJudgement(totalCount: 1, conflicts: []) }
+      $0.shareClient.importSecrets = { _, _, _ in
+        importCalled.setValue(true)
+        return []
+      }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+
+    let resolutions: [Int: ImportDuplicateResolution] = [0: .rename("A (1)")]
+    await store.send(.reviewDuplicates(.delegate(.renameCheckRequested(resolutions))))
+    await store.receive(.renameRecheckResponse(.success([]), resolutions: resolutions, executes: false))
+    await store.receive(.reviewDuplicates(.renameCheckPassed))
+
+    #expect(!importCalled.value)
+    #expect(!store.state.isExecuting)
+  }
+
+  @Test("Next에서 이름이 겹치면 execute 없이 충돌 칸을 돌려준다")
+  func nextCheckReturnsConflictWithoutExecuting() async {
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+    let importCalled = LockIsolated(false)
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      $0.shareClient.judgeDuplicates = { _, _ in judgement }
+      $0.shareClient.importSecrets = { _, _, _ in
+        importCalled.setValue(true)
+        return []
+      }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+
+    let resolutions: [Int: ImportDuplicateResolution] = [0: .rename("A (1)")]
+    await store.send(.reviewDuplicates(.delegate(.renameCheckRequested(resolutions))))
+    await store.receive(.renameRecheckResponse(.success([0]), resolutions: resolutions, executes: false))
+    await store.receive(.reviewDuplicates(.renameConflictsFound([0]))) {
+      $0.reviewDuplicates?.renameConflicts = [0]
+      $0.reviewDuplicates?.shakeCount = 1
     }
 
     #expect(!importCalled.value)

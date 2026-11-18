@@ -34,7 +34,7 @@ public struct ReviewDuplicatesView: View {
       Divider()
       footer
     }
-    .frame(width: 720, height: 420)
+    .frame(width: 760, height: 550)
   }
 }
 
@@ -47,9 +47,7 @@ extension ReviewDuplicatesView {
       Text(.module("Review duplicates"))
         .dvFont(.headingLG)
         .foregroundStyle(Color.dv(.gray900))
-      Text(.module("\(store.judgement.conflicts.count) duplicates · \(store.judgement.totalCount) secrets selected"))
-        .dvFont(.bodyMD)
-        .foregroundStyle(Color.dv(.gray600))
+      ImportSubtitleView(String.module("\(store.judgement.conflicts.count) duplicates · \(store.judgement.totalCount) secrets selected"))
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(20)
@@ -58,28 +56,31 @@ extension ReviewDuplicatesView {
   private var duplicateList: some View {
     VStack(alignment: .leading, spacing: 0) {
       Text(.module("Duplicates (\(store.judgement.conflicts.count))"))
-        .dvFont(.captionLG)
-        .foregroundStyle(Color.dv(.gray600))
+        .dvFont(.bodyMD)
+        .foregroundStyle(Color.dv(.gray700))
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 8)
 
-      ScrollView {
-        LazyVStack(spacing: 4) {
-          ForEach(store.judgement.conflicts) { conflict in
-            Button {
-              store.send(.didSelectConflict(index: conflict.index))
-            } label: {
+      // 목록만 스크롤한다. 순차로만 이동하므로 행은 누를 수 없고, 현재 검토 중인 행이 선택 표시다.
+      ScrollViewReader { proxy in
+        ScrollView {
+          LazyVStack(spacing: 4) {
+            ForEach(store.judgement.conflicts) { conflict in
               ImportedSecretRowView(
                 name: conflict.name,
                 subTypeText: subTypeText(for: conflict),
                 isHighlighted: store.selectedConflictIndex == conflict.index
               )
+              .id(conflict.index)
             }
-            .buttonStyle(.plain)
           }
+          .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
+        .onChange(of: store.selectedConflictIndex) { _, index in
+          guard let index else { return }
+          withAnimation { proxy.scrollTo(index, anchor: .center) }
+        }
       }
     }
     .frame(width: 260)
@@ -89,8 +90,8 @@ extension ReviewDuplicatesView {
   private var actionPanel: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text(.module("Choose an action"))
-        .dvFont(.bodyXL)
-        .foregroundStyle(Color.dv(.gray900))
+        .dvFont(.bodyMD)
+        .foregroundStyle(Color.dv(.gray700))
 
       if let conflict = store.selectedConflict {
         if conflict.target.isExistingSecret {
@@ -137,18 +138,25 @@ extension ReviewDuplicatesView {
   private var footer: some View {
     HStack {
       Text(.module("\(store.importCount) to import · \(store.skippedCount) skipped"))
-        .dvFont(.bodyMD)
-        .foregroundStyle(Color.dv(.gray600))
+        .dvFont(.captionMDRegular)
+        .foregroundStyle(Color.dv(.gray700))
 
       Spacer()
 
       DVButton(titleText: .module("Back"), style: .secondary) {
         store.send(.didTapCancel)
       }
-      DVButton(titleText: .module("OK"), style: .secondaryProminent) {
-        store.send(.didTapContinue)
+      DVButton(titleText: .module("Prev"), style: .secondary) {
+        store.send(.didTapPrevious)
       }
-      .disabled(!store.canContinue)
+      .disabled(!store.canGoBack)
+      DVButton(
+        titleText: store.isLastConflict ? String.module("Done") : String.module("Next"),
+        style: .secondaryProminent
+      ) {
+        store.send(.didTapNext)
+      }
+      .disabled(!store.canAdvance)
     }
     .padding(20)
   }
@@ -175,15 +183,6 @@ extension ReviewDuplicatesView {
       return String(localized: subType.creatableSubType.displayName)
     }
     return String(localized: conflict.secretType.creatableType.displayName)
-  }
-}
-
-// MARK: - Target
-
-private extension ImportDuplicateConflict.Target {
-  var isExistingSecret: Bool {
-    if case .existingSecret = self { return true }
-    return false
   }
 }
 
