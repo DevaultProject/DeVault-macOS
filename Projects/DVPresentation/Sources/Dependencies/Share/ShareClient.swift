@@ -5,7 +5,7 @@ import Foundation
 import ComposableArchitecture
 import DVDomain
 
-/// 시크릿 공유(.dvt) Export/Import Feature가 공유하는 Client. 계약 Ⓕ.
+/// 시크릿 공유(.dvt) Export/Import Feature가 공유하는 Client.
 @DependencyClient
 public struct ShareClient: Sendable {
 
