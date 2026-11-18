@@ -224,11 +224,12 @@ struct AppFeatureTests {
         var initial = AppFeature.State()
         initial.main = .init()
 
-        var ensureMainWindowOpenCalled = false
+        let ensureMainWindowOpenCalled = LockIsolated(false)
         let store = TestStore(initialState: initial) {
             AppFeature()
         } withDependencies: {
-            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled = true }
+            $0.windowClient.activateMainWindow = { }
+            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled.setValue(true) }
         }
 
         // main이 이미 떠 있어 consumePendingImportEffect가 같은 턴에서 즉시 소비한다 —
@@ -244,23 +245,24 @@ struct AppFeatureTests {
             }
         }
 
-        #expect(!ensureMainWindowOpenCalled)
+        #expect(!ensureMainWindowOpenCalled.value)
     }
 
     @Test("fileOpened — main이 없으면 ensureMainWindowOpen을 부른다")
     func fileOpenedCallsEnsureMainWindowOpenWhenNoMain() async {
-        var ensureMainWindowOpenCalled = false
+        let ensureMainWindowOpenCalled = LockIsolated(false)
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
         } withDependencies: {
-            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled = true }
+            $0.windowClient.activateMainWindow = { }
+            $0.windowClient.ensureMainWindowOpen = { ensureMainWindowOpenCalled.setValue(true) }
         }
 
         await store.send(.fileOpened(URL(fileURLWithPath: "/tmp/does-not-exist.dvt"))) {
             $0.pendingImportFileURL = URL(fileURLWithPath: "/tmp/does-not-exist.dvt")
         }
 
-        #expect(ensureMainWindowOpenCalled)
+        #expect(ensureMainWindowOpenCalled.value)
     }
 
     @Test("main이 아닐 때는 앱 비활성 타임아웃을 무시한다")
