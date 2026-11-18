@@ -282,6 +282,9 @@ public struct MainFeature {
         if case .delegate(.exportRequested(let ids)) = secretListAction {
           state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
         }
+        if case .delegate(.exportProjectRequested(let id)) = secretListAction {
+          return exportProjectEffect(id: id)
+        }
         return .none
 
       case .exportSecret(let presentationAction):
@@ -295,7 +298,7 @@ public struct MainFeature {
       // 빈 프로젝트는 비밀번호·Touch ID까지 거치고도 내보낼 게 없다.
       case .projectExportSecretsFetched(.success(let ids)):
         guard !ids.isEmpty else { return .none }
-        state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
+        state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids, target: .project)
         return .none
 
       // 저장소가 깨진 것이라 조용히 무시한다(`.canCreateProjectResponse(.failure)`와 같은 이유).
@@ -516,13 +519,18 @@ extension MainFeature {
       return .none
 
     case .exportProjectTapped(let id):
-      return .run { send in
-        do {
-          let secrets = try await secretClient.fetchByQuery(SecretQuery(collection: .project(id: id)))
-          await send(.projectExportSecretsFetched(.success(secrets.map(\.id))))
-        } catch {
-          await send(.projectExportSecretsFetched(.failure(SecretUseCaseError.map(error))))
-        }
+      return exportProjectEffect(id: id)
+    }
+  }
+
+  /// 사이드바 메뉴와 목록 헤더 버튼이 같이 쓴다.
+  private func exportProjectEffect(id: ProjectItem.ID) -> Effect<Action> {
+    .run { send in
+      do {
+        let secrets = try await secretClient.fetchByQuery(SecretQuery(collection: .project(id: id)))
+        await send(.projectExportSecretsFetched(.success(secrets.map(\.id))))
+      } catch {
+        await send(.projectExportSecretsFetched(.failure(SecretUseCaseError.map(error))))
       }
     }
   }

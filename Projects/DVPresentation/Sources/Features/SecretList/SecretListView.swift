@@ -302,8 +302,16 @@ extension SecretListView {
   }
 
   /// 휴지통 탭엔 내보낼 것이 없어(`canSelectForExport`) 보여주지 않는다.
+  /// 프로젝트 탭은 선택과 무관하게 프로젝트 전체를 내보내므로 비어 있을 때만 비활성이다.
   private var shareAction: DVTitleBar.IconAction? {
     guard store.canSelectForExport else { return nil }
+    if case .project = store.collection {
+      return DVTitleBar.IconAction(
+        systemName: "square.and.arrow.up",
+        accessibilityLabel: .module("Export Project"),
+        isEnabled: store.collectionCount > 0
+      ) { store.send(.didTapExportProject) }
+    }
     return DVTitleBar.IconAction(
       systemName: "square.and.arrow.up",
       accessibilityLabel: .module("Export Selected"),

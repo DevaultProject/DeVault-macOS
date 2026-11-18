@@ -1346,8 +1346,43 @@ struct MainFeatureTests {
 
     await store.send(.sidebar(.delegate(.exportProjectTapped(id: projectID))))
     await store.receive(.projectExportSecretsFetched(.success([secret.id]))) {
-      $0.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secret.id])
+      $0.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secret.id], target: .project)
     }
+  }
+
+  @Test("목록 헤더의 exportProjectRequested도 그 프로젝트를 새로 조회해 프로젝트용 시트를 연다")
+  func exportProjectRequestedFromListOpensProjectExportSheet() async {
+    let projectID = UUID()
+    let secret = Self.makeSecret()
+    let queried = LockIsolated<SecretQuery?>(nil)
+
+    let store = TestStore(initialState: MainFeature.State()) {
+      MainFeature()
+    } withDependencies: {
+      $0.secretClient.fetchByQuery = { query in
+        queried.setValue(query)
+        return [secret]
+      }
+    }
+
+    await store.send(.secretList(.delegate(.exportProjectRequested(id: projectID))))
+    await store.receive(.projectExportSecretsFetched(.success([secret.id]))) {
+      $0.exportSecret = ExportSecretSheetFeature.State(secretIDs: [secret.id], target: .project)
+    }
+
+    #expect(queried.value?.collection == .project(id: projectID))
+  }
+
+  @Test("빈 프로젝트를 내보내면 시트를 열지 않는다")
+  func exportEmptyProjectDoesNotOpenSheet() async {
+    let store = TestStore(initialState: MainFeature.State()) {
+      MainFeature()
+    } withDependencies: {
+      $0.secretClient.fetchByQuery = { _ in [] }
+    }
+
+    await store.send(.secretList(.delegate(.exportProjectRequested(id: UUID()))))
+    await store.receive(.projectExportSecretsFetched(.success([])))
   }
 
   /// child가 dismiss()를 부르면 그 effect가 취소돼 delegate가 증발한다 — 부모가 원자적으로 처리해야 한다.

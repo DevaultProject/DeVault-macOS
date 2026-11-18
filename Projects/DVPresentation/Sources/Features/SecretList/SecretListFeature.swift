@@ -89,6 +89,8 @@ public struct SecretListFeature {
     case task
     case didChangeSelection(Set<Secret.ID>)
     case didTapExportSelected
+    /// 선택과 무관하게 프로젝트 전체를 내보낸다.
+    case didTapExportProject
     case didChangeSearchText(String)
     case didSelectSort(SecretQuery.Sort)
     case didTapDelete(id: Secret.ID)
@@ -138,6 +140,8 @@ public struct SecretListFeature {
       case secretsChanged
       /// Export 멀티선택 완료. 휴지통이 제외된 id만 담긴다(`canSelectForExport`).
       case exportRequested(ids: [Secret.ID])
+      /// 프로젝트 전체 내보내기. 검색 중에도 전체가 나가도록 시크릿 id 대신 프로젝트 id를 올린다.
+      case exportProjectRequested(id: ProjectItem.ID)
       /// 무료 한도가 차서 복구할 자리가 없다. 페이월은 부모가 소유하므로 올려보낸다.
       case paywallRequired
     }
@@ -227,6 +231,10 @@ public struct SecretListFeature {
           .send(.delegate(.exportRequested(ids: ids))),
           .send(.delegate(.secretSelected(nil)))
         )
+
+      case .didTapExportProject:
+        guard case .project(let id) = state.collection, state.collectionCount > 0 else { return .none }
+        return .send(.delegate(.exportProjectRequested(id: id)))
 
       case .didTapDelete(let id):
         return mutationEffect(id: id) { try await secretClient.softDelete(id) }
