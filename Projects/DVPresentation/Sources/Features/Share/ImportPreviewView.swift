@@ -50,9 +50,7 @@ extension ImportPreviewView {
       Text(.module("Import \(store.payload.secrets.count) secrets"))
         .dvFont(.headingLG)
         .foregroundStyle(Color.dv(.gray900))
-      Text(store.fileName)
-        .dvFont(.bodyMD)
-        .foregroundStyle(Color.dv(.gray600))
+      ImportSubtitleView(store.fileName)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(20)
