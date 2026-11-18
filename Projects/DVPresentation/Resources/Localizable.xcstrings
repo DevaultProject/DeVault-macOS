@@ -4445,6 +4445,17 @@
         }
       }
     },
+    "Next" : {
+      "comment" : "Button that moves to the next item in the duplicate review.",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음"
+          }
+        }
+      }
+    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marking the plan scheduled to take effect at the next renewal.",
       "localizations" : {
@@ -5034,6 +5045,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다시 시도해 주십시오."
+          }
+        }
+      }
+    },
+    "Prev" : {
+      "comment" : "Button that moves to the previous item in the duplicate review.",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전"
           }
         }
       }
