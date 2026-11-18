@@ -63,15 +63,19 @@ public struct ImportFlowFeature {
 
   /// `shareClient.importSecrets`가 던지는 구체 에러를 Equatable 경계로 감싼다.
   /// `EntitlementError`만 구분해 올린다 — 페이월 상향 여부를 가르는 유일한 신호다.
-  ///
-  /// Touch ID 취소도 이 경로로 들어와 같은 실패 알럿을 띄운다 — Export(#199)도 같은 동작이라
-  /// 일관되게 뒀다. 인증 취소와 진짜 실패를 구분하는 건 두 Feature를 같이 바꿀 후속 과제.
+  /// Touch ID 취소도 같은 실패 알럿을 띄운다(Export와 같다).
   public struct ExecuteError: Error, Equatable {
     public let entitlementError: EntitlementError?
 
     public init(_ error: any Error) {
       self.entitlementError = error as? EntitlementError
     }
+  }
+
+  // MARK: - Cancellation
+
+  private enum CancelID {
+    case renameRecheck
   }
 
   // MARK: - Dependencies
@@ -100,7 +104,8 @@ public struct ImportFlowFeature {
         state.pendingPayload = payload
         state.pendingProject = project
         state.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
-        return .none
+        // 이전 검토에서 날아간 재판정이 새 검토에 적용되지 않게 한다.
+        return .cancel(id: CancelID.renameRecheck)
 
       case .preview:
         return .none
@@ -110,7 +115,7 @@ public struct ImportFlowFeature {
         state.reviewDuplicates = nil
         state.pendingPayload = nil
         state.pendingProject = nil
-        return .none
+        return .cancel(id: CancelID.renameRecheck)
 
       case let .reviewDuplicates(.delegate(.resolved(resolutions))):
         return recheckRenamesEffect(resolutions: resolutions, executes: true, state: state)
@@ -128,7 +133,7 @@ public struct ImportFlowFeature {
 
       case .renameRecheckResponse(.failure, _, _):
         state.alert = executeFailureAlert
-        return .send(.reviewDuplicates(.renameCheckFailed))
+        return endChecking(state)
 
       case .reviewDuplicates:
         return .none
@@ -143,7 +148,7 @@ public struct ImportFlowFeature {
           return .send(.delegate(.paywallRequired))
         }
         state.alert = executeFailureAlert
-        return .none
+        return endChecking(state)
 
       case .alert:
         return .none
@@ -166,6 +171,11 @@ public struct ImportFlowFeature {
 
 extension ImportFlowFeature {
 
+  /// 중복 검토가 떠 있을 때만 확인 중 상태를 푼다(Preview 직행에는 자식이 없다).
+  private func endChecking(_ state: State) -> Effect<Action> {
+    state.reviewDuplicates == nil ? .none : .send(.reviewDuplicates(.checkEnded))
+  }
+
   /// 바꾼 이름이 또 겹치는지 확인한다. 입력 중에는 확인하지 않고 Next·Done을 누를 때 한다.
   /// - Parameter executes: 겹치지 않으면 이어서 가져오기를 실행한다(Done). 아니면 통과 신호만 보낸다(Next).
   private func recheckRenamesEffect(
@@ -184,6 +194,7 @@ extension ImportFlowFeature {
         await send(.renameRecheckResponse(.failure(ExecuteError(error)), resolutions: resolutions, executes: executes))
       }
     }
+    .cancellable(id: CancelID.renameRecheck, cancelInFlight: true)
   }
 
   private func executeEffect(

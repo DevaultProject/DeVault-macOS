@@ -129,7 +129,8 @@ public struct ReviewDuplicatesFeature {
 
     case renameCheckPassed
     case renameConflictsFound(Set<Int>)
-    case renameCheckFailed
+    /// 확인·가져오기가 실패하거나 취소돼 이 화면에 머문다.
+    case checkEnded
 
     // MARK: - Delegate
 
@@ -210,7 +211,7 @@ public struct ReviewDuplicatesFeature {
         state.shakeCount += 1
         return .none
 
-      case .renameCheckFailed:
+      case .checkEnded:
         state.isChecking = false
         return .none
 

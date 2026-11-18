@@ -193,15 +193,15 @@ struct ReviewDuplicatesFeatureTests {
     }
   }
 
-  @Test("이름 확인이 실패하면 확인 중 상태만 푼다")
-  func renameCheckFailedClearsChecking() async {
+  @Test("이동 없이 끝나면(실패·인증 취소) 확인 중 상태만 푼다")
+  func checkEndedClearsChecking() async {
     var initial = ReviewDuplicatesFeature.State(judgement: makeJudgement())
     initial.isChecking = true
     let store = TestStore(initialState: initial) {
       ReviewDuplicatesFeature()
     }
 
-    await store.send(.renameCheckFailed) { $0.isChecking = false }
+    await store.send(.checkEnded) { $0.isChecking = false }
   }
 
   @Test("이름을 고치거나 다른 선택을 하면 그 칸의 충돌 표시가 풀린다")

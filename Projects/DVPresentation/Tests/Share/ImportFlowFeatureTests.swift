@@ -189,7 +189,7 @@ struct ImportFlowFeatureTests {
         TextState(String.module("Please try again in a moment."))
       }
     }
-    await store.receive(.reviewDuplicates(.renameCheckFailed))
+    await store.receive(.reviewDuplicates(.checkEnded))
 
     #expect(!importCalled.value)
   }
@@ -369,7 +369,7 @@ struct ImportFlowFeatureTests {
     let store = TestStore(initialState: makeState(payload: payload)) {
       ImportFlowFeature()
     } withDependencies: {
-      $0.shareClient.authenticate = { _ in throw CancellationError() }
+      $0.shareClient.authenticate = { _ in throw UserAuthenticationError.cancelled }
     }
 
     await store.send(.preview(.delegate(.proceedWithoutDuplicates(payload: payload, project: .none)))) {
@@ -385,6 +385,98 @@ struct ImportFlowFeatureTests {
         TextState(String.module("Please try again in a moment."))
       }
     }
+  }
+
+  @Test("중복 검토에서 Done 뒤 가져오기가 실패하면 alert를 띄우고 확인 중 상태를 풀어 선택을 유지한다")
+  func executeFailureAfterDoneReleasesReviewDuplicates() async {
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      $0.shareClient.judgeDuplicates = { _, _ in ImportDuplicateJudgement(totalCount: 1, conflicts: []) }
+      $0.shareClient.authenticate = { _ in throw UserAuthenticationError.cancelled }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+
+    // Done: 확인 중으로 바뀌고 재판정 → 인증 단계에서 실패한다.
+    await store.send(.reviewDuplicates(.didTapNext)) {
+      $0.reviewDuplicates?.isChecking = true
+    }
+    await store.receive(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
+    await store.receive(.renameRecheckResponse(.success([]), resolutions: [0: .overwrite], executes: true)) {
+      $0.isExecuting = true
+    }
+    await store.receive(\.executeResponse.failure) {
+      $0.isExecuting = false
+      $0.alert = AlertState {
+        TextState(String.module("Couldn't Import Secrets"))
+      } actions: {
+        ButtonState(role: .cancel) { TextState(String.module("OK")) }
+      } message: {
+        TextState(String.module("Please try again in a moment."))
+      }
+    }
+    await store.receive(.reviewDuplicates(.checkEnded)) {
+      $0.reviewDuplicates?.isChecking = false
+    }
+
+    #expect(store.state.reviewDuplicates?.resolutions == [0: .overwrite])
+  }
+
+  @Test("재판정 중 Back으로 나가면 진행 중이던 재판정이 취소돼 응답이 오지 않는다")
+  func backCancelsInFlightRecheck() async {
+    let payload = DevaultContainerPayload(secrets: [makeExport("A")])
+    let conflict = ImportDuplicateConflict(
+      index: 0, name: "A", secretType: .apiKeyToken, subType: .accessToken, target: .existingSecret(id: UUID())
+    )
+    let judgement = ImportDuplicateJudgement(totalCount: 1, conflicts: [conflict])
+    let clock = TestClock()
+    let importCalled = LockIsolated(false)
+
+    let store = TestStore(initialState: makeState(payload: payload)) {
+      ImportFlowFeature()
+    } withDependencies: {
+      // 재판정을 붙잡아 둔 채 Back으로 나간다.
+      $0.shareClient.judgeDuplicates = { _, _ in
+        try await clock.sleep(for: .seconds(1))
+        return ImportDuplicateJudgement(totalCount: 1, conflicts: [])
+      }
+      $0.shareClient.authenticate = { _ in }
+      $0.shareClient.importSecrets = { _, _, _ in
+        importCalled.setValue(true)
+        return []
+      }
+    }
+
+    await store.send(.preview(.delegate(.duplicatesFound(payload: payload, judgement: judgement, project: .none)))) {
+      $0.pendingPayload = payload
+      $0.pendingProject = ImportProjectChoice.none
+      $0.reviewDuplicates = ReviewDuplicatesFeature.State(judgement: judgement)
+    }
+    await store.send(.reviewDuplicates(.didTapNext)) {
+      $0.reviewDuplicates?.isChecking = true
+    }
+    await store.receive(.reviewDuplicates(.delegate(.resolved([0: .overwrite]))))
+
+    await store.send(.reviewDuplicates(.delegate(.cancelled))) {
+      $0.reviewDuplicates = nil
+      $0.pendingPayload = nil
+      $0.pendingProject = nil
+    }
+
+    // 취소됐다면 아무 액션도 오지 않는다 — 오면 TestStore가 처리되지 않은 액션으로 실패시킨다.
+    await clock.advance(by: .seconds(1))
+    #expect(!importCalled.value)
   }
 
   @Test("Preview가 cancelled를 올리면 그대로 상향한다")
