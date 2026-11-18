@@ -138,7 +138,7 @@ public struct MainFeature {
     Scope(state: \.secretList, action: \.secretList) {
       SecretListFeature()
     }
-    Reduce { state, action in
+    Reduce<State, Action> { state, action in
       switch action {
       case .binding:
         return .none
@@ -418,44 +418,48 @@ public struct MainFeature {
         return .none
       }
     }
-    // `.ifLet` 체인이 길어지면 Xcode 타입체크가 타임아웃 나서 여러 식으로 쪼갰다.
-    presentationsA
-    presentationsB
+    // `ifLet`이 메인 리듀서를 감싸야 자식이 먼저 돌고(부모가 자식 상태를 `nil`로 만들기 전에 자식 액션 처리),
+    // 자식 State가 교체될 때 이전 자식의 effect를 취소한다. 체인이 길면 타입체크가 타임아웃 나서 둘로 나눴다.
+    .presentationsA()
+    .presentationsB()
+  }
+}
+
+// MARK: - Presentations
+
+private extension Reducer where State == MainFeature.State, Action == MainFeature.Action {
+
+  func presentationsA() -> some Reducer<State, Action> {
+    self.ifLet(\.selectSecretType, action: \.selectSecretType) {
+      SelectSecretTypeFeature()
+    }
+    .ifLet(\.$createProject, action: \.createProject) {
+      CreateProjectFeature()
+    }
+    .ifLet(\.$paywall, action: \.paywall) {
+      DevaultProPaywallFeature()
+    }
+    .ifLet(\.$exportSecret, action: \.exportSecret) {
+      ExportSecretSheetFeature()
+    }
+    .ifLet(\.$importPassword, action: \.importPassword) {
+      ImportPasswordFeature()
+    }
+    .ifLet(\.$importFlow, action: \.importFlow) {
+      ImportFlowFeature()
+    }
   }
 
-  private var presentationsA: some ReducerOf<Self> {
-    EmptyReducer()
-      .ifLet(\.selectSecretType, action: \.selectSecretType) {
-        SelectSecretTypeFeature()
-      }
-      .ifLet(\.$createProject, action: \.createProject) {
-        CreateProjectFeature()
-      }
-      .ifLet(\.$paywall, action: \.paywall) {
-        DevaultProPaywallFeature()
-      }
-      .ifLet(\.$exportSecret, action: \.exportSecret) {
-        ExportSecretSheetFeature()
-      }
-      .ifLet(\.$importPassword, action: \.importPassword) {
-        ImportPasswordFeature()
-      }
-      .ifLet(\.$importFlow, action: \.importFlow) {
-        ImportFlowFeature()
-      }
-  }
-
-  private var presentationsB: some ReducerOf<Self> {
-    EmptyReducer()
-      .ifLet(\.createSecret, action: \.createSecret) {
-        CreateSecretFeature()
-      }
-      .ifLet(\.secretDetail, action: \.secretDetail) {
-        SecretDetailFeature()
-      }
-      .ifLet(\.settings, action: \.settings) {
-        SettingsFeature()
-      }
+  func presentationsB() -> some Reducer<State, Action> {
+    self.ifLet(\.createSecret, action: \.createSecret) {
+      CreateSecretFeature()
+    }
+    .ifLet(\.secretDetail, action: \.secretDetail) {
+      SecretDetailFeature()
+    }
+    .ifLet(\.settings, action: \.settings) {
+      SettingsFeature()
+    }
   }
 }
 
