@@ -30,12 +30,6 @@ public struct AppView: View {
       .windowBusyOverlay()
       // 잠금 전환 시 메인이 사라지며 남는 고아 시트·알럿을 창에서 직접 닫는다.
       .background(LockSheetDismisser(isLocked: store.locked != nil))
-      .dropDestination(for: URL.self) { urls, _ in
-        guard let url = urls.first(where: { $0.pathExtension.lowercased() == "dvt" }) else { return false }
-        store.send(.fileOpened(url))
-        return true
-      } isTargeted: { isDropTargeted = $0 }
-      .overlay { if isDropTargeted { DropImportOverlay() } }
       .task { store.send(.task) }
       .alert($store.scope(state: \.alert, action: \.alert))
   }
@@ -80,7 +74,12 @@ extension AppView {
       LockView(store: store)
         .transition(.opacity)
     } else if let store = store.scope(state: \.main, action: \.main) {
-      MainView(store: store)
+      MainView(store: store)  // 드롭은 잠금 해제된 메인에서만 받음
+        .dropDestination(for: URL.self) { urls, _ in
+          self.store.send(.filesOpened(urls))
+          return AppFeature.importableURL(in: urls) != nil
+        } isTargeted: { isDropTargeted = $0 }
+        .overlay { if isDropTargeted { DropImportOverlay() } }
         .transition(.asymmetric(insertion: .opacity, removal: .identity))
     }
   }
