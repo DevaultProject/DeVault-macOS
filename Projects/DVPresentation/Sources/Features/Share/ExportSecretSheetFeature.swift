@@ -17,15 +17,23 @@ public struct ExportSecretSheetFeature {
 
   @ObservableState
   public struct State: Equatable {
+    /// 시트 제목을 가른다.
+    public enum Target: Equatable {
+      case secrets
+      case project
+    }
+
     public let secretIDs: [Secret.ID]
+    public let target: Target
     public internal(set) var password = ""
     public internal(set) var expiryOption: ExportExpiryOption = .oneHour
     public internal(set) var isExporting = false
     public internal(set) var passwordError: String?
     @Presents var alert: AlertState<Action.Alert>?
 
-    public init(secretIDs: [Secret.ID]) {
+    public init(secretIDs: [Secret.ID], target: Target = .secrets) {
       self.secretIDs = secretIDs
+      self.target = target
     }
   }
 

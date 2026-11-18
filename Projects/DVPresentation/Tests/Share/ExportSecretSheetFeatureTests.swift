@@ -11,6 +11,12 @@ import Testing
 @Suite("ExportSecretSheetFeature")
 struct ExportSecretSheetFeatureTests {
 
+  @Test("내보내기 대상은 기본이 시크릿이고 프로젝트로 지정할 수 있다 — 시트 제목을 가른다")
+  func targetDefaultsToSecretsAndCanBeProject() {
+    #expect(ExportSecretSheetFeature.State(secretIDs: []).target == .secrets)
+    #expect(ExportSecretSheetFeature.State(secretIDs: [], target: .project).target == .project)
+  }
+
   @Test("didTapExport는 비밀번호가 10자 미만이면 거절한다")
   func exportRejectsTooShortPassword() async {
     let store = TestStore(initialState: ExportSecretSheetFeature.State(secretIDs: [])) {
