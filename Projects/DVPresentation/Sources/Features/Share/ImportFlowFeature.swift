@@ -46,6 +46,7 @@ public struct ImportFlowFeature {
   public enum Action: Equatable {
     case preview(ImportPreviewFeature.Action)
     case reviewDuplicates(ReviewDuplicatesFeature.Action)
+    case renameRecheckResponse(Result<Set<Int>, ExecuteError>, resolutions: [Int: ImportDuplicateResolution])
     case executeResponse(Result<[Secret], ExecuteError>)
     case alert(PresentationAction<Alert>)
     case delegate(Delegate)
@@ -112,8 +113,27 @@ public struct ImportFlowFeature {
         return .none
 
       case let .reviewDuplicates(.delegate(.resolved(resolutions))):
+        guard let payload = state.pendingPayload, !state.isExecuting else { return .none }
+        // 바꾼 이름이 또 겹치는지는 계속하기를 누를 때 한 번에 확인한다.
+        return .run { send in
+          do {
+            let judgement = try await shareClient.judgeDuplicates(payload, resolutions)
+            await send(.renameRecheckResponse(.success(judgement.conflictingRenames(in: resolutions)), resolutions: resolutions))
+          } catch {
+            await send(.renameRecheckResponse(.failure(ExecuteError(error)), resolutions: resolutions))
+          }
+        }
+
+      case let .renameRecheckResponse(.success(conflicting), resolutions):
+        guard conflicting.isEmpty else {
+          return .send(.reviewDuplicates(.renameConflictsFound(conflicting)))
+        }
         guard let payload = state.pendingPayload, let project = state.pendingProject else { return .none }
         return executeEffect(payload: payload, resolutions: resolutions, project: project, state: &state)
+
+      case .renameRecheckResponse(.failure, _):
+        state.alert = executeFailureAlert
+        return .none
 
       case .reviewDuplicates:
         return .none
