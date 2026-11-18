@@ -85,6 +85,28 @@ struct ExportSecretSheetFeatureTests {
     }
   }
 
+  @Test("프로젝트 내보내기가 실패하면 프로젝트용 제목의 alert를 띄운다")
+  func projectExportFailureAlertUsesProjectTitle() async {
+    let store = TestStore(initialState: ExportSecretSheetFeature.State(secretIDs: [], target: .project)) {
+      ExportSecretSheetFeature()
+    } withDependencies: {
+      $0.shareClient.authenticate = { _ in throw CancellationError() }
+    }
+
+    await store.send(.didChangePassword("passphrase")) { $0.password = "passphrase" }
+    await store.send(.didTapExport) { $0.isExporting = true }
+    await store.receive(.exportFailed) {
+      $0.isExporting = false
+      $0.alert = AlertState {
+        TextState(String.module("Couldn't Export Project"))
+      } actions: {
+        ButtonState(role: .cancel) { TextState(String.module("OK")) }
+      } message: {
+        TextState(String.module("Something went wrong while creating the file. Please try again."))
+      }
+    }
+  }
+
   @Test("didTapCancel은 dismiss한다")
   func cancelDismisses() async {
     var didDismiss = false

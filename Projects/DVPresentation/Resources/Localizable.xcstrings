@@ -1863,6 +1863,22 @@
         }
       }
     },
+    "Couldn't Export Project" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Export Project"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트 내보내기에 실패했습니다"
+          }
+        }
+      }
+    },
     "Couldn't Export Secret" : {
       "localizations" : {
         "en" : {

@@ -115,7 +115,7 @@ public struct ExportSecretSheetFeature {
 
       case .exportFailed:
         state.isExporting = false
-        state.alert = exportFailureAlert
+        state.alert = exportFailureAlert(target: state.target)
         return .none
 
       case .didTapCancel:
@@ -136,9 +136,10 @@ public struct ExportSecretSheetFeature {
 
 private extension ExportSecretSheetFeature {
 
-  var exportFailureAlert: AlertState<Action.Alert> {
-    AlertState {
-      TextState(String.module("Couldn't Export Secret"))
+  func exportFailureAlert(target: State.Target) -> AlertState<Action.Alert> {
+    let title: String.LocalizationValue = target == .project ? "Couldn't Export Project" : "Couldn't Export Secret"
+    return AlertState {
+      TextState(String.module(title))
     } actions: {
       ButtonState(role: .cancel) { TextState(String.module("OK")) }
     } message: {
