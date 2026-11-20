@@ -281,6 +281,10 @@ public struct MainFeature {
       case .secretList(let secretListAction):
         if case .delegate(.exportRequested(let ids)) = secretListAction {
           state.exportSecret = ExportSecretSheetFeature.State(secretIDs: ids)
+          return .none
+        }
+        if case .delegate(.exportProjectRequested(let id)) = secretListAction {
+          return exportProjectEffect(id: id)
         }
         if case .delegate(.exportProjectRequested(let id)) = secretListAction {
           return exportProjectEffect(id: id)

@@ -340,6 +340,71 @@ struct SecretListFeatureTests {
         }
     }
 
+    @Test("didTapRecoverAll은 로드된 전체 id 수만큼 게이트를 묻고, 통과하면 전부 복구한다")
+    func recoverAllRestoresEveryLoadedSecretOnSuccess() async {
+        let first = makeSecret(name: "첫 번째")
+        let second = makeSecret(name: "두 번째")
+        var initial = SecretListFeature.State(collection: .deleted)
+        initial.secretsState = .loaded([first, second])
+
+        var checkedCount: Int?
+        var restoredIDs: [UUID] = []
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.entitlementClient.canImportSecrets = { count in
+                checkedCount = count
+                return true
+            }
+            $0.secretClient.restore = { id in
+                restoredIDs.append(id)
+                return first
+            }
+            $0.secretClient.fetchByQuery = { _ in [] }
+        }
+
+        await store.send(.didTapRecoverAll)
+        await store.receive(.canRecoverAllResponse(.success(true), ids: [first.id, second.id]))
+        await store.receive(.batchRecoverResponse(ids: [first.id, second.id], failedCount: 0))
+        await store.receive(.delegate(.secretsChanged))
+        await store.receive(.secretsResponse(.success([]))) {
+            $0.secretsState = .loaded([])
+        }
+
+        #expect(checkedCount == 2)
+        #expect(Set(restoredIDs) == Set([first.id, second.id]))
+    }
+
+    @Test("didTapRecoverAll — 한도가 차 있으면 아무것도 복구하지 않고 페이월을 올린다")
+    func recoverAllRequestsPaywallWhenLimitReached() async {
+        let secret = makeSecret(name: "항목")
+        var initial = SecretListFeature.State(collection: .deleted)
+        initial.secretsState = .loaded([secret])
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        } withDependencies: {
+            $0.entitlementClient.canImportSecrets = { _ in false }
+            // restore는 채우지 않는다 — 호출되면 미구현 의존으로 테스트가 깨진다.
+        }
+
+        await store.send(.didTapRecoverAll)
+        await store.receive(.canRecoverAllResponse(.success(false), ids: [secret.id]))
+        await store.receive(.delegate(.paywallRequired))
+    }
+
+    @Test("didTapRecoverAll — 목록이 비어 있으면 아무 일도 안 한다")
+    func recoverAllIgnoresEmptyCollection() async {
+        var initial = SecretListFeature.State(collection: .deleted)
+        initial.secretsState = .loaded([])
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapRecoverAll)
+    }
+
     @Test("didTapDeleteForever는 바로 지우지 않고 확인 alert를 띄운다")
     func deleteForeverShowsConfirmationAlert() async {
         let secretID = UUID()
@@ -825,6 +890,33 @@ struct SecretListFeatureTests {
         // 선택은 그대로 둔다 — 프로젝트 전체를 내보내는 것이라 선택 항목을 건드리지 않는다.
         await store.send(.didTapExportProject)
         await store.receive(.delegate(.exportProjectRequested(id: projectID)))
+    }
+
+    // 멀티선택이 아닌 행을 우클릭 → Export 한 건, 선택 상태는 건드리지 않는다.
+    @Test("didTapExportID는 그 한 id만 담아 delegate로 알리고 선택은 건드리지 않는다")
+    func exportIDSendsDelegateWithoutTouchingSelection() async {
+        let secret = makeSecret(name: "단일 항목")
+        let other = makeSecret(name: "다른 선택")
+
+        var initial = SecretListFeature.State()
+        initial.selectedSecretIDs = [other.id]
+
+        let store = TestStore(initialState: initial) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportID(id: secret.id))
+        await store.receive(.delegate(.exportRequested(ids: [secret.id])))
+    }
+
+    @Test("Deleted 컬렉션에서는 didTapExportID도 막힌다")
+    func exportIDIgnoredOnDeletedCollection() async {
+        let secret = makeSecret(name: "휴지통 항목")
+        let store = TestStore(initialState: SecretListFeature.State(collection: .deleted)) {
+            SecretListFeature()
+        }
+
+        await store.send(.didTapExportID(id: secret.id))
     }
 
     @Test("빈 프로젝트에서는 didTapExportProject가 아무 일도 안 한다")
