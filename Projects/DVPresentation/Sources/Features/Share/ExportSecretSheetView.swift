@@ -27,7 +27,7 @@ extension ExportSecretSheetView {
 
   private var content: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Text(store.target == .project ? String.module("Export Project") : String.module("Export Secret"))
+      Text(store.target == .project ? String.module("Export Project") : String.module("Export \(store.secretIDs.count) secrets"))
         .dvFont(.bodyLG)
         .foregroundStyle(Color.dv(.gray900))
 
@@ -99,7 +99,7 @@ extension ExportSecretSheetView {
 
 #Preview {
   ExportSecretSheetView(
-    store: Store(initialState: ExportSecretSheetFeature.State(secretIDs: [])) {
+    store: Store(initialState: ExportSecretSheetFeature.State(secretIDs: [UUID(), UUID(), UUID()])) {
       ExportSecretSheetFeature()
     } withDependencies: {
       $0.shareClient = .previewValue

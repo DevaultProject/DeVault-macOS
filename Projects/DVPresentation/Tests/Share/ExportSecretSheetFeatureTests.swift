@@ -42,6 +42,22 @@ struct ExportSecretSheetFeatureTests {
     }
   }
 
+  // 비밀번호 필드 onSubmit(Enter)과 버튼 클릭이 거의 동시에 들어오면 isExporting이 뷰에 반영되기
+  // 전에 두 번 다 리듀서를 탈 수 있다 — 두 번째 exportSucceeded가 이미 닫힌 상태로 부모에 도착해
+  // TCA ifLet 경고로 이어진다.
+  @Test("didTapExport 연타는 이미 내보내는 중이면 무시된다")
+  func doubleTapIsIgnoredWhileExporting() async {
+    var state = ExportSecretSheetFeature.State(secretIDs: [])
+    state.password = "a-valid-password"
+    state.isExporting = true
+
+    let store = TestStore(initialState: state) {
+      ExportSecretSheetFeature()
+    }
+
+    await store.send(.didTapExport)
+  }
+
   @Test("didTapExport는 성공하면 Touch ID 인증 후 delegate로 알린다 — dismiss는 부모가 한다")
   func exportSucceedsNotifiesDelegate() async {
     let secretID = UUID()
