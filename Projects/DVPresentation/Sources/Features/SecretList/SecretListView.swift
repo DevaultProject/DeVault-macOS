@@ -186,13 +186,28 @@ extension SecretListView {
         }
       }
 
-    case .all, .liked, .notice, .expired, .project:
-      Button(isMultiSelected ? .module("Delete (\(store.selectedSecretIDs.count))") : .module("Delete"), role: .destructive) {
+    case .all, .liked, .notice, .project:
+      Button(isMultiSelected ? .module("Export (\(store.selectedSecretIDs.count))") : .module("Export")) {
         if isMultiSelected {
-          store.send(.didTapDeleteSelected)
+          store.send(.didTapExportSelected)
         } else {
-          store.send(.didTapDelete(id: secret.id))
+          store.send(.didTapExportID(id: secret.id))
         }
+      }
+      deleteButton(isMultiSelected: isMultiSelected, secret: secret)
+
+    case .expired:
+      deleteButton(isMultiSelected: isMultiSelected, secret: secret)
+    }
+  }
+
+  @ViewBuilder
+  private func deleteButton(isMultiSelected: Bool, secret: Secret) -> some View {
+    Button(isMultiSelected ? .module("Delete (\(store.selectedSecretIDs.count))") : .module("Delete"), role: .destructive) {
+      if isMultiSelected {
+        store.send(.didTapDeleteSelected)
+      } else {
+        store.send(.didTapDelete(id: secret.id))
       }
     }
   }
@@ -301,22 +316,24 @@ extension SecretListView {
     }
   }
 
-  /// 휴지통 탭엔 내보낼 것이 없어(`canSelectForExport`) 보여주지 않는다.
-  /// 프로젝트 탭은 선택과 무관하게 프로젝트 전체를 내보내므로 비어 있을 때만 비활성이다.
+  /// 개별·멀티선택 내보내기는 행 컨텍스트 메뉴로 옮겼다 — 헤더는 Project 탭의 "전체 공유"만 맡는다.
   private var shareAction: DVTitleBar.IconAction? {
-    guard store.canSelectForExport else { return nil }
-    if case .project = store.collection {
+    switch store.collection {
+    case .project:
       return DVTitleBar.IconAction(
         systemName: "square.and.arrow.up",
         accessibilityLabel: .module("Export Project"),
         isEnabled: store.collectionCount > 0
       ) { store.send(.didTapExportProject) }
+    case .deleted:
+      return DVTitleBar.IconAction(
+        systemName: "arrow.uturn.backward",
+        accessibilityLabel: .module("Recover All"),
+        isEnabled: store.collectionCount > 0
+      ) { store.send(.didTapRecoverAll) }
+    case .all, .liked, .notice, .expired:
+      return nil
     }
-    return DVTitleBar.IconAction(
-      systemName: "square.and.arrow.up",
-      accessibilityLabel: .module("Export Selected"),
-      isEnabled: !store.selectedSecretIDs.isEmpty
-    ) { store.send(.didTapExportSelected) }
   }
 
   private var selectedSecretIDsBinding: Binding<Set<Secret.ID>> {

@@ -53,8 +53,12 @@ public struct SecretListFeature {
 
     /// 휴지통 항목은 내보내기 대상이 아니다.
     public var canSelectForExport: Bool {
-      if case .deleted = collection { return false }
-      return true
+      switch collection {
+      case .deleted, .expired:
+        return false
+      case .all, .liked, .notice, .project:
+        return true
+      }
     }
 
     var query: SecretQuery {
@@ -89,6 +93,8 @@ public struct SecretListFeature {
     case task
     case didChangeSelection(Set<Secret.ID>)
     case didTapExportSelected
+    /// 컨텍스트 메뉴 대상이 멀티선택이 아닐 때 — 그 한 건만 내보낸다.
+    case didTapExportID(id: Secret.ID)
     /// 선택과 무관하게 프로젝트 전체를 내보낸다.
     case didTapExportProject
     case didChangeSearchText(String)
@@ -99,6 +105,10 @@ public struct SecretListFeature {
     case didTapRecover(id: Secret.ID)
     /// 복구가 자리를 차지할 수 있는지 물은 결과. 복구는 보유 수를 늘리므로 생성과 같은 판정을 쓴다.
     case canRecoverResponse(Result<Bool, SecretUseCaseError>, id: Secret.ID)
+    /// Deleted 탭 헤더 "전체 복구" — 지금 로드된 전체를 대상으로 한다.
+    case didTapRecoverAll
+    /// 전체 복구가 자리를 차지할 수 있는지 물은 결과 — 늘어날 개수(ids.count)만큼 한 번에 판정한다.
+    case canRecoverAllResponse(Result<Bool, SecretUseCaseError>, ids: [Secret.ID])
     case didTapDeleteForever(id: Secret.ID)
     case didTapDeleteForeverSelected
     /// Expired/Deleted 탭의 "모두 삭제"/"비우기" — 컬렉션 전체 정리.
@@ -118,6 +128,8 @@ public struct SecretListFeature {
     /// 멀티선택 삭제(`didTapDeleteSelected`/`didTapDeleteForeverSelected`) 결과. 벌크 API가 없어
     /// 한 건씩 처리하므로 일부만 실패할 수 있다 — `failedCount`가 0보다 크면 알린다.
     case batchDeleteResponse(ids: [Secret.ID], failedCount: Int)
+    /// 전체 복구(`didTapRecoverAll`) 결과 — 같은 이유로 일부만 실패할 수 있다.
+    case batchRecoverResponse(ids: [Secret.ID], failedCount: Int)
     /// 컬렉션 일괄 정리(비우기/모두 삭제) 결과. nil이면 성공.
     case emptyCollectionResponse(SecretUseCaseError?)
     /// 지금 조회 중이던 시크릿을 삭제·복구·영구삭제해 목록에서 사라졌을 때만 보낸다.
@@ -138,7 +150,7 @@ public struct SecretListFeature {
       case secretSelected(Secret.ID?)
       /// 부모가 사이드바 개수를 다시 세는 근거가 된다.
       case secretsChanged
-      /// Export 멀티선택 완료. 휴지통이 제외된 id만 담긴다(`canSelectForExport`).
+      /// Export 멀티선택 완료. 휴지통·만료 탭이 제외된 id만 담긴다(`canSelectForExport`).
       case exportRequested(ids: [Secret.ID])
       /// 프로젝트 전체 내보내기. 검색 중에도 전체가 나가도록 시크릿 id 대신 프로젝트 id를 올린다.
       case exportProjectRequested(id: ProjectItem.ID)
@@ -232,6 +244,10 @@ public struct SecretListFeature {
           .send(.delegate(.secretSelected(nil)))
         )
 
+      case let .didTapExportID(id):
+        guard state.canSelectForExport else { return .none }
+        return .send(.delegate(.exportRequested(ids: [id])))
+
       case .didTapExportProject:
         guard case .project(let id) = state.collection, state.collectionCount > 0 else { return .none }
         return .send(.delegate(.exportProjectRequested(id: id)))
@@ -241,7 +257,11 @@ public struct SecretListFeature {
 
       case .didTapDeleteSelected:
         guard !state.selectedSecretIDs.isEmpty else { return .none }
-        return batchMutationEffect(ids: Array(state.selectedSecretIDs)) { try await secretClient.softDelete($0) }
+        return batchMutationEffect(
+          ids: Array(state.selectedSecretIDs),
+          operation: { try await secretClient.softDelete($0) },
+          completion: Action.batchDeleteResponse
+        )
 
       // 복구를 시도하기 전에 먼저 묻는다. UseCase 쪽 게이트는 2차 방어선이라, 그쪽에 맡기면 사용자는 재시도해도 절대 풀리지 않는 일반 오류 알림을 받는다.
       case .didTapRecover(let id):
@@ -262,6 +282,30 @@ public struct SecretListFeature {
         // 판정 실패는 저장소가 깨진 것이다. 페이월을 띄우면 결제해도 해결되지 않으므로 일반 오류로 다룬다.
         return .send(.mutationResponse(.failure(error)))
 
+      case .didTapRecoverAll:
+        guard case .loaded(let secrets) = state.secretsState, !secrets.isEmpty else { return .none }
+        let ids = secrets.map(\.id)
+        return .run { send in
+          await send(.canRecoverAllResponse(
+            Result { try await entitlementClient.canImportSecrets(ids.count) }.mapError(SecretUseCaseError.map),
+            ids: ids
+          ))
+        }
+
+      case .canRecoverAllResponse(.success(true), let ids):
+        return batchMutationEffect(
+          ids: ids,
+          operation: { try await secretClient.restore($0) },
+          completion: Action.batchRecoverResponse
+        )
+
+      case .canRecoverAllResponse(.success(false), _):
+        return .send(.delegate(.paywallRequired))
+
+      case .canRecoverAllResponse(.failure, _):
+        state.alert = mutationFailureAlert()
+        return .none
+
       case .didTapDeleteForever(let id):
         state.alert = deleteForeverConfirmationAlert(id: id)
         return .none
@@ -281,7 +325,11 @@ public struct SecretListFeature {
 
       case .alert(.presented(.confirmDeleteForeverSelected)):
         guard !state.selectedSecretIDs.isEmpty else { return .none }
-        return batchMutationEffect(ids: Array(state.selectedSecretIDs)) { try await secretClient.permanentlyDelete($0) }
+        return batchMutationEffect(
+          ids: Array(state.selectedSecretIDs),
+          operation: { try await secretClient.permanentlyDelete($0) },
+          completion: Action.batchDeleteResponse
+        )
 
       case .alert(.presented(.confirmEmptyCollection)):
         return emptyCollectionEffect(collection: state.collection)
@@ -330,6 +378,17 @@ public struct SecretListFeature {
           effects.append(.send(.reselectAfterMutation))
         }
         return .concatenate(effects)
+
+      // Deleted 탭은 secretDetail을 만들지 않으므로(상세는 삭제 안 된 항목만) 재선택이 필요 없다.
+      case let .batchRecoverResponse(ids, failedCount):
+        state.selectedSecretIDs.subtract(ids)
+        if failedCount > 0 {
+          state.alert = mutationFailureAlert()
+        }
+        return .concatenate(
+          .send(.delegate(.secretsChanged)),
+          fetchSecretsEffect(query: state.query, debounced: false)
+        )
 
       case .reselectAfterMutation:
         guard case .loaded(let secrets) = state.secretsState else { return .none }
@@ -388,9 +447,13 @@ public struct SecretListFeature {
     }
   }
 
-  /// 벌크 API가 없어 한 건씩 순서대로 처리한다. 일부가 실패해도 나머지는 계속 지운다 —
-  /// 하나 막혔다고 다 되돌리면 이미 지워진 것까지 취소해야 해서 더 위험하다.
-  private func batchMutationEffect(ids: [Secret.ID], operation: @escaping (Secret.ID) async throws -> Void) -> Effect<Action> {
+  /// 벌크 API가 없어 한 건씩 순서대로 처리한다. 일부가 실패해도 나머지는 계속 진행한다 —
+  /// 하나 막혔다고 다 되돌리면 이미 처리된 것까지 취소해야 해서 더 위험하다.
+  private func batchMutationEffect(
+    ids: [Secret.ID],
+    operation: @escaping (Secret.ID) async throws -> Void,
+    completion: @escaping ([Secret.ID], Int) -> Action
+  ) -> Effect<Action> {
     .run { send in
       var failedCount = 0
       for id in ids {
@@ -400,7 +463,7 @@ public struct SecretListFeature {
           failedCount += 1
         }
       }
-      await send(.batchDeleteResponse(ids: ids, failedCount: failedCount))
+      await send(completion(ids, failedCount))
     }
   }
 
