@@ -70,7 +70,9 @@ extension ReviewDuplicatesView {
               ImportedSecretRowView(
                 name: conflict.name,
                 subTypeText: subTypeText(for: conflict),
-                isHighlighted: store.selectedConflictIndex == conflict.index
+                isHighlighted: store.selectedConflictIndex == conflict.index,
+                service: conflict.service,
+                typeIcon: conflict.secretType.icon
               )
               .id(conflict.index)
             }
@@ -81,6 +83,7 @@ extension ReviewDuplicatesView {
           guard let index else { return }
           withAnimation { proxy.scrollTo(index, anchor: .center) }
         }
+        .padding(.bottom, 12)
       }
     }
     .frame(width: 260)
@@ -95,12 +98,18 @@ extension ReviewDuplicatesView {
 
       if let conflict = store.selectedConflict {
         if conflict.target.isExistingSecret {
-          DuplicateActionOptionView(
-            title: String.module("Overwrite"),
-            description: String.module("Replace the existing secret with the imported secret."),
-            isSelected: store.resolutions[conflict.index] == .overwrite,
-            action: { store.send(.didSelectOverwrite(index: conflict.index)) }
-          )
+          HStack(alignment: .top, spacing: 8) {
+            DuplicateActionOptionView(
+              title: String.module("Overwrite"),
+              description: String.module("Replace the existing secret with the imported secret."),
+              isSelected: store.resolutions[conflict.index] == .overwrite,
+              action: { store.send(.didSelectOverwrite(index: conflict.index)) }
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if hasMultipleConflicts {
+              applyToAllButton { store.send(.didTapApplyOverwriteToAll) }
+            }
+          }
         }
 
         DuplicateActionOptionView(
@@ -121,12 +130,18 @@ extension ReviewDuplicatesView {
           .padding(.leading, 16 + 8)
         }
 
-        DuplicateActionOptionView(
-          title: String.module("Skip"),
-          description: String.module("Keep the existing secret and skip this item."),
-          isSelected: store.resolutions[conflict.index] == .skip,
-          action: { store.send(.didSelectSkip(index: conflict.index)) }
-        )
+        HStack(alignment: .top, spacing: 8) {
+          DuplicateActionOptionView(
+            title: String.module("Skip"),
+            description: String.module("Keep the existing secret and skip this item."),
+            isSelected: store.resolutions[conflict.index] == .skip,
+            action: { store.send(.didSelectSkip(index: conflict.index)) }
+          )
+          .frame(maxWidth: .infinity, alignment: .leading)
+          if hasMultipleConflicts {
+            applyToAllButton { store.send(.didTapApplySkipToAll) }
+          }
+        }
       }
 
       Spacer(minLength: 0)
@@ -169,6 +184,23 @@ extension ReviewDuplicatesView {
   private func isRenameSelected(_ index: Int) -> Bool {
     if case .rename = store.resolutions[index] { return true }
     return false
+  }
+
+  private var hasMultipleConflicts: Bool {
+    store.judgement.conflicts.count > 1
+  }
+
+  private func applyToAllButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Text(.module("Apply to all"))
+        .dvFont(.captionMDSemibold)
+        .foregroundStyle(Color.dv(.vaultGreen))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.dv(.vaultGreenTint)))
+    }
+    .buttonStyle(.plain)
+    .fixedSize()
   }
 
   private func renameTextBinding(for index: Int) -> Binding<String> {
