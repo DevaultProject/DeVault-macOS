@@ -35,9 +35,16 @@ public struct ImportPreviewView: View {
       Divider()
       footer
     }
-    .frame(width: 480)
+    // Single은 고정 콘텐츠라 자연스러운 높이에 맡긴다. Project/Multiple은 스크롤 목록이라
+    // 높이를 안 주면 몇 줄만 보여 답답하다 — Review Duplicates(720x420)와 비슷한 체감이 되게 맞춘다.
+    .frame(width: 480, height: isSingleVariant ? nil : 560)
     .task { store.send(.task) }
     .alert($store.scope(state: \.alert, action: \.alert))
+  }
+
+  private var isSingleVariant: Bool {
+    if case .single = store.variant { return true }
+    return false
   }
 }
 
@@ -67,7 +74,9 @@ extension ImportPreviewView {
         ImportedSecretRowView(
           name: export.name,
           subTypeText: subTypeText(for: export),
-          isHighlighted: true
+          isHighlighted: true,
+          service: export.service,
+          typeIcon: export.content.secretType.icon
         )
       }
       Divider()
@@ -86,7 +95,11 @@ extension ImportPreviewView {
     DVDropdown(selectedProjectName ?? String.module("Select Project")) {
       Button(String.module("None")) { store.send(.didSelectProjectChoice(.none)) }
       ForEach(store.availableProjects) { project in
-        Button(project.name) { store.send(.didSelectProjectChoice(.existing(id: project.id))) }
+        Button {
+          store.send(.didSelectProjectChoice(.existing(id: project.id)))
+        } label: {
+          DVProjectContainer(name: project.name, count: nil)
+        }
       }
     }
   }
@@ -138,7 +151,9 @@ extension ImportPreviewView {
               name: export.name,
               subTypeText: subTypeText(for: export),
               isHighlighted: store.selectedIndices.contains(index),
-              statusText: store.duplicateIndices.contains(index) ? String.module("Duplicated") : nil
+              statusText: store.duplicateIndices.contains(index) ? String.module("Duplicated") : nil,
+              service: export.service,
+              typeIcon: export.content.secretType.icon
             )
           }
         }
@@ -216,7 +231,11 @@ extension ImportPreviewView {
   private var mergeProjectDropdown: some View {
     DVDropdown(mergeProjectName ?? String.module("Select Project"), size: .xs) {
       ForEach(store.availableProjects) { project in
-        Button(project.name) { store.send(.didSelectProjectChoice(.existing(id: project.id))) }
+        Button {
+          store.send(.didSelectProjectChoice(.existing(id: project.id)))
+        } label: {
+          DVProjectContainer(name: project.name, count: nil)
+        }
       }
     }
   }
