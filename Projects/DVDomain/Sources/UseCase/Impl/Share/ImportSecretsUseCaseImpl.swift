@@ -126,6 +126,7 @@ public struct ImportSecretsUseCaseImpl: ImportSecretsUseCase {
             name: name,
             secretType: export.content.secretType,
             subType: export.content.subType,
+            service: export.service,
             target: target
         )
     }

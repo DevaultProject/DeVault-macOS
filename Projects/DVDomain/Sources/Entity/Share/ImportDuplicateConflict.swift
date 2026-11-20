@@ -27,6 +27,9 @@ public struct ImportDuplicateConflict: Equatable, Sendable, Identifiable {
     /// 행 부제(타입 라벨) — database·envSet 계열은 nil.
     public let subType: SecretSubType?
 
+    /// 행 아이콘의 서비스 로고 매칭용(예: "GitHub"). Import Preview와 동일한 표시를 위해 들고 있는다.
+    public let service: String?
+
     /// ``ImportDuplicateResolution/overwrite``는 ``Target/existingSecret(id:)``에만 유효하다.
     public let target: Target
 
@@ -37,12 +40,14 @@ public struct ImportDuplicateConflict: Equatable, Sendable, Identifiable {
         name: String,
         secretType: SecretType,
         subType: SecretSubType?,
+        service: String? = nil,
         target: Target
     ) {
         self.index = index
         self.name = name
         self.secretType = secretType
         self.subType = subType
+        self.service = service
         self.target = target
     }
 }
