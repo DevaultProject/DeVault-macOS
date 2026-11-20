@@ -92,6 +92,10 @@ public struct ExportSecretSheetFeature {
         return .none
 
       case .didTapExport:
+        // 연타 방지 — 비밀번호 필드의 onSubmit(Enter)과 버튼 클릭이 거의 동시에 들어오면
+        // isExporting이 뷰에 반영되기 전에 두 번 다 리듀서를 타, 두 번째 exportSucceeded가
+        // 이미 닫힌 exportSecret 상태로 부모에 도착해 TCA ifLet 경고로 이어진다.
+        guard !state.isExporting else { return .none }
         guard Self.passwordLengthRange.contains(state.password.count) else {
           state.passwordError = String.module("Password must be 10–64 characters.")
           return .none
