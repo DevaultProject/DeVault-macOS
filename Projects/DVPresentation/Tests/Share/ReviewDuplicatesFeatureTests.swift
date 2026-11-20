@@ -70,6 +70,34 @@ struct ReviewDuplicatesFeatureTests {
     #expect(store.state.canContinue)
   }
 
+  // makeJudgement()의 index 0은 existingSecret(덮어쓸 대상 있음, 기본 Overwrite), index 1은
+  // itemInFile(없음, 기본 Rename) — Overwrite 전체 적용은 덮어쓸 대상이 있는 것만 골라야 한다.
+  @Test("didTapApplyOverwriteToAll은 기존 시크릿과 충돌한 것만 Overwrite로 되돌린다")
+  func applyOverwriteToAllOnlyTargetsExistingSecretConflicts() async {
+    let store = TestStore(initialState: ReviewDuplicatesFeature.State(judgement: makeJudgement())) {
+      ReviewDuplicatesFeature()
+    }
+
+    // 기본값(Overwrite)에서 일부러 벗어난 뒤, 전체 적용이 되돌리는지 확인한다.
+    await store.send(.didSelectSkip(index: 0)) { $0.resolutions[0] = .skip }
+
+    await store.send(.didTapApplyOverwriteToAll) {
+      // index 1(itemInFile)은 덮어쓸 대상이 없어 건드리지 않는다 — 기본값(Rename)에 그대로 남는다.
+      $0.resolutions[0] = .overwrite
+    }
+  }
+
+  @Test("didTapApplySkipToAll은 대상 종류와 무관하게 전체를 Skip으로 채운다")
+  func applySkipToAllTargetsEveryConflict() async {
+    let store = TestStore(initialState: ReviewDuplicatesFeature.State(judgement: makeJudgement())) {
+      ReviewDuplicatesFeature()
+    }
+
+    await store.send(.didTapApplySkipToAll) {
+      $0.resolutions = [0: .skip, 1: .skip]
+    }
+  }
+
   // MARK: - Navigation
 
   @Test("Next는 선택이 유효한 칸에서 다음 칸으로 이동한다 — Overwrite·Skip은 이름 확인 없이")

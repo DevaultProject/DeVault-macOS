@@ -119,6 +119,11 @@ public struct ReviewDuplicatesFeature {
 
     case didSelectOverwrite(index: Int)
     case didSelectSkip(index: Int)
+    /// 충돌이 둘 이상일 때만 노출 — 기존 시크릿과 겹친 항목 전체에 Overwrite를 적용한다
+    /// (`itemInFile` 충돌은 덮어쓸 대상이 없어 대상에서 빠진다).
+    case didTapApplyOverwriteToAll
+    /// 충돌이 둘 이상일 때만 노출 — 전체 항목에 Skip을 적용한다.
+    case didTapApplySkipToAll
     case didSelectRename(index: Int)
     case didChangeRenameText(index: Int, text: String)
     case didTapPrevious
@@ -160,6 +165,21 @@ public struct ReviewDuplicatesFeature {
       case let .didSelectSkip(index):
         state.resolutions[index] = .skip
         state.renameConflicts.remove(index)
+        return .none
+
+      case .didTapApplyOverwriteToAll:
+        for conflict in state.judgement.conflicts {
+          guard case .existingSecret = conflict.target else { continue }
+          state.resolutions[conflict.index] = .overwrite
+          state.renameConflicts.remove(conflict.index)
+        }
+        return .none
+
+      case .didTapApplySkipToAll:
+        for conflict in state.judgement.conflicts {
+          state.resolutions[conflict.index] = .skip
+          state.renameConflicts.remove(conflict.index)
+        }
         return .none
 
       case let .didSelectRename(index):
