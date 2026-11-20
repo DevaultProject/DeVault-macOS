@@ -47,10 +47,10 @@ private struct DropImportOverlay: View {
       VStack(spacing: 4) {
         Text(.module("Drop a file to import"))
           .dvFont(.headingLG)
-          .foregroundStyle(Color.dv(.vaultGreenDark))
+          .foregroundStyle(Color.dv(.gray900))
         Text(.module("Drop a .devault file"))
           .dvFont(.bodyMD)
-          .foregroundStyle(Color.dv(.vaultGreenDark))
+          .foregroundStyle(Color.dv(.gray900))
       }
     }
     .allowsHitTesting(false)
