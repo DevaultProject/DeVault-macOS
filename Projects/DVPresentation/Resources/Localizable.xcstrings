@@ -909,6 +909,23 @@
         }
       }
     },
+    "Apply to all" : {
+      "comment" : "Review Duplicates — applies the Overwrite/Skip choice to every conflict at once. Shown only when there are multiple conflicts.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply to all"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 적용"
+          }
+        }
+      }
+    },
     "Approval required" : {
       "localizations" : {
         "en" : {
@@ -1759,23 +1776,6 @@
         }
       }
     },
-    "Couldn't Open File" : {
-      "comment" : "Alert title shown when a dropped/opened .dvt file can no longer be read (e.g. moved or deleted).",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't Open File"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "파일을 열 수 없습니다"
-          }
-        }
-      }
-    },
     "Couldn't complete the action." : {
       "comment" : "Alert title when a secret list mutation (delete/recover) fails.",
       "localizations" : {
@@ -1920,6 +1920,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "요금제를 불러오지 못했습니다. 연결 상태를 확인한 뒤 다시 시도해 주십시오."
+          }
+        }
+      }
+    },
+    "Couldn't Open File" : {
+      "comment" : "Alert title shown when a dropped/opened .dvt file can no longer be read (e.g. moved or deleted).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Open File"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일을 열 수 없습니다"
           }
         }
       }
@@ -3388,6 +3405,52 @@
         }
       }
     },
+    "Export %lld secrets" : {
+      "comment" : "Export Sheet title. The argument is the number of secrets being exported.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Export %lld secret"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Export %lld secrets"
+                }
+              }
+            }
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret %lld개 내보내기"
+          }
+        }
+      }
+    },
+    "Export (%lld)" : {
+      "comment" : "Secret list row context menu — exports the entire multi-selection. The argument is the selected secret count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export (%lld)"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내보내기 (%lld)"
+          }
+        }
+      }
+    },
     "Export Complete" : {
       "comment" : "Title shown after a .dvt export finishes, before the user shares or saves it.",
       "localizations" : {
@@ -3422,25 +3485,9 @@
         }
       }
     },
-    "Export Secret" : {
-      "comment" : "Export Sheet title.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Secret"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "시크릿 내보내기"
-          }
-        }
-      }
-    },
     "Export Selected" : {
       "comment" : "Toolbar button accessibility label — exports the secrets currently multi-selected in the list.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5253,6 +5300,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "복구"
+          }
+        }
+      }
+    },
+    "Recover All" : {
+      "comment" : "Deleted tab header icon button — restores every item currently in the Deleted collection.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recover All"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 복구"
           }
         }
       }
