@@ -15,6 +15,7 @@ struct ExportedFileActionsView: View {
 
   @State private var isSavePanelPresented = false
   @State private var isSaveFailureAlertPresented = false
+  @State private var isSharePickerPresented = false
   /// body가 재평가될 때마다 디스크에서 다시 읽지 않도록 한 번만 로드해 둔다.
   private let document: DvtFileDocument
 
@@ -37,21 +38,21 @@ struct ExportedFileActionsView: View {
       HStack(spacing: 10) {
         Spacer()
 
-        ShareLink(item: file.url) {
-          Text(.module("Share…"))
+        // NSSharingServicePicker의 완료 콜백(didShareItems)은 AirDrop처럼 전송에 시간이 걸리는
+        // 서비스에서 오지 않거나 들쭉날쭉해서 자동으로 닫는 시점을 믿을 수 없다 — Done으로 직접 닫는다.
+        DVButton(titleText: .module("Share…"), style: .secondary) {
+          isSharePickerPresented = true
         }
-        // Share는 완료 콜백이 없다. 탭과 동시에(simultaneousGesture) 바로 닫으면 NSSharingServicePicker가
-        // 팝오버를 띄우기 전에 이 뷰의 창이 사라져 공유 자체가 실패한다("no window"). 픽커가 창을
-        // 넘겨받을 시간을 준 뒤 닫는다 — Save As처럼 결과를 기다리는 건 아니라 정확한 완료 시점은 모른다.
-        .simultaneousGesture(TapGesture().onEnded {
-          Task {
-            try? await Task.sleep(for: .seconds(1))
-            onDone()
-          }
-        })
+        .background(
+          SharePickerAnchor(isPresented: $isSharePickerPresented, items: [file.url])
+        )
 
         DVButton(titleText: .module("Save As…"), style: .secondary) {
           isSavePanelPresented = true
+        }
+
+        DVButton(titleText: .module("Done"), style: .secondaryProminent) {
+          onDone()
         }
       }
     }
@@ -78,10 +79,7 @@ struct ExportedFileActionsView: View {
     } message: {
       Text(.module("Please try again in a moment."))
     }
-    // Share는 탭한 즉시 시트를 닫지만, NSSharingServicePicker가 파일을 실제로 읽는 건 그 뒤다 —
-    // 여기서 바로 지우면 픽커가 열리기도 전에 파일이 사라져 공유가 실패한다(sandbox extension
-    // token 생성 실패). Save As는 fileExporter가 이미 복사를 끝낸 뒤에만 onDone을 부르므로
-    // 지연 삭제로도 안전하다.
+    // 바로 안 지우고 약간의 여유를 둔다 — 시트가 닫히는 시점에 공유·저장이 파일을 아직 읽는 중일 수 있다.
     .onDisappear {
       let file = file
       Task {
