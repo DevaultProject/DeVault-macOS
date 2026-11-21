@@ -103,7 +103,10 @@ public struct ExportSecretsUseCaseImpl: ExportSecretsUseCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(fileName)
         do {
-            try data.write(to: url, options: .completeFileProtection)
+            // .completeFileProtection은 iOS Data Protection 옵션이라 macOS에서 의미가 다르다 —
+            // 외부 프로세스(Share 확장 XPC)가 우리 프로세스만큼 접근 권한이 없어 파일을 못 읽는
+            // 원인이 됐다("error fetching item"으로 공유 피커가 뜨자마자 닫힘).
+            try data.write(to: url)
         } catch {
             try? FileManager.default.removeItem(at: directory)
             throw error
